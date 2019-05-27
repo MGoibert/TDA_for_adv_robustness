@@ -29,6 +29,7 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from operator import itemgetter
 from tqdm import tqdm
+import time
 torch.set_default_tensor_type(torch.DoubleTensor)
 
 
@@ -137,7 +138,7 @@ test_loader.dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
 
 # Train the NN
 
-num_epochs = 1
+num_epochs = 15
 optimizer = optim.SGD(model.parameters(), lr=0.1)
 loss_history = []
 loss_func = nn.CrossEntropyLoss()
@@ -187,28 +188,38 @@ with torch.no_grad():
 acc = correct / len(test_loader.dataset)
 
 
+
+t0 = time.time()
+# Paramaters
+nb_ex = 15
+adversarial = False
+epsilon = 0.25
+
 # Get the parameters of the model
 # Odd items are biases
 w = list(model.parameters())
 
 # Create an adversarial example
-x_clean = test_set[3][0]
-x_clean = x_clean.double()
-y_clean = torch.from_numpy(np.asarray(test_set[3][1])).unsqueeze(0)
+if adversarial:
+    x_clean = test_set[nb_ex][0]
+    x_clean = x_clean.double()
+    y_clean = torch.from_numpy(np.asarray(test_set[nb_ex][1])).unsqueeze(0)
 
-x_clean.requires_grad = True
-output = model(x_clean)
-loss = loss_func(output, y_clean)
-model.zero_grad()
-loss.backward()
-x_adv = torch.clamp(x_clean + 0.25 * x_clean.grad.data.sign(), -0.5, 0.5)
-model(x_adv)
+    x_clean.requires_grad = True
+    output = model(x_clean)
+    loss = loss_func(output, y_clean)
+    model.zero_grad()
+    loss.backward()
+    x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5)
+    model(x_adv)
+
 
 # Induce model parameters
-x = test_set[0]#[0]
+x = test_set[nb_ex][0]
 # x[1]
 # If we use adversarial example !
-# x = x_adv
+if adversarial:
+    x = x_adv
 x = x.view(-1, 28*28)
 x.size()
 
@@ -240,6 +251,61 @@ val0, val2, val4= val0.detach().numpy(), val2.detach().numpy(), val4.detach().nu
 val0, val2, val4 = 10e5*np.abs(val0), 10e5*np.abs(val2), 10e5*np.abs(val4)
 val0, val2, val4 = np.around(val0), np.around(val2), np.around(val4)
 
+
+# Fast implementation but "by hand"
+vec = []
+
+for row in range(val0.shape[0]):
+    for col in range(val0.shape[1]):
+        vec.append( ([row+val0.shape[1], col], val0[row,col]) )
+        
+for row in range(val2.shape[0]):
+    for col in range(val2.shape[1]):
+        vec.append( ([row+val0.shape[1]+val2.shape[1], col+val0.shape[1]], val2[row,col]) )
+
+for row in range(val4.shape[0]):
+    for col in range(val4.shape[1]):
+        vec.append( ([row+val0.shape[1]+val2.shape[1]+val4.shape[1], 
+                      col+val0.shape[1]+val2.shape[1]], val4[row,col]) )
+
+
+# Fast implementation
+nb_vertices = max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array])
+
+dict_vertices = {key: [] for key in range(nb_vertices+1)}
+for edge, timing in vec:
+    dict_vertices[edge[0]].append(timing)
+    dict_vertices[edge[1]].append(timing)
+for vertex in dict_vertices:
+    vec.append( ([vertex], min(dict_vertices[vertex])) )
+
+
+f = d.Filtration()
+for vertices, timing in vec:
+    f.append(d.Simplex(vertices, timing))
+f.sort()
+m = d.homology_persistence(f)
+#for i,c in enumerate(m):
+#    print(i, c)
+dgms = d.init_diagrams(m, f)
+d.plot.plot_diagram(dgms[0], show = True)
+
+t1 = time.time()
+print("Time:", np.round(t1 - t0, decimals=2), "sec, true label =",
+      test_set[nb_ex][1], "( adv = ", adversarial, ")")
+
+
+
+for pt in dgms[0]:
+    print(0, pt.birth, pt.death)
+
+
+
+
+# -----
+# Other way, !! Not valid !!
+# -----
+
 matrix0 = np.concatenate(
         (np.zeros((784,2050)), block_diag(val0, val2, val4, np.concatenate((val6, np.zeros((10,10))), axis=1))), 
         axis=0)
@@ -269,89 +335,10 @@ m = d.homology_persistence(f)
 dgms = d.init_diagrams(m, f)
 d.plot.plot_diagram(dgms[0], show = True)
 
-# -----
-# Other way to compute homology : each vertex is appearing when an edge
-# connecting it appears too. They do not appear at t=0
-# -----
 
-# Cette partie là est relativement rapide
-vec = []
-
-for row in range(val0.shape[0]):
-    for col in range(val0.shape[1]):
-        vec.append( ([row+val0.shape[1], col], val0[row,col]) )
-        
-for row in range(val2.shape[0]):
-    for col in range(val2.shape[1]):
-        vec.append( ([row+val0.shape[1]+val2.shape[1], col+val0.shape[1]], val2[row,col]) )
-
-for row in range(val4.shape[0]):
-    for col in range(val4.shape[1]):
-        vec.append( ([row+val0.shape[1]+val2.shape[1]+val4.shape[1], 
-                      col+val0.shape[1]+val2.shape[1]], val4[row,col]) )
-
-vec[0:10]
-
-
-# Cette partie là est trop longue
-nb_vertices = max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array])
-
-for vertice in range(nb_vertices+1):
-    vert_time = []
-    for edge, time in vec:
-        if vertice in edge:
-            vert_time.append(time)
-    vec.append( ([vertice] ,min(vert_time)) )
-
-
-f = d.Filtration()
-for vertices, time in vec:
-    f.append(d.Simplex(vertices, time))
-f.sort()
-m = d.homology_persistence(f)
-#for i,c in enumerate(m):
-#    print(i, c)
-dgms = d.init_diagrams(m, f)
-d.plot.plot_diagram(dgms[0], show = True)
-
-
-for pt in dgms[0]:
-    print(0, pt.birth, pt.death)
 
 
 
 
 # ------ Dev / brouillon
-
-mat = np.around(np.random.rand(2,2), decimals=2)
-mat.shape
-vec = []
-for row in range(mat.shape[0]):
-    for col in range(mat.shape[1]):
-        vec.append( ([row+mat.shape[1], col], mat[row,col]) )
-
-nb_vertices = max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array])
-
-for vertice in range(nb_vertices+1):
-    vert_time = []
-    for edge, time in vec:
-        if vertice in edge:
-            vert_time.append(time)
-    vec.append( ([vertice] ,min(vert_time)) )
-    
-f = d.Filtration()
-for vertices, time in vec:
-    print(vertices)
-    f.append(d.Simplex(vertices, time))
-f.sort()
-for s in f:
-    print(s)
-m = d.homology_persistence(f)
-for i,c in enumerate(m):
-    print(i, c)
-dgms = d.init_diagrams(m, f)
-d.plot.plot_diagram(dgms[0], show = True)
-for i, dgm in enumerate(dgms):
-    for pt in dgm:
-        print(i, pt.birth, pt.death)
 
