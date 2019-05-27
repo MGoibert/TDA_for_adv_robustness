@@ -11,6 +11,7 @@ from os import chdir
 import numpy as np
 import gudhi as gd
 import matplotlib.pyplot as plt
+import seaborn as sns
 import dionysus as d
 from scipy.spatial.distance import squareform
 
@@ -188,116 +189,265 @@ with torch.no_grad():
 acc = correct / len(test_loader.dataset)
 
 
-
-t0 = time.time()
 # Paramaters
-nb_ex = 15
-adversarial = False
+numero_ex = 5
+adversarial = True
 epsilon = 0.25
+def compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsilon= .25):
 
-# Get the parameters of the model
-# Odd items are biases
-w = list(model.parameters())
+    t0 = time.time()
+    # Get the parameters of the model
+    # Odd items are biases
+    w = list(model.parameters())
+    adv_pred = -1
 
-# Create an adversarial example
-if adversarial:
-    x_clean = test_set[nb_ex][0]
-    x_clean = x_clean.double()
-    y_clean = torch.from_numpy(np.asarray(test_set[nb_ex][1])).unsqueeze(0)
+    # Create an adversarial example
+    if adversarial:
+        x_clean = test_set[numero_ex][0]
+        x_clean = x_clean.double()
+        y_clean = torch.from_numpy(np.asarray(test_set[numero_ex][1])).unsqueeze(0)
 
-    x_clean.requires_grad = True
-    output = model(x_clean)
-    loss = loss_func(output, y_clean)
-    model.zero_grad()
-    loss.backward()
-    x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5)
-    model(x_adv)
+        x_clean.requires_grad = True
+        output = model(x_clean)
+        loss = loss_func(output, y_clean)
+        model.zero_grad()
+        loss.backward()
+        x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5)
+        adv_pred = model(x_adv).argmax(dim=-1).item()
 
+    # Induce model parameters
+    x = test_set[numero_ex][0]
+    # x[1]
+    # If we use adversarial example !
+    if adversarial:
+        x = x_adv
+    x = x.view(-1, 28*28)
+    x.size()
+    
+    w0 = w[0]
+    w0.size()
+    val0 = w0*x.double()
+    val0.size()
+    res0 = (torch.mm(w0, x.double().transpose(0,1)) + w[1].view(-1,1)).transpose(0,1)
+    res0.size()
 
-# Induce model parameters
-x = test_set[nb_ex][0]
-# x[1]
-# If we use adversarial example !
-if adversarial:
-    x = x_adv
-x = x.view(-1, 28*28)
-x.size()
+    w2 = w[2]
+    w2.size()
+    val2 = w2*res0
+    val2.size()
+    res2 = (torch.mm(w2, res0.transpose(0,1)) + w[3].view(-1,1)).transpose(0,1)
+    res2.size()
+    
+    w4 = w[4]
+    w4.size()
+    val4 = w4*res2
+    val4.size()
+    res4 = (torch.mm(w4, res2.transpose(0,1)) + w[5].view(-1,1)).transpose(0,1)
+    res4.size()
 
+    # Create the final weight matrix using blocks
+    val0, val2, val4= val0.detach().numpy(), val2.detach().numpy(), val4.detach().numpy()
+    val0, val2, val4 = 1000*np.abs(val0), 1000*np.abs(val2), 1000*np.abs(val4)
+    val0, val2, val4 = np.around(val0, decimals=7), np.around(val2, decimals=7), np.around(val4, decimals=7)
+    
+    # Fast implementation but "by hand"
+    vec = []
 
-w0 = w[0]
-w0.size()
-val0 = w0*x.double()
-val0.size()
-res0 = (torch.mm(w0, x.double().transpose(0,1)) + w[1].view(-1,1)).transpose(0,1)
-res0.size()
-
-w2 = w[2]
-w2.size()
-val2 = w2*res0
-val2.size()
-res2 = (torch.mm(w2, res0.transpose(0,1)) + w[3].view(-1,1)).transpose(0,1)
-res2.size()
-
-w4 = w[4]
-w4.size()
-val4 = w4*res2
-val4.size()
-res4 = (torch.mm(w4, res2.transpose(0,1)) + w[5].view(-1,1)).transpose(0,1)
-res4.size()
-
-
-# Create the final weight matrix using blocks
-val0, val2, val4= val0.detach().numpy(), val2.detach().numpy(), val4.detach().numpy()
-val0, val2, val4 = 10e5*np.abs(val0), 10e5*np.abs(val2), 10e5*np.abs(val4)
-val0, val2, val4 = np.around(val0), np.around(val2), np.around(val4)
-
-
-# Fast implementation but "by hand"
-vec = []
-
-for row in range(val0.shape[0]):
-    for col in range(val0.shape[1]):
-        vec.append( ([row+val0.shape[1], col], val0[row,col]) )
+    for row in range(val0.shape[0]):
+        for col in range(val0.shape[1]):
+            vec.append( ([row+val0.shape[1], col], val0[row,col]) )
         
-for row in range(val2.shape[0]):
-    for col in range(val2.shape[1]):
-        vec.append( ([row+val0.shape[1]+val2.shape[1], col+val0.shape[1]], val2[row,col]) )
+    for row in range(val2.shape[0]):
+        for col in range(val2.shape[1]):
+            vec.append( ([row+val0.shape[1]+val2.shape[1], col+val0.shape[1]], val2[row,col]) )
 
-for row in range(val4.shape[0]):
-    for col in range(val4.shape[1]):
-        vec.append( ([row+val0.shape[1]+val2.shape[1]+val4.shape[1], 
+    for row in range(val4.shape[0]):
+        for col in range(val4.shape[1]):
+            vec.append( ([row+val0.shape[1]+val2.shape[1]+val4.shape[1], 
                       col+val0.shape[1]+val2.shape[1]], val4[row,col]) )
+    
+    # Fast implementation
+    nb_vertices = max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array])
+
+    dict_vertices = {key: [] for key in range(nb_vertices+1)}
+    for edge, timing in vec:
+        dict_vertices[edge[0]].append(timing)
+        dict_vertices[edge[1]].append(timing)
+    for vertex in dict_vertices:
+        vec.append( ([vertex], min(dict_vertices[vertex])) )
+    
+    f = d.Filtration()
+    for vertices, timing in vec:
+        f.append(d.Simplex(vertices, timing))
+    f.sort()
+    m = d.homology_persistence(f)
+    #for i,c in enumerate(m):
+    #    print(i, c)
+    dgms = d.init_diagrams(m, f)
+    d.plot.plot_diagram(dgms[0], show = True)
+        
+    t1 = time.time()
+    adv_label = ""
+    if adversarial:
+        adv_label = " (adv label = " + str(adv_pred)+ ")"
+    print("Time: %s and true label = %s %s" %(np.round(t1 - t0, decimals=2), 
+                                         test_set[numero_ex][1], adv_label))
 
 
-# Fast implementation
-nb_vertices = max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array])
-
-dict_vertices = {key: [] for key in range(nb_vertices+1)}
-for edge, timing in vec:
-    dict_vertices[edge[0]].append(timing)
-    dict_vertices[edge[1]].append(timing)
-for vertex in dict_vertices:
-    vec.append( ([vertex], min(dict_vertices[vertex])) )
+    #for pt in dgms[0]:
+    #    print(0, pt.birth, pt.death)
+    
+    return dgms, test_set[numero_ex][1], adversarial, adv_pred
 
 
-f = d.Filtration()
-for vertices, timing in vec:
-    f.append(d.Simplex(vertices, timing))
-f.sort()
-m = d.homology_persistence(f)
-#for i,c in enumerate(m):
-#    print(i, c)
-dgms = d.init_diagrams(m, f)
-d.plot.plot_diagram(dgms[0], show = True)
-
-t1 = time.time()
-print("Time:", np.round(t1 - t0, decimals=2), "sec, true label =",
-      test_set[nb_ex][1], "( adv = ", adversarial, ")")
+dgms1 = compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsilon= .25)
 
 
 
-for pt in dgms[0]:
-    print(0, pt.birth, pt.death)
+# ------
+# Compute distances between two diagrams
+# ------
+
+# Derive valid indices for a specific class
+def get_class_indices(label_wanted, number=2, start_i=0, test_set=test_set):
+    accept = False
+    valid_numero = []
+    i = start_i
+    if number == "all":
+        for i in range(len(test_set)):
+            numero_ex = i
+            y = test_set[i][1]
+            if y == label_wanted:
+                valid_numero.append(numero_ex)
+    else:
+        while accept == False:
+            numero_ex = i
+            y = test_set[i][1]
+            if y == label_wanted:
+                valid_numero.append(numero_ex)
+            if len(valid_numero) == number:
+                accept = True
+            i = i+1      
+    return valid_numero
+        
+#Get the indices for the class we want
+inds_clean = get_class_indices(6)
+
+# Distances between a clean and an adversarial input
+dgms_clean = compute_persistent_dgm(model, test_set, numero_ex=inds_clean[0], adversarial=False, epsilon= .25)
+dgms_adv = compute_persistent_dgm(model, test_set, numero_ex=inds_clean[0], adversarial=True, epsilon= .25)
+wdist = d.wasserstein_distance(dgms_clean[0][0], dgms_adv[0][0], q=2)
+
+# Distances between two clean inputs
+dgms_clean2 = compute_persistent_dgm(model, test_set, numero_ex=inds_clean[1], adversarial=False, epsilon= .25)
+wdist_clean = d.wasserstein_distance(dgms_clean[0][0], dgms_clean2[0][0], q=2)
+
+# Get indices for the adv predicted class
+inds_adv = get_class_indices(dgms_adv[3])
+
+# Distances between the adv exemple and the target class
+dgms_compar_adv = compute_persistent_dgm(model, test_set, numero_ex=inds_adv[0], adversarial=False, epsilon= .25)
+wdist_compar_adv = d.wasserstein_distance(dgms_adv[0][0], dgms_compar_adv[0][0], q=2)
+
+print("Distance clean/adv = %s, distance clean = %s, distance adv/wrong class = %s" 
+      %(np.around(wdist, decimals=2), np.around(wdist_clean, decimals=2),
+        np.around(wdist_compar_adv, decimals=2)))
+
+
+
+# ------
+# Compute intra-class distribution of distances
+# ------
+
+# We want to display the distance distribution of a class, and the distance
+# distribution of an av. input from that class (but misclassified into another
+# class by the model) to the data from the original class.
+inds_class = get_class_indices(0, number="all")
+inds_class = inds_class[:100]
+dgms_dict = {key: [] for key in inds_class}
+
+for index in inds_class:
+    dgms_dict[index].append( compute_persistent_dgm(model, test_set, numero_ex=index)[0] )
+
+dist_vec = []
+for i, ind1 in enumerate(inds_class):
+    print(i)
+    for j in range(i+1, len(inds_class)):
+        dist_vec.append( d.wasserstein_distance(dgms_dict[ind1][0][0], dgms_dict[inds_class[j]][0][0], q=2) )
+
+sns.distplot(dist_vec)
+
+
+# Compute the distance between an adversarial and the class
+dgms_adv_dist = compute_persistent_dgm(model, test_set, numero_ex=inds_class[101], adversarial=True, epsilon= .25)
+wrong_class = dgms_adv_dist[3]
+
+dist_vec_adv = []
+for i, ind1 in enumerate(inds_class):
+    print(i)
+    dist_vec_adv.append( d.wasserstein_distance(dgms_dict[ind1][0][0], dgms_adv_dist[0][0], q=2) )
+
+sns.distplot(dist_vec_adv)
+
+# On the same plot
+sns.distplot(dist_vec, hist=False)
+sns.distplot(dist_vec_adv, hist=False)
+sns.plt.show()
+
+
+# And compute the distance with the wrong class
+# Wa want to display the distance distribution for class "wrong" (i.e. the
+# wrong predicted class for the adv. input), and the distance distribution
+# of the adv. input and this "wrong" class (thus same prediction class)
+inds_class_wrong = get_class_indices(wrong_class, number="all")
+inds_class_wrong = inds_class_wrong[:100]
+dgms_dict_wrong = {key: [] for key in inds_class_wrong}
+
+for index_wrong in inds_class_wrong:
+    dgms_dict_wrong[index_wrong].append( compute_persistent_dgm(model, test_set, numero_ex=index_wrong)[0] )
+
+dist_vec_wrong = []
+for i, ind1 in enumerate(inds_class_wrong):
+    print(i)
+    for j in range(i+1, len(inds_class_wrong)):
+        dist_vec_wrong.append( d.wasserstein_distance(dgms_dict_wrong[ind1][0][0], dgms_dict_wrong[inds_class_wrong[j]][0][0], q=2) )
+
+sns.distplot(dist_vec_wrong)
+
+dist_vec_adv_wrong = []
+for i, ind1 in enumerate(inds_class_wrong):
+    print(i)
+    dist_vec_adv_wrong.append( d.wasserstein_distance(dgms_dict_wrong[ind1][0][0], dgms_adv_dist[0][0], q=2) )
+
+sns.distplot(dist_vec_adv_wrong)
+
+# On the same plot
+sns.distplot(dist_vec_wrong, hist=False)
+sns.distplot(dist_vec_adv_wrong, hist=False)
+sns.plt.show()
+
+
+# All plots together
+sns.distplot(dist_vec, hist=False, label="clean")
+sns.distplot(dist_vec_adv, hist=False, label="clean/adv")
+sns.distplot(dist_vec_wrong, hist=False, label="wrong")
+sns.distplot(dist_vec_adv_wrong, hist=False, label="wrong/adv")
+sns.plt.show()
+
+
+# We want to display the distance between the orginal class and the "wrong" class
+dist_vec_origin_wrong = []
+for i, ind1 in enumerate(inds_class[0:25]):
+    print(i)
+    for j, ind2 in enumerate(inds_class_wrong[0:25]):
+        dist_vec_origin_wrong.append( d.wasserstein_distance(dgms_dict[ind1][0][0], dgms_dict_wrong[ind2][0][0], q=2) )
+
+sns.distplot(dist_vec_origin_wrong, hist=False, label="origin/wrong")
+sns.distplot(dist_vec, hist=False, label="clean")
+sns.distplot(dist_vec_adv, hist=False, label="clean/adv")
+sns.distplot(dist_vec_wrong, hist=False, label="wrong")
+sns.distplot(dist_vec_adv_wrong, hist=False, label="wrong/adv")
+sns.plt.show()
 
 
 
