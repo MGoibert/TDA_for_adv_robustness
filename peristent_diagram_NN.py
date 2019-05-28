@@ -192,13 +192,12 @@ numero_ex = 5
 adversarial = True
 epsilon = 0.25
 
-def compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsilon= .25, threshold=0):
+def compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsilon= .25, threshold=0, noise=0):
 
     t0 = time.time()
     # Get the parameters of the model
     # Odd items are biases
     w = list(model.parameters())
-    adv_pred = -1
 
     # Create an adversarial example
     if adversarial:
@@ -212,14 +211,18 @@ def compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsi
         model.zero_grad()
         loss.backward()
         x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5)
-        adv_pred = model(x_adv).argmax(dim=-1).item()
+        pred = model(x_adv).argmax(dim=-1).item()
 
     # Induce model parameters
     x = test_set[numero_ex][0]
+    x = x.double()
     # x[1]
     # If we use adversarial example !
     if adversarial:
         x = x_adv
+    if noise > 0:
+        x = torch.clamp(x + noise*torch.randn(x.size()), -0.5, 0.5)
+    pred = model(x).argmax(dim=-1).item()
     x = x.view(-1, 28*28)
     x.size()
     
@@ -298,7 +301,7 @@ def compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsi
     t1 = time.time()
     adv_label = ""
     if adversarial:
-        adv_label = " (adv label = " + str(adv_pred)+ ")"
+        adv_label = " (adv label = " + str(pred)+ ")"
     print("Time: %s and true label = %s %s" %(np.round(t1 - t0, decimals=2), 
                                          test_set[numero_ex][1], adv_label))
 
@@ -306,10 +309,11 @@ def compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsi
     #for pt in dgms[0]:
     #    print(0, pt.birth, pt.death)
     
-    return dgms, test_set[numero_ex][1], adversarial, adv_pred
+    return dgms, test_set[numero_ex][1], adversarial, pred
 
 
-dgms1 = compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsilon= .25)
+dgms1 = compute_persistent_dgm(model, test_set, numero_ex=0, adversarial=False, epsilon= .25,
+                               noise=0.2, threshold=5000)
 
 
 
@@ -507,18 +511,18 @@ for k, key in enumerate(dgms_dict.keys()):
     distrib_dist["dist_"+str(k)+"_"+str(k)] = dist_temp
 
 # Step 2: inter-class distribution
-for class1, _ in enumerate(all_class):
-    key1 = "dgms_" + str(class1)
-    print("key1 =", key1)
-    for class2 in range(class1+1, len(all_class)):
-        key2 = "dgms_" + str(class2)
-        print("key2 =", key2)
-        dist_temp = []
-        for i, ind1 in enumerate(dgms_dict[key1].keys()):
-            for j, ind2 in enumerate(dgms_dict[key2].keys()):
-                print("inds =", ind1, ind2)
-                dist_temp.append( d.wasserstein_distance(dgms_dict[key1][ind1][0][0], dgms_dict[key2][ind2][0][0], q=2) )
-        distrib_dist["dist_"+str(class1)+"_"+str(class2)] = dist_temp
+#for class1, _ in enumerate(all_class):
+#    key1 = "dgms_" + str(class1)
+#    print("key1 =", key1)
+#    for class2 in range(class1+1, len(all_class)):
+#        key2 = "dgms_" + str(class2)
+#        print("key2 =", key2)
+#        dist_temp = []
+#        for i, ind1 in enumerate(dgms_dict[key1].keys()):
+#            for j, ind2 in enumerate(dgms_dict[key2].keys()):
+#                print("inds =", ind1, ind2)
+#                dist_temp.append( d.wasserstein_distance(dgms_dict[key1][ind1][0][0], dgms_dict[key2][ind2][0][0], q=2) )
+#        distrib_dist["dist_"+str(class1)+"_"+str(class2)] = dist_temp
 
 
 sns.set()
@@ -595,7 +599,121 @@ for i in all_class:
 
 # ------
 # Differences between the "clean" distance distrib and !!noise!! distrib
+# TO DO !!!!!!
 # ------
+
+
+n=10
+all_class = range(10)
+noise = 0.2
+
+# n indices for every class
+inds_all_class_noise = {key: get_class_indices(key, number="all")[2*n:3*n] for key in all_class}
+
+# Dict containing n noisy dgms indexed by the target "wrong" class the model
+# (badly) predicted
+dgms_dict_noise = {}
+dict_temp = {}
+for i in inds_all_class_noise.keys():
+    for index in inds_all_class_noise[i]:
+        dict_temp[index] = compute_persistent_dgm(model, test_set, numero_ex=index, threshold=5000, noise=noise)
+
+for i in inds_all_class_noise.keys():
+    temp = {}
+    for index in dict_temp.keys():
+        if dict_temp[index][3] == i:
+            temp[index] = dict_temp[index]
+    dgms_dict_noise["dgms_" + str(i)] = temp
+        
+
+# Building the dictionary containing the distance distributions between noisy
+# examples and the target "wrong" class.
+distrib_dist_noise = {}
+
+for k, key in enumerate(dgms_dict.keys()):
+    dist_temp = []
+    print("key =", key)
+    for i_noise, ind_noise in enumerate(dgms_dict_noise[key].keys()):
+        print("ind_noise =", ind_noise)
+        for j, ind_clean in enumerate(dgms_dict[key].keys()):
+            print("ind clean =", ind_clean)
+            dist_temp.append( d.wasserstein_distance(dgms_dict_noise[key][ind_noise][0][0], dgms_dict[key][ind_clean][0][0], q=2) )
+    distrib_dist_noise["dist_noise_"+str(k)] = dist_temp
+
+for i in all_class:
+    sns.distplot(distrib_dist_noise["dist_noise_"+str(i)], hist=False, label=str(i))
+
+for i in all_class:
+    sns.distplot(distrib_dist["dist_"+str(i)+"_"+str(i)], hist=False, label="clean "+str(i))
+    sns.distplot(distrib_dist_adv["dist_adv_"+str(i)], hist=False, label="adv "+str(i))
+    sns.distplot(distrib_dist_noise["dist_noise_"+str(i)], hist=False, label="noise "+str(i))
+    plt.show()
+
+
+# -----
+# Save and reimport files
+# -----
+
+# Save
+    
+import json
+path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"
+
+# Not working: diagram type not JSON seriazable
+#with open(path+'dgms_dict.json', 'w') as fp:
+#    json.dump(dgms_dict, fp, indent=4)
+    
+with open(path+'distrib_dist.json', 'w') as fp:
+    json.dump(distrib_dist, fp, indent=4)
+
+#with open(path+'dgms_dict_adv.json', 'w') as fp:
+#    json.dump(dgms_dict_adv, fp, indent=4)
+
+with open(path+'distrib_dist_adv.json', 'w') as fp:
+    json.dump(distrib_dist_adv, fp, indent=4)
+
+with open(path+'inds_all_class.json', 'w') as fp:
+    json.dump(inds_all_class, fp, indent=4)
+
+with open(path+'inds_all_class_adv.json', 'w') as fp:
+    json.dump(inds_all_class_adv, fp, indent=4)
+
+with open(path+'inds_all_class_noise.json', 'w') as fp:
+    json.dump(inds_all_class_noise, fp, indent=4)
+
+with open(path+'distrib_dist_noise.json', 'w') as fp:
+    json.dump(distrib_dist_noise, fp, indent=4)
+
+
+
+# Import
+
+#with open(path+'dgms_dict.json', 'r') as fp:
+#    dgms_dict = json.load(fp)
+
+#with open(path+'distrib_dist.json', 'r') as fp:
+#    distrib_dist = json.load(fp)
+
+#with open(path+'dgms_dict_adv.json', 'r') as fp:
+#    dgms_dict_adv = json.load(fp)
+
+#with open(path+'distrib_dist_adv.json', 'r') as fp:
+#    distrib_dist_adv = json.load(fp)
+
+#with open(path+'inds_all_class.json', 'r') as fp:
+#    inds_all_class = json.load(fp)
+
+#with open(path+'inds_all_class_adv.json', 'r') as fp:
+#    inds_all_class_adv = json.load(fp)
+
+#with open(path+'inds_all_class_noise.json', 'r') as fp:
+#    inds_all_class_noise = json.load(fp)
+
+#with open(path+'distrib_dist_noise.json', 'r') as fp:
+#    distrib_dist_noise = json.load(fp)
+
+
+
 
 
 
