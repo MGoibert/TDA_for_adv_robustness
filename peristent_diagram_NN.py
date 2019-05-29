@@ -29,6 +29,7 @@ from operator import itemgetter
 from tqdm import tqdm
 import time
 torch.set_default_tensor_type(torch.DoubleTensor)
+sns.set()
 
 
 # -----
@@ -480,7 +481,7 @@ sns.plt.show()
 # Compute all distribution of distances
 # ------
 
-n=50
+n=15
 all_class = range(10)
 
 # n indices for every class
@@ -545,7 +546,7 @@ sns.distplot(distrib_dist["dist_1_7"], hist=False, label="1 and 7")
 # Compute persistent diagrams and distances for several adversarial examples
 # ------
 
-n=50
+n=15
 all_class = range(10)
 
 # n indices for every class
@@ -598,14 +599,13 @@ for i in all_class:
 
 
 # ------
-# Differences between the "clean" distance distrib and !!noise!! distrib
-# TO DO !!!!!!
+# Differences between the "clean" distance distrib and noisy distrib
 # ------
 
 
-n=10
+n=15
 all_class = range(10)
-noise = 0.2
+noise = 0.25
 
 # n indices for every class
 inds_all_class_noise = {key: get_class_indices(key, number="all")[2*n:3*n] for key in all_class}
@@ -656,40 +656,47 @@ for i in all_class:
 
 # Save
     
-import json
 path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"
+import pickle
+
+#with open(path+'test.pickle', 'wb') as handle:
+#    pickle.dump(dgms_dict["dgms_0"][3][0][0], handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+#with open(path+'test.pickle', 'rb') as handle:
+#    b = pickle.load(handle)
+
 
 # Not working: diagram type not JSON seriazable
-#with open(path+'dgms_dict.json', 'w') as fp:
-#    json.dump(dgms_dict, fp, indent=4)
+with open(path+'dgms_dict.pickle', 'wb') as fp:
+    pickle.dump(dgms_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
     
-with open(path+'distrib_dist.json', 'w') as fp:
-    json.dump(distrib_dist, fp, indent=4)
+with open(path+'distrib_dist.pickle', 'wb') as fp:
+    pickle.dump(distrib_dist, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-#with open(path+'dgms_dict_adv.json', 'w') as fp:
-#    json.dump(dgms_dict_adv, fp, indent=4)
+with open(path+'dgms_dict_adv.pickle', 'wb') as fp:
+    pickle.dump(dgms_dict_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'distrib_dist_adv.json', 'w') as fp:
-    json.dump(distrib_dist_adv, fp, indent=4)
+with open(path+'distrib_dist_adv.pickle', 'wb') as fp:
+    pickle.dump(distrib_dist_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'inds_all_class.json', 'w') as fp:
-    json.dump(inds_all_class, fp, indent=4)
+with open(path+'inds_all_class.pickle', 'wb') as fp:
+    pickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'inds_all_class_adv.json', 'w') as fp:
-    json.dump(inds_all_class_adv, fp, indent=4)
+with open(path+'inds_all_class_adv.pickle', 'wb') as fp:
+    pickle.dump(inds_all_class_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'inds_all_class_noise.json', 'w') as fp:
-    json.dump(inds_all_class_noise, fp, indent=4)
+with open(path+'inds_all_class_noise.pickle', 'wb') as fp:
+    pickle.dump(inds_all_class_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'distrib_dist_noise.json', 'w') as fp:
-    json.dump(distrib_dist_noise, fp, indent=4)
+with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
+    pickle.dump(distrib_dist_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 
 # Import
 
-#with open(path+'dgms_dict.json', 'r') as fp:
-#    dgms_dict = json.load(fp)
+with open(path+'dgms_dict.json', 'rb') as fp:
+    dgms_dict2 = pickle.load(fp)
 
 #with open(path+'distrib_dist.json', 'r') as fp:
 #    distrib_dist = json.load(fp)
