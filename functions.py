@@ -221,4 +221,83 @@ def get_class_indices(label_wanted, number=2, start_i=0, test_set=test_set):
     return valid_numero
 
 
+# Compute intra-class distances distrib
+def compute_intra_distances(dgms_dict):
+    # Building the dictionary containing the distance distributions
+    distrib_dist = {}
+
+    # Step 1: intra-class distances distributions
+    for k, key in enumerate(dgms_dict.keys()):
+        dist_temp = []
+        print("key =", key)
+        for i, ind1 in enumerate(dgms_dict[key].keys()):
+            print("ind =", ind1)
+            for j in range(i+1, len(dgms_dict[key].keys())):
+                ind2 = list(dgms_dict[key].keys())[j]
+                dist_temp.append(
+                    d.wasserstein_distance(dgms_dict[key][ind1][0][0],
+                                            dgms_dict[key][ind2][0][0], q=2))
+        distrib_dist["dist_"+str(k)+"_"+str(k)] = dist_temp
+    return distrib_dist
+
+# Compute adv. or noisy inputs vs clean inputs distances distrib
+def compute_distances(dgms_dict, dgms_dict_perturbed, adversarial=True, noisy=False):
+    add = "_adv"*adversarial + "_noise"*noisy
+    distrib_dist = {}
+    print("Computing distance distribution for", add, "inputs")
+
+    for k, key in enumerate(dgms_dict.keys()):
+        dist_temp = []
+        print("key =", key)
+        for i, ind in enumerate(dgms_dict_perturbed[key].keys()):
+            print("ind"+add+" =", ind)
+            for j, ind_clean in enumerate(dgms_dict[key].keys()):
+                dist_temp.append(
+                    d.wasserstein_distance(dgms_dict_perturbed[key][ind][0][0],
+                                           dgms_dict[key][ind_clean][0][0], q=2))
+        distrib_dist["dist"+add+"_"+str(k)] = dist_temp
+    return distrib_dist
+
+# Compute inter-class distribution for clean inputs.
+# Careful, very long to compute
+def compute_inter_distances(dgms_dict):
+    distrib_dist = {}
+    for class1, _ in enumerate(dgms_dict.keys()):
+        key1 = "dgms_" + str(class1)
+        print("key1 =", key1)
+        for class2 in range(class1+1, len(dgms_dict.keys())):
+            key2 = "dgms_" + str(class2)
+            print("key2 =", key2)
+            dist_temp = []
+            for i, ind1 in enumerate(dgms_dict[key1].keys()):
+                for j, ind2 in enumerate(dgms_dict[key2].keys()):
+                    print("inds =", ind1, ind2)
+                    dist_temp.append(
+                            d.wasserstein_distance(dgms_dict[key1][ind1][0][0],
+                                                   dgms_dict[key2][ind2][0][0], q=2))
+        distrib_dist["dist_"+str(class1)+"_"+str(class2)] = dist_temp
+
+    return distrib_dist
+
+
+def produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
+                 adversarial=False, noise=0):
+    
+    dgms_dict = {}
+    dict_temp = {}
+    for i in inds_all_class.keys():
+        for index in inds_all_class[i]:
+            dict_temp[index] = compute_persistent_dgm(net, test_set, loss_func,
+                 numero_ex=index, threshold=threshold, adversarial=adversarial,
+                 noise=noise)
+
+    for i in inds_all_class.keys():
+        temp = {}
+        for index in dict_temp.keys():
+            if dict_temp[index][3] == i:
+                temp[index] = dict_temp[index]
+        dgms_dict["dgms_" + str(i)] = temp
+    
+    return dgms_dict
+
 

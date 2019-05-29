@@ -36,13 +36,27 @@ from NN_architecture import MNISTMLP
 from datasets import (train_loader_MNIST, test_loader_MNIST, val_loader_MNIST,
                       test_set)
 from functions import (train_NN, compute_val_acc, compute_test_acc,
-                       compute_persistent_dgm, get_class_indices)
-
+                       compute_persistent_dgm, get_class_indices,
+                       compute_intra_distances, compute_distances,
+                       produce_dgms)
+from utils import parse_cmdline_args
 
 
 # ------------------------
-# ----- Try with a true NN
+# ----- Command line arguments
 # ------------------------
+
+args = parse_cmdline_args()
+num_epochs = args.num_epochs
+epsilon = args.epsilon
+noise = args.noise
+threshold = args.threshold
+n = args.num_computation
+save = args.save
+
+# --------------------
+# ----- Neural Network
+# --------------------
 
 # Use the MLP model
 model = MNISTMLP()
@@ -68,75 +82,39 @@ dgms1 = compute_persistent_dgm(net, test_set, loss_func, numero_ex=0,
                                threshold=5000)
 
 
-
-
 # ------
-# Compute all distribution of distances
+# Intra-class distance distribution
 # ------
 
 n=3
+threshold = 5000
 all_class = range(10)
 
 # n indices for every class
 inds_all_class = {key: get_class_indices(key, number="all")[:n] for key in all_class}
 
-# Dict containing n dgms for each class (key = class, "dgms_i"; value = dgms for
-# each index for each class)
-dgms_dict = {}
-for i in inds_all_class.keys():
-    dict_temp = {}
-    for index in inds_all_class[i]:
-        dict_temp[index] = compute_persistent_dgm(net, test_set, loss_func,
-                 numero_ex=index, threshold=5000)
-    dgms_dict["dgms_" + str(i)] = dict_temp
+# Dict containing the persistend dgm for clean inputs (and other info),
+# organized by observed class (i.e. in each class, we have the persistent dgm
+# for the inputs classified correclty or not in this class)
+dgms_dict = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
+                 adversarial=False, noise=0)
 
-# Building the dictionary containing the distance distributions
-distrib_dist = {}
+# Intra-class distance distribution
+distrib_dist = compute_intra_distances(dgms_dict)
 
-# Step 1: intra-class distances distributions
-for k, key in enumerate(dgms_dict.keys()):
-    dist_temp = []
-    print("key =", key)
-    for i, ind1 in enumerate(dgms_dict[key].keys()):
-        print("ind1 =", ind1)
-        for j in range(i+1, len(dgms_dict[key].keys())):
-            ind2 = list(dgms_dict[key].keys())[j]
-            print("ind2 =", ind2)
-            dist_temp.append(
-                    d.wasserstein_distance(dgms_dict[key][ind1][0][0],
-                                           dgms_dict[key][ind2][0][0], q=2) )
-    distrib_dist["dist_"+str(k)+"_"+str(k)] = dist_temp
-
-# Step 2: inter-class distribution
-#for class1, _ in enumerate(all_class):
-#    key1 = "dgms_" + str(class1)
-#    print("key1 =", key1)
-#    for class2 in range(class1+1, len(all_class)):
-#        key2 = "dgms_" + str(class2)
-#        print("key2 =", key2)
-#        dist_temp = []
-#        for i, ind1 in enumerate(dgms_dict[key1].keys()):
-#            for j, ind2 in enumerate(dgms_dict[key2].keys()):
-#                print("inds =", ind1, ind2)
-#                dist_temp.append( d.wasserstein_distance(dgms_dict[key1][ind1][0][0], dgms_dict[key2][ind2][0][0], q=2) )
-#        distrib_dist["dist_"+str(class1)+"_"+str(class2)] = dist_temp
-
-# Plots
+#Plots
 for i in all_class:
     sns.distplot(distrib_dist["dist_"+str(i)+"_"+str(i)], hist=False, label=str(i))
 
-#for i in all_class:
-#    sns.distplot(distrib_dist["dist_0_"+str(i)], hist=False, label="0 and "+str(i))
-
 sns.distplot(distrib_dist["dist_1_1"], hist=False, label="1")
 sns.distplot(distrib_dist["dist_7_7"], hist=False, label="7")
-#sns.distplot(distrib_dist["dist_1_7"], hist=False, label="1 and 7")
+
 
 
 
 
 # ------
-# Compute persistent diagrams and distances for several adversarial examples
+# Distance distribution for adv. vs clean inputs
 # ------
 
 epsilon = 0.25
@@ -144,47 +122,19 @@ epsilon = 0.25
 # n indices for every class
 inds_all_class_adv = {key: get_class_indices(key, number="all")[n:2*n] for key in all_class}
 
-# Dict containing n adv. dgms indexed by the target "wrong" class the model
-# (badly) predicted
-dgms_dict_adv = {}
-dict_temp = {}
-for i in inds_all_class_adv.keys():
-    for index in inds_all_class_adv[i]:
-        dict_temp[index] = compute_persistent_dgm(net, test_set, loss_func,
-                 numero_ex=index, threshold=5000, adversarial=True)
+# Dict containing the persistend dgm for adv. inputs (and other info),
+# organized by observed class (i.e. in each class, we have the persistent dgm
+# for the inputs classified correclty or not in this class)
+dgms_dict_adv = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
+                 adversarial=True, noise=0)
 
-for i in inds_all_class_adv.keys():
-    temp = {}
-    for index in dict_temp.keys():
-        if dict_temp[index][3] == i:
-            temp[index] = dict_temp[index]
-    dgms_dict_adv["dgms_" + str(i)] = temp
-        
-# Building the dictionary containing the distance distributions between adv
-# examples and the target "wrong" class.
-distrib_dist_adv = {}
-
-for k, key in enumerate(dgms_dict.keys()):
-    dist_temp = []
-    print("key =", key)
-    for i_adv, ind_adv in enumerate(dgms_dict_adv[key].keys()):
-        print("ind_adv =", ind_adv)
-        for j, ind_clean in enumerate(dgms_dict[key].keys()):
-            print("ind clean =", ind_clean)
-            dist_temp.append(
-                    d.wasserstein_distance(dgms_dict_adv[key][ind_adv][0][0],
-                                           dgms_dict[key][ind_clean][0][0], q=2))
-    distrib_dist_adv["dist_adv_"+str(k)] = dist_temp
+# Distance distribution for adv. inputs vs clean inputs
+distrib_dist_adv = compute_distances(dgms_dict, dgms_dict_adv)
 
 for i in all_class:
     sns.distplot(distrib_dist_adv["dist_adv_"+str(i)], hist=False, label=str(i))
 
-
-
-# ------
 # Differences between the "clean" distance distrib and the adversarial one
-# ------
-
 for i in all_class:
     sns.distplot(distrib_dist["dist_"+str(i)+"_"+str(i)], hist=False, label="clean "+str(i))
     sns.distplot(distrib_dist_adv["dist_adv_"+str(i)], hist=False, label="adv "+str(i))
@@ -192,7 +142,7 @@ for i in all_class:
 
 
 # ------
-# Differences between the "clean" distance distrib and noisy distrib
+# Distance distribution for noisy vs clean inputs
 # ------
 
 noise = 0.25
@@ -200,41 +150,20 @@ noise = 0.25
 # n indices for every class
 inds_all_class_noise = {key: get_class_indices(key, number="all")[2*n:3*n] for key in all_class}
 
-# Dict containing n noisy dgms indexed by the target "wrong" class the model
-# (badly) predicted
-dgms_dict_noise = {}
-dict_temp = {}
-for i in inds_all_class_noise.keys():
-    for index in inds_all_class_noise[i]:
-        dict_temp[index] = compute_persistent_dgm(net, test_set, loss_func,
-                 numero_ex=index, threshold=5000, noise=noise)
+# Dict containing the persistend dgm for noisy inputs (and other info),
+# organized by observed class (i.e. in each class, we have the persistent dgm
+# for the inputs classified correclty or not in this class)
+dgms_dict_noise = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
+                 adversarial=False, noise=noise)
+      
+# Distance distribution for adv. inputs vs clean inputs
+distrib_dist_noise = compute_distances(dgms_dict, dgms_dict_noise,
+                                       adversarial=False, noisy=True)
 
-for i in inds_all_class_noise.keys():
-    temp = {}
-    for index in dict_temp.keys():
-        if dict_temp[index][3] == i:
-            temp[index] = dict_temp[index]
-    dgms_dict_noise["dgms_" + str(i)] = temp
-        
-
-# Building the dictionary containing the distance distributions between noisy
-# examples and the target "wrong" class.
-distrib_dist_noise = {}
-
-for k, key in enumerate(dgms_dict.keys()):
-    dist_temp = []
-    print("key =", key)
-    for i_noise, ind_noise in enumerate(dgms_dict_noise[key].keys()):
-        print("ind_noise =", ind_noise)
-        for j, ind_clean in enumerate(dgms_dict[key].keys()):
-            print("ind clean =", ind_clean)
-            dist_temp.append(
-                    d.wasserstein_distance(dgms_dict_noise[key][ind_noise][0][0],
-                                           dgms_dict[key][ind_clean][0][0], q=2))
-    distrib_dist_noise["dist_noise_"+str(k)] = dist_temp
-
+# Plots
 for i in all_class:
     sns.distplot(distrib_dist_noise["dist_noise_"+str(i)], hist=False, label=str(i))
+
 
 # ------
 # Differences between the three distribs
@@ -252,42 +181,43 @@ for i in all_class:
 # -----
 
 # Save
-    
-path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"
-import pickle
 
-# Clean input
-with open(path+'dgms_dict.pickle', 'wb') as fp:
-    pickle.dump(dgms_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
-print("dgms_dict saved !")
+if save:    
+    path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"
+    import pickle
 
-with open(path+'distrib_dist.pickle', 'wb') as fp:
-    pickle.dump(distrib_dist, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    # Clean input
+    with open(path+'dgms_dict.pickle', 'wb') as fp:
+        pickle.dump(dgms_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    print("dgms_dict saved !")
 
-with open(path+'inds_all_class.pickle', 'wb') as fp:
-    pickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(path+'distrib_dist.pickle', 'wb') as fp:
+        pickle.dump(distrib_dist, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-# Adv input
-with open(path+'dgms_dict_adv.pickle', 'wb') as fp:
-    pickle.dump(dgms_dict_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
-print("dgms_dict_adv saved !")
+    with open(path+'inds_all_class.pickle', 'wb') as fp:
+        pickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'distrib_dist_adv.pickle', 'wb') as fp:
-    pickle.dump(distrib_dist_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    # Adv input
+    with open(path+'dgms_dict_adv.pickle', 'wb') as fp:
+        pickle.dump(dgms_dict_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    print("dgms_dict_adv saved !")
 
-with open(path+'inds_all_class_adv.pickle', 'wb') as fp:
-    pickle.dump(inds_all_class_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(path+'distrib_dist_adv.pickle', 'wb') as fp:
+        pickle.dump(distrib_dist_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-# Noisy input
-with open(path+'dgms_dict_noise.pickle', 'wb') as fp:
-    pickle.dump(dgms_dict_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
-print("dgms_dict_noise saved !")
+    with open(path+'inds_all_class_adv.pickle', 'wb') as fp:
+        pickle.dump(inds_all_class_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'inds_all_class_noise.pickle', 'wb') as fp:
-    pickle.dump(inds_all_class_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    # Noisy input
+    with open(path+'dgms_dict_noise.pickle', 'wb') as fp:
+        pickle.dump(dgms_dict_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    print("dgms_dict_noise saved !")
 
-with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
-    pickle.dump(distrib_dist_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(path+'inds_all_class_noise.pickle', 'wb') as fp:
+        pickle.dump(inds_all_class_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
+        pickle.dump(distrib_dist_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 
@@ -326,11 +256,26 @@ with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
+# ------ DO NOT DELETE
 
+# Keep the inputs in the true class, not the observed class from the model
+#dgms_dict = {}
+#for i in inds_all_class.keys():
+#    dict_temp = {}
+#    for index in inds_all_class[i]:
+#        dict_temp[index] = compute_persistent_dgm(net, test_set, loss_func,
+#                 numero_ex=index, threshold=threshold)
+#    dgms_dict["dgms_" + str(i)] = dict_temp
 
 # ------ Dev / brouillon
 
-a = {0: [1,2,3], 1: [10,20,30]}
-b = {}
-for i in a.keys():
-    b["dgms_" + str(i)] = "test"+str(i)
+adversarial = False
+noisy = True
+add = "_adv"*adversarial + "_noise"*noisy
+"dist"+add+"_"
+
+
+
+
+
+
