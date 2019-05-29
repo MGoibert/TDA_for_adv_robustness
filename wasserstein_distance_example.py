@@ -11,7 +11,7 @@ import numpy as np
 
 from datasets import (test_set)
 from functions import (compute_persistent_dgm, get_class_indices)
-from peristent_diagram_NN import net
+from persistent_diagram_NN import net
 
 # ------
 # Compute distances between two diagrams
