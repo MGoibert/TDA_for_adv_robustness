@@ -481,7 +481,7 @@ sns.plt.show()
 # Compute all distribution of distances
 # ------
 
-n=15
+n=30
 all_class = range(10)
 
 # n indices for every class
@@ -546,7 +546,7 @@ sns.distplot(distrib_dist["dist_1_7"], hist=False, label="1 and 7")
 # Compute persistent diagrams and distances for several adversarial examples
 # ------
 
-n=15
+n=30
 all_class = range(10)
 
 # n indices for every class
@@ -603,7 +603,7 @@ for i in all_class:
 # ------
 
 
-n=15
+n=30
 all_class = range(10)
 noise = 0.25
 
@@ -659,31 +659,29 @@ for i in all_class:
 path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"
 import pickle
 
-#with open(path+'test.pickle', 'wb') as handle:
-#    pickle.dump(dgms_dict["dgms_0"][3][0][0], handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-#with open(path+'test.pickle', 'rb') as handle:
-#    b = pickle.load(handle)
-
-
-# Not working: diagram type not JSON seriazable
+# Clean input
 with open(path+'dgms_dict.pickle', 'wb') as fp:
     pickle.dump(dgms_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    
+
 with open(path+'distrib_dist.pickle', 'wb') as fp:
     pickle.dump(distrib_dist, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
+with open(path+'inds_all_class.pickle', 'wb') as fp:
+    pickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+# Adv input
 with open(path+'dgms_dict_adv.pickle', 'wb') as fp:
     pickle.dump(dgms_dict_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 with open(path+'distrib_dist_adv.pickle', 'wb') as fp:
     pickle.dump(distrib_dist_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(path+'inds_all_class.pickle', 'wb') as fp:
-    pickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
 with open(path+'inds_all_class_adv.pickle', 'wb') as fp:
     pickle.dump(inds_all_class_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+# Noisy input
+with open(path+'dgms_dict_noise.pickle', 'wb') as fp:
+    pickle.dump(dgms_dict_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 with open(path+'inds_all_class_noise.pickle', 'wb') as fp:
     pickle.dump(inds_all_class_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
@@ -695,8 +693,8 @@ with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
 
 # Import
 
-with open(path+'dgms_dict.json', 'rb') as fp:
-    dgms_dict2 = pickle.load(fp)
+#with open(path+'dgms_dict.json', 'rb') as fp:
+#    dgms_dict2 = pickle.load(fp)
 
 #with open(path+'distrib_dist.json', 'r') as fp:
 #    distrib_dist = json.load(fp)
@@ -727,43 +725,6 @@ with open(path+'dgms_dict.json', 'rb') as fp:
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
-
-
-# -----
-# Other way, !! Not valid !!
-# -----
-
-matrix0 = np.concatenate(
-        (np.zeros((784,2050)), block_diag(val0, val2, val4, np.concatenate((val6, np.zeros((10,10))), axis=1))), 
-        axis=0)
-matrix1 = np.tril(matrix0)
-matrix_fin = matrix1 + matrix1.T
-matrix_fin[matrix_fin > 0].min()
-matrix_fin[matrix_fin > 0].max()
-matrix_fin2 = np.around(matrix_fin, decimals=3)
-matrix_fin2[matrix_fin2==0] = inf
-
-
-# Distance matrix = inverse weight matrix
-W = 1./matrix_fin2
-W = np.abs(W)
-np.max(W[W<inf])
-np.min(W[W>0])
-# Diagonal = 0
-W[W==0]=10e4
-np.fill_diagonal(W, 0)
-W = np.around(W)
-
-# Compute persistent homology
-sq_dist = squareform(W)
-f = d.fill_rips(sq_dist, 1, 2000)
-m = d.homology_persistence(f)
-
-dgms = d.init_diagrams(m, f)
-d.plot.plot_diagram(dgms[0], show = True)
-
-
-
 
 
 
