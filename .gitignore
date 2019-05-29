@@ -1,1 +1,3 @@
 dict_files/
+__pycache__/
+data/
