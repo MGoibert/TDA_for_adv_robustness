@@ -138,13 +138,14 @@ def compute_persistent_dgm(model, test_set, loss_func,
     #            if val[key][row,col] >= threshold:
     #                vec.append( ([row+shape[key+1], col+shape[key]],
     #                             val[key][row,col]) )
-    layer = {key:[] for key in range(len(val)+1)}
+    
+    #layer = {key:[] for key in range(len(val)+1)}
     for key in val.keys():
         # For vertices
         #layer[key].append(list(map( lambda t: min((i for i in t if i>=threshold), default= np.inf) , val[key].T )))
         #layer[key+1].append(list(map( lambda t: min((i for i in t if i>=threshold), default = np.inf) , val[key] )))
 
-        # For edges
+        # Adding the edges
         row, col = np.meshgrid(np.arange(shape[key], shape[key+1]),
                                np.arange(shape[key+1], shape[key+2]))
         table = np.vstack( (val[key].ravel(),row.ravel(),col.ravel()) ).T
@@ -178,7 +179,7 @@ def compute_persistent_dgm(model, test_set, loss_func,
         if len(dict_vertices[vertex]) > 0:
             vec.append( ([vertex], min(dict_vertices[vertex])) )
     
-    # Dionysus computations
+    # Dionysus computations (persistent diagrams)
     f = d.Filtration()
     for vertices, timing in vec:
         f.append(d.Simplex(vertices, timing))

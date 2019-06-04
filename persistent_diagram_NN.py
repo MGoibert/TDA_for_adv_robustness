@@ -81,9 +81,94 @@ compute_val_acc(model, val_loader)
 compute_test_acc(model, test_loader)
 
 # Test how it is working
-dgms1 = compute_persistent_dgm(net, test_set, loss_func, numero_ex=0,
-                               adversarial=False, threshold=12000)
-d.plot.plot_diagram(dgms1[0][0], show = True)
+#dgms1 = compute_persistent_dgm(net, test_set, loss_func, numero_ex=0,
+#                               adversarial=False, threshold=12000)
+#d.plot.plot_diagram(dgms1[0][0], show = True)
+
+
+def run_dist_detection(n, threshold, epsilon, noise, start_n=0, net=net, test_set=test_set,
+                       loss_func=loss_func):
+    
+    # Indices for all classes
+    ind_classes = {key: get_class_indices(key, number="all") for key in all_class}
+    
+    # ---------------------------
+    ### Step 1: Clean inputs part
+    # ---------------------------
+    
+    # Indices for clean computation
+    inds_all_class = {key: ind_classes[key][start_n:n+start_n] for key in all_class}
+    
+    # Dict containing the persistend dgm for clean inputs (and other info),
+    # organized by observed class (i.e. in each class, we have the persistent dgm
+    # for the inputs classified correclty or not in this class)
+    dgms_dict = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
+                             adversarial=False, noise=0)
+
+    # Intra-class distance distribution
+    distrib_dist = compute_intra_distances(dgms_dict)
+    
+    # -------------------------
+    ### Step 2: Adv inputs part
+    # -------------------------
+    
+    # n indices for every class
+    inds_all_class_adv = {key: ind_classes[key][n+start_n:2*n+start_n] for key in all_class}
+    
+    # Dict containing the persistend dgm for adv. inputs (and other info),
+    # organized by observed class (i.e. in each class, we have the persistent dgm
+    # for the inputs classified correclty or not in this class)
+    dgms_dict_adv = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_adv,
+                                 adversarial=True, noise=0)
+
+    # Distance distribution for adv. inputs vs clean inputs
+    distrib_dist_adv = compute_distances(dgms_dict, dgms_dict_adv)
+    
+    # ---------------------------
+    ### Step 3: Noisy inputs part
+    # ---------------------------
+    
+    # n indices for every class
+    inds_all_class_noise = {key: ind_classes[key][2*n+start_n:3*n+start_n] for key in all_class}
+
+    # Dict containing the persistend dgm for noisy inputs (and other info),
+    # organized by observed class (i.e. in each class, we have the persistent dgm
+    # for the inputs classified correclty or not in this class)
+    dgms_dict_noise = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_noise,
+                                   adversarial=False, noise=noise)
+      
+    # Distance distribution for adv. inputs vs clean inputs
+    distrib_dist_noise = compute_distances(dgms_dict, dgms_dict_noise,
+                                           adversarial=False, noisy=True)
+    
+    # ---------------
+    ### Step 4: Plots
+    # ---------------
+    
+    for i in all_class:
+        sns.distplot(distrib_dist["dist_"+str(i)+"_"+str(i)], hist=False, label="clean "+str(i))
+        sns.distplot(distrib_dist_adv["dist_adv_"+str(i)], hist=False, label="adv "+str(i))
+        sns.distplot(distrib_dist_noise["dist_noise_"+str(i)], hist=False, label="noise "+str(i))
+        plt.show()
+    
+    return (inds_all_class, dgms_dict, distrib_dist,
+            inds_all_class_adv, dgms_dict_adv, distrib_dist_adv,
+            inds_all_class_noise, dgms_dict_noise, distrib_dist_noise)
+
+# ----------------
+# ----------------
+# Run experiment !
+# ----------------
+# ----------------
+
+n = 25
+threshold = 10000
+epsilon = 0.25
+noise=0.25
+start_n = 0
+
+result = run_dist_detection(n, threshold, epsilon, noise, start_n=start_n,
+                            net=net, test_set=test_set, loss_func=loss_func)
 
 
 
@@ -115,9 +200,8 @@ for i in all_class:
 sns.distplot(distrib_dist["dist_1_1"], hist=False, label="1")
 sns.distplot(distrib_dist["dist_7_7"], hist=False, label="7")
 
-
-
-
+    
+    
 
 # ------
 # Distance distribution for adv. vs clean inputs
@@ -131,7 +215,7 @@ inds_all_class_adv = {key: get_class_indices(key, number="all")[n+start_n:2*n+st
 # Dict containing the persistend dgm for adv. inputs (and other info),
 # organized by observed class (i.e. in each class, we have the persistent dgm
 # for the inputs classified correclty or not in this class)
-dgms_dict_adv = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
+dgms_dict_adv = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_adv,
                  adversarial=True, noise=0)
 
 # Distance distribution for adv. inputs vs clean inputs
@@ -159,7 +243,7 @@ inds_all_class_noise = {key: get_class_indices(key, number="all")[2*n+start_n:3*
 # Dict containing the persistend dgm for noisy inputs (and other info),
 # organized by observed class (i.e. in each class, we have the persistent dgm
 # for the inputs classified correclty or not in this class)
-dgms_dict_noise = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
+dgms_dict_noise = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_noise,
                  adversarial=False, noise=noise)
       
 # Distance distribution for adv. inputs vs clean inputs
