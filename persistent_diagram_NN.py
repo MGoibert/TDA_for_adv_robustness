@@ -18,6 +18,7 @@ import scipy.stats as stats
 import scipy.sparse as sparse
 from numpy import inf
 from scipy.linalg import block_diag
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -28,6 +29,9 @@ import torchvision.transforms as transforms
 from operator import itemgetter
 from tqdm import tqdm
 import time
+import logging
+mpl_logger = logging.getLogger('matplotlib') 
+mpl_logger.setLevel(logging.WARNING) 
 torch.set_default_tensor_type(torch.DoubleTensor)
 sns.set()
 
@@ -68,7 +72,7 @@ val_loader = val_loader_MNIST
 test_set = test_set
 
 # Train the NN
-num_epochs = 1
+num_epochs = 10
 loss_func = nn.CrossEntropyLoss()
 net = train_NN(model, train_loader, val_loader, loss_func, num_epochs)[0]
 
@@ -78,8 +82,9 @@ compute_test_acc(model, test_loader)
 
 # Test how it is working
 dgms1 = compute_persistent_dgm(net, test_set, loss_func, numero_ex=0,
-                               adversarial=False, epsilon= .25, noise=0.25,
-                               threshold=5000)
+                               adversarial=False, threshold=12000)
+d.plot.plot_diagram(dgms1[0][0], show = True)
+
 
 
 # ------
@@ -87,11 +92,12 @@ dgms1 = compute_persistent_dgm(net, test_set, loss_func, numero_ex=0,
 # ------
 
 n=3
-threshold = 5000
+start_n = 60
+threshold = 12000
 all_class = range(10)
 
 # n indices for every class
-inds_all_class = {key: get_class_indices(key, number="all")[:n] for key in all_class}
+inds_all_class = {key: get_class_indices(key, number="all")[start_n:n+start_n] for key in all_class}
 
 # Dict containing the persistend dgm for clean inputs (and other info),
 # organized by observed class (i.e. in each class, we have the persistent dgm
@@ -117,10 +123,10 @@ sns.distplot(distrib_dist["dist_7_7"], hist=False, label="7")
 # Distance distribution for adv. vs clean inputs
 # ------
 
-epsilon = 0.25
+epsilon = 0.2
 
 # n indices for every class
-inds_all_class_adv = {key: get_class_indices(key, number="all")[n:2*n] for key in all_class}
+inds_all_class_adv = {key: get_class_indices(key, number="all")[n+start_n:2*n+start_n] for key in all_class}
 
 # Dict containing the persistend dgm for adv. inputs (and other info),
 # organized by observed class (i.e. in each class, we have the persistent dgm
@@ -145,10 +151,10 @@ for i in all_class:
 # Distance distribution for noisy vs clean inputs
 # ------
 
-noise = 0.25
+noise = 0.2
 
 # n indices for every class
-inds_all_class_noise = {key: get_class_indices(key, number="all")[2*n:3*n] for key in all_class}
+inds_all_class_noise = {key: get_class_indices(key, number="all")[2*n+start_n:3*n+start_n] for key in all_class}
 
 # Dict containing the persistend dgm for noisy inputs (and other info),
 # organized by observed class (i.e. in each class, we have the persistent dgm
@@ -176,48 +182,63 @@ for i in all_class:
     plt.show()
 
 
+
+count = [len(distrib_dist[classe]) for classe in distrib_dist.keys()]
+count_adv = [len(distrib_dist_adv[classe]) for classe in distrib_dist_adv.keys()]
+count_noise = [len(distrib_dist_noise[classe]) for classe in distrib_dist_noise.keys()]
+
+
 # -----
 # Save and reimport files
 # -----
 
 # Save
 
-if save:    
-    path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"
+if save:
+    import os
+    param = "threshold_%s_eps_%s_noise_%s/" %(threshold, epsilon, noise)    
+    path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"+param
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+        
     import pickle
+    import _pickle as cPickle
 
     # Clean input
+    t0 = time.time()
     with open(path+'dgms_dict.pickle', 'wb') as fp:
-        pickle.dump(dgms_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    print("dgms_dict saved !")
+        cPickle.dump(dgms_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    t1 = time.time()
+    print("dgms_dict saved ! Time =", t1-t0)
 
     with open(path+'distrib_dist.pickle', 'wb') as fp:
-        pickle.dump(distrib_dist, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(distrib_dist, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     with open(path+'inds_all_class.pickle', 'wb') as fp:
-        pickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     # Adv input
     with open(path+'dgms_dict_adv.pickle', 'wb') as fp:
-        pickle.dump(dgms_dict_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(dgms_dict_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
     print("dgms_dict_adv saved !")
 
     with open(path+'distrib_dist_adv.pickle', 'wb') as fp:
-        pickle.dump(distrib_dist_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(distrib_dist_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     with open(path+'inds_all_class_adv.pickle', 'wb') as fp:
-        pickle.dump(inds_all_class_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(inds_all_class_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     # Noisy input
     with open(path+'dgms_dict_noise.pickle', 'wb') as fp:
-        pickle.dump(dgms_dict_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(dgms_dict_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
     print("dgms_dict_noise saved !")
 
     with open(path+'inds_all_class_noise.pickle', 'wb') as fp:
-        pickle.dump(inds_all_class_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(inds_all_class_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
-        pickle.dump(distrib_dist_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(distrib_dist_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 
@@ -269,13 +290,26 @@ if save:
 
 # ------ Dev / brouillon
 
-adversarial = False
-noisy = True
-add = "_adv"*adversarial + "_noise"*noisy
-"dist"+add+"_"
-
-
-
-
-
+#import pickle
+#path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/dict_files_output/dict_files/"
+#with open(path+'dgms_dict_adv.pickle', 'rb') as fp:
+#    dgms_dict_adv = pickle.load(fp)
+#with open(path+'dgms_dict_noise.pickle', 'rb') as fp:
+#    dgms_dict_noise = pickle.load(fp)
+#with open(path+'dgms_dict.pickle', 'rb') as fp:
+#    dgms_dict = pickle.load(fp)
+    
+#with open(path+'distrib_dist_adv.pickle', 'rb') as fp:
+#    distrib_dist_adv = pickle.load(fp)
+#with open(path+'distrib_dist_noise.pickle', 'rb') as fp:
+#    distrib_dist_noise = pickle.load(fp)
+#with open(path+'distrib_dist.pickle', 'rb') as fp:
+#    distrib_dist = pickle.load(fp)
+    
+#with open(path+'inds_all_class_adv.pickle', 'rb') as fp:
+#    inds_all_class_adv = pickle.load(fp)
+#with open(path+'inds_all_class_noise.pickle', 'rb') as fp:
+#    inds_all_class_noise = pickle.load(fp)
+#with open(path+'inds_all_class.pickle', 'rb') as fp:
+#    inds_all_class = pickle.load(fp)
 

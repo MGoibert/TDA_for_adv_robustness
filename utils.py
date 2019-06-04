@@ -34,7 +34,7 @@ def parse_cmdline_args():
         '--noise', type=float, default=0.25,
         help="noise perturbation")
     parser.add_argument(
-        '--noise', type=float, default=5000,
+        '--threshold', type=float, default=5000,
         help="Threshold for considering an edge value = 0")
     parser.add_argument(
         '--num_computation', type=int, default=5,

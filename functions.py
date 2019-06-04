@@ -14,6 +14,7 @@ import numpy as np
 import time
 from tqdm import tqdm
 from operator import itemgetter
+from itertools import repeat
 
 from datasets import test_set
 
@@ -78,11 +79,11 @@ def compute_test_acc(model, test_loader):
 def compute_persistent_dgm(model, test_set, loss_func,
                            numero_ex=0, adversarial=False, epsilon= .25,
                            threshold=0, noise=0):
-
+    
     t0 = time.time()
     # Get the parameters of the model
-    # Odd items are biases
-    w = list(model.parameters())
+    # Odd items are biases, so we just keep even elements (0, 2, etc.)
+    w = list(model.parameters())[::2]
 
     # Create an adversarial example
     if adversarial:
@@ -98,103 +99,100 @@ def compute_persistent_dgm(model, test_set, loss_func,
         x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5)
         pred = model(x_adv).argmax(dim=-1).item()
 
-    # Induce model parameters
+    # Input
     x = test_set[numero_ex][0]
     x = x.double()
-    # x[1]
-    # If we use adversarial example !
+
+    # If we use adversarial or noisy example!
     if adversarial:
         x = x_adv
     if noise > 0:
         x = torch.clamp(x + noise*torch.randn(x.size()), -0.5, 0.5)
+    
     pred = model(x).argmax(dim=-1).item()
     x = x.view(-1, 28*28)
-    x.size()
     
-    w0 = w[0]
-    w0.size()
-    val0 = w0*x.double()
-    val0.size()
-    res0 = (torch.mm(w0, x.double().transpose(0,1)) + w[1].view(-1,1)).transpose(0,1)
-    res0.size()
-
-    w2 = w[2]
-    w2.size()
-    val2 = w2*res0
-    val2.size()
-    res2 = (torch.mm(w2, res0.transpose(0,1)) + w[3].view(-1,1)).transpose(0,1)
-    res2.size()
+    # Get the neurons value for each layer (intermediate x)
+    inter_x = model(x, return_intermediate=True)[1]
     
-    w4 = w[4]
-    w4.size()
-    val4 = w4*res2
-    val4.size()
-    res4 = (torch.mm(w4, res2.transpose(0,1)) + w[5].view(-1,1)).transpose(0,1)
-    res4.size()
-
-    # Create the final weight matrix using blocks
-    val0, val2, val4= val0.detach().numpy(), val2.detach().numpy(), val4.detach().numpy()
-    val0, val2, val4 = 10e5*np.abs(val0), 10e5*np.abs(val2), 10e5*np.abs(val4)
-    val0, val2, val4 = np.around(val0, decimals=2), np.around(val2, decimals=2), np.around(val4, decimals=2)
+    # Get the edge weights
+    # Step 1: compute the product of the weights and the intermediate x
+    val = {}
+    for k in range(len(w)):
+        val[k] = (w[k]*inter_x[k]).detach().numpy()
     
+    # Step 2: process (absolute value and rescaling)
+    val = { key: 10e5*np.abs(v) for key, v in val.items() }
+   
+    # Create the simplicial complexes using dionysus
     # Fast implementation but "by hand"
     vec = []
+    shape = np.cumsum([val[key].shape[1] for key in val.keys() ])
+    shape = np.insert(shape, 0, 0)
+    shape = np.insert(shape, len(shape), shape[len(shape)-1]+val[len(shape)-2].shape[0])
     
-    # Adding the edges
-    # If the edge value is too small (< threshold), then there is no edge.
-    # 0 is not a possible value for the model parameter, but a very small value
-    # can be considered as a 0.
-    for row in range(val0.shape[0]):
-        for col in range(val0.shape[1]):
-            if val0[row,col] >= threshold:
-                vec.append( ([row+val0.shape[1], col], val0[row,col]) )
-        
-    for row in range(val2.shape[0]):
-        for col in range(val2.shape[1]):
-            if val2[row,col] >= threshold:
-                vec.append( ([row+val0.shape[1]+val2.shape[1], col+val0.shape[1]], val2[row,col]) )
+    # Old method: slower
+    #for key in val.keys():
+    #    for row in range(val[key].shape[0]):
+    #        for col in range(val[key].shape[1]):
+    #            if val[key][row,col] >= threshold:
+    #                vec.append( ([row+shape[key+1], col+shape[key]],
+    #                             val[key][row,col]) )
+    layer = {key:[] for key in range(len(val)+1)}
+    for key in val.keys():
+        # For vertices
+        #layer[key].append(list(map( lambda t: min((i for i in t if i>=threshold), default= np.inf) , val[key].T )))
+        #layer[key+1].append(list(map( lambda t: min((i for i in t if i>=threshold), default = np.inf) , val[key] )))
 
-    for row in range(val4.shape[0]):
-        for col in range(val4.shape[1]):
-            if val4[row,col] >= threshold:
-                vec.append( ([row+val0.shape[1]+val2.shape[1]+val4.shape[1], 
-                      col+val0.shape[1]+val2.shape[1]], val4[row,col]) )
-    
+        # For edges
+        row, col = np.meshgrid(np.arange(shape[key], shape[key+1]),
+                               np.arange(shape[key+1], shape[key+2]))
+        table = np.vstack( (val[key].ravel(),row.ravel(),col.ravel()) ).T
+        table = np.delete(table,np.where((np.asarray(list(map(itemgetter(0), table))) < threshold))[0], axis=0)
+        if key == 0:
+            vec = list(zip(map(list, zip( map(lambda x: int(x), map(itemgetter(1), table)),
+                                         map(lambda x: int(x), map(itemgetter(2), table) ))),
+                            map(itemgetter(0), table))) 
+        else:
+           vec = vec+list(zip(map(list, zip( map(lambda x: int(x), map(itemgetter(1), table)),
+                                         map(lambda x: int(x), map(itemgetter(2), table) ))),
+                            map(itemgetter(0), table))) 
+
+    #for key in layer.keys():
+    #    layer[key] = [min(x[i] for x in layer[key]) for i in range(len(layer[key][0]))]
+    #    new_val = list( zip( list(map(lambda x: [x], range(shape[key],shape[key+1]))), layer[key] ) )
+    #    new_val = [elem for elem in new_val if elem[1] != np.inf]
+    #    vec = vec+new_val
+
     # Fast implementation
     # Adding the vertices
-    nb_vertices = max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array])
+    nb_vertices = int(max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array]))
 
     dict_vertices = {key: [] for key in range(nb_vertices+1)}
     for edge, timing in vec:
-        dict_vertices[edge[0]].append(timing)
-        dict_vertices[edge[1]].append(timing)
+        if len(dict_vertices[edge[0]]) == 0 or  timing <= min(dict_vertices[edge[0]]):
+            dict_vertices[edge[0]].append(timing)
+        if len(dict_vertices[edge[1]]) == 0 or timing <= min(dict_vertices[edge[1]]):
+            dict_vertices[edge[1]].append(timing)
     for vertex in dict_vertices:
         if len(dict_vertices[vertex]) > 0:
             vec.append( ([vertex], min(dict_vertices[vertex])) )
     
-    
+    # Dionysus computations
     f = d.Filtration()
     for vertices, timing in vec:
         f.append(d.Simplex(vertices, timing))
     f.sort()
     m = d.homology_persistence(f)
-    #for i,c in enumerate(m):
-    #    print(i, c)
     dgms = d.init_diagrams(m, f)
-    d.plot.plot_diagram(dgms[0], show = True)
-        
-    t1 = time.time()
-    adv_label = ""
-    if adversarial:
-        adv_label = " (adv label = " + str(pred)+ ")"
-    print("Time: %s and true label = %s %s" %(np.round(t1 - t0, decimals=2), 
-                                         test_set[numero_ex][1], adv_label))
-
-
-    #for pt in dgms[0]:
-    #    print(0, pt.birth, pt.death)
     
-    return dgms, test_set[numero_ex][1], adversarial, pred
+    d.plot.plot_diagram(dgms[0], show = True)
+    
+    t1 = time.time()
+    print("Time: %s, true label = %s, pred = %s, adv = %s" %(np.round(t1 - t0, decimals=2), 
+                                         test_set[numero_ex][1], pred, adversarial))
+    
+    return dgms[0], test_set[numero_ex][1], adversarial, pred
 
 
 
@@ -235,8 +233,8 @@ def compute_intra_distances(dgms_dict):
             for j in range(i+1, len(dgms_dict[key].keys())):
                 ind2 = list(dgms_dict[key].keys())[j]
                 dist_temp.append(
-                    d.wasserstein_distance(dgms_dict[key][ind1][0][0],
-                                            dgms_dict[key][ind2][0][0], q=2))
+                    d.wasserstein_distance(dgms_dict[key][ind1][0],
+                                            dgms_dict[key][ind2][0], q=2))
         distrib_dist["dist_"+str(k)+"_"+str(k)] = dist_temp
     return distrib_dist
 
@@ -253,8 +251,8 @@ def compute_distances(dgms_dict, dgms_dict_perturbed, adversarial=True, noisy=Fa
             print("ind"+add+" =", ind)
             for j, ind_clean in enumerate(dgms_dict[key].keys()):
                 dist_temp.append(
-                    d.wasserstein_distance(dgms_dict_perturbed[key][ind][0][0],
-                                           dgms_dict[key][ind_clean][0][0], q=2))
+                    d.wasserstein_distance(dgms_dict_perturbed[key][ind][0],
+                                           dgms_dict[key][ind_clean][0], q=2))
         distrib_dist["dist"+add+"_"+str(k)] = dist_temp
     return distrib_dist
 
@@ -273,8 +271,8 @@ def compute_inter_distances(dgms_dict):
                 for j, ind2 in enumerate(dgms_dict[key2].keys()):
                     print("inds =", ind1, ind2)
                     dist_temp.append(
-                            d.wasserstein_distance(dgms_dict[key1][ind1][0][0],
-                                                   dgms_dict[key2][ind2][0][0], q=2))
+                            d.wasserstein_distance(dgms_dict[key1][ind1][0],
+                                                   dgms_dict[key2][ind2][0], q=2))
         distrib_dist["dist_"+str(class1)+"_"+str(class2)] = dist_temp
 
     return distrib_dist

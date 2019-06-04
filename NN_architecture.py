@@ -17,10 +17,22 @@ class MNISTMLP(nn.Module):
         self.fc3 = nn.Linear(256, 10)
         self.soft = nn.Softmax(dim=1)
 
-    def forward(self, x):
+    def forward(self, x, return_intermediate=False):
+        all_x = []
         x = x.view(-1, 28 * 28)
+        if return_intermediate:
+            all_x.append(x)
         x = self.fc1(x)
+        if return_intermediate:
+            all_x.append(x)
         x = self.fc2(x)
+        if return_intermediate:
+            all_x.append(x)
         x = self.fc3(x)
+        if return_intermediate:
+            all_x.append(x)
         x = self.soft(x)
-        return x
+        if return_intermediate:
+            return x, all_x
+        else:
+            return x
