@@ -310,7 +310,7 @@ def compute_inter_distances(dgms_dict):
 
 
 def produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
-                 adversarial=False, epsilon=0.25, noise=0):
+                 adversarial=False, epsilon=0.25, noise=0, num_classes=None):
     
     dgms_dict = {}
     dict_temp = {}
@@ -318,7 +318,7 @@ def produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
         for index in inds_all_class[i]:
             dict_temp[index] = compute_persistent_dgm(net, test_set, loss_func,
                  numero_ex=index, threshold=threshold, adversarial=adversarial,
-                 epsilon=epsilon, noise=noise)
+                 epsilon=epsilon, noise=noise, num_classes=num_classes)
 
     for i in inds_all_class.keys():
         temp = {}
