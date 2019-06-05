@@ -19,6 +19,7 @@ import scipy.sparse as sparse
 from numpy import inf
 from scipy.linalg import block_diag
 import pandas as pd
+import copy
 
 import torch
 import torch.nn as nn
@@ -42,7 +43,7 @@ from datasets import (train_loader_MNIST, test_loader_MNIST, val_loader_MNIST,
 from functions import (train_NN, compute_val_acc, compute_test_acc,
                        compute_persistent_dgm, get_class_indices,
                        compute_intra_distances, compute_distances,
-                       produce_dgms)
+                       produce_dgms, save_result)
 from utils import parse_cmdline_args
 
 
@@ -72,7 +73,7 @@ val_loader = val_loader_MNIST
 test_set = test_set
 
 # Train the NN
-num_epochs = 10
+num_epochs = 15
 loss_func = nn.CrossEntropyLoss()
 net = train_NN(model, train_loader, val_loader, loss_func, num_epochs)[0]
 
@@ -103,7 +104,7 @@ def run_dist_detection(n, threshold, epsilon, noise, start_n=0, net=net, test_se
     # organized by observed class (i.e. in each class, we have the persistent dgm
     # for the inputs classified correclty or not in this class)
     dgms_dict = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
-                             adversarial=False, noise=0)
+                             adversarial=False, epsilon=epsilon, noise=0)
 
     # Intra-class distance distribution
     distrib_dist = compute_intra_distances(dgms_dict)
@@ -119,10 +120,18 @@ def run_dist_detection(n, threshold, epsilon, noise, start_n=0, net=net, test_se
     # organized by observed class (i.e. in each class, we have the persistent dgm
     # for the inputs classified correclty or not in this class)
     dgms_dict_adv = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_adv,
-                                 adversarial=True, noise=0)
+                                 adversarial=True, epsilon=epsilon, noise=0)
+    
+    # dictionary containing only incorrectly predicted adv. inputs
+    dgms_dict_adv_incorrect = copy.deepcopy(dgms_dict_adv)
+    for key in list(dgms_dict_adv_incorrect.keys()):
+        for ind in list(dgms_dict_adv_incorrect[key].keys()):
+            if dgms_dict_adv_incorrect[key][ind][1] == dgms_dict_adv_incorrect[key][ind][3]:
+                del dgms_dict_adv_incorrect[key][ind]
 
     # Distance distribution for adv. inputs vs clean inputs
     distrib_dist_adv = compute_distances(dgms_dict, dgms_dict_adv)
+    distrib_dist_adv_incorrect = compute_distances(dgms_dict, dgms_dict_adv_incorrect)
     
     # ---------------------------
     ### Step 3: Noisy inputs part
@@ -135,7 +144,7 @@ def run_dist_detection(n, threshold, epsilon, noise, start_n=0, net=net, test_se
     # organized by observed class (i.e. in each class, we have the persistent dgm
     # for the inputs classified correclty or not in this class)
     dgms_dict_noise = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_noise,
-                                   adversarial=False, noise=noise)
+                                   adversarial=False, epsilon=epsilon, noise=noise)
       
     # Distance distribution for adv. inputs vs clean inputs
     distrib_dist_noise = compute_distances(dgms_dict, dgms_dict_noise,
@@ -148,11 +157,13 @@ def run_dist_detection(n, threshold, epsilon, noise, start_n=0, net=net, test_se
     for i in all_class:
         sns.distplot(distrib_dist["dist_"+str(i)+"_"+str(i)], hist=False, label="clean "+str(i))
         sns.distplot(distrib_dist_adv["dist_adv_"+str(i)], hist=False, label="adv "+str(i))
+        sns.distplot(distrib_dist_adv_incorrect["dist_adv_"+str(i)], hist=False, label="adv incorrect "+str(i))
         sns.distplot(distrib_dist_noise["dist_noise_"+str(i)], hist=False, label="noise "+str(i))
         plt.show()
     
     return (inds_all_class, dgms_dict, distrib_dist,
             inds_all_class_adv, dgms_dict_adv, distrib_dist_adv,
+            dgms_dict_adv_incorrect, distrib_dist_adv_incorrect,
             inds_all_class_noise, dgms_dict_noise, distrib_dist_noise)
 
 # ----------------
@@ -161,16 +172,40 @@ def run_dist_detection(n, threshold, epsilon, noise, start_n=0, net=net, test_se
 # ----------------
 # ----------------
 
-n = 25
-threshold = 10000
-epsilon = 0.25
-noise=0.25
+n = 10
+threshold = 15000
+epsilon = 0.1
+noise=0.1
 start_n = 0
 
+# Experiment with all (clean, adv, noisy) inputs
 result = run_dist_detection(n, threshold, epsilon, noise, start_n=start_n,
                             net=net, test_set=test_set, loss_func=loss_func)
 
+# Save
+#save_result(result, threshold, epsilon, noise)
 
+distrib_dist = result[2]
+distrib_dist_adv = result[5]
+distrib_dist_adv_incorrect = result[7]
+distrib_dist_noise = result[10]
+
+count = [len(distrib_dist[classe]) for classe in distrib_dist.keys()]
+count_adv = [len(distrib_dist_adv[classe]) for classe in distrib_dist_adv.keys()]
+count_incorrect = [len(distrib_dist_adv_incorrect[classe]) for classe in distrib_dist_adv_incorrect.keys()]
+count_noise = [len(distrib_dist_noise[classe]) for classe in distrib_dist_noise.keys()]
+
+dgms_dict = result[1]
+dgms_dict_adv = result[4]
+dgms_dict_adv_incorrect = result[6]
+dgms_dict_noise = result[9]
+
+c = [len(dgms_dict[classe]) for classe in dgms_dict.keys()]
+c_adv = [len(dgms_dict_adv[classe]) for classe in dgms_dict_adv.keys()]
+c_incorrect = [len(dgms_dict_adv_incorrect[classe]) for classe in dgms_dict_adv_incorrect.keys()]
+c_noise = [len(dgms_dict_noise[classe]) for classe in dgms_dict_noise.keys()]
+
+sum(np.asarray(c_adv) - np.asarray(c_incorrect))/(10*n)
 
 # ------
 # Intra-class distance distribution
@@ -188,7 +223,7 @@ inds_all_class = {key: get_class_indices(key, number="all")[start_n:n+start_n] f
 # organized by observed class (i.e. in each class, we have the persistent dgm
 # for the inputs classified correclty or not in this class)
 dgms_dict = produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
-                 adversarial=False, noise=0)
+                 adversarial=False, epsilon=epsilon, noise=0)
 
 # Intra-class distance distribution
 distrib_dist = compute_intra_distances(dgms_dict)
@@ -207,7 +242,8 @@ sns.distplot(distrib_dist["dist_7_7"], hist=False, label="7")
 # Distance distribution for adv. vs clean inputs
 # ------
 
-epsilon = 0.2
+n=3
+epsilon = 0.1
 
 # n indices for every class
 inds_all_class_adv = {key: get_class_indices(key, number="all")[n+start_n:2*n+start_n] for key in all_class}
@@ -216,7 +252,14 @@ inds_all_class_adv = {key: get_class_indices(key, number="all")[n+start_n:2*n+st
 # organized by observed class (i.e. in each class, we have the persistent dgm
 # for the inputs classified correclty or not in this class)
 dgms_dict_adv = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_adv,
-                 adversarial=True, noise=0)
+                 adversarial=True, epsilon=epsilon, noise=0)
+
+dgms_dict_adv_incorrect = copy.deepcopy(dgms_dict_adv)
+for key in list(dgms_dict_adv_incorrect.keys()):
+    for ind in list(dgms_dict_adv_incorrect[key].keys()):
+        if dgms_dict_adv_incorrect[key][ind][1] == dgms_dict_adv_incorrect[key][ind][3]:
+            del dgms_dict_adv_incorrect[key][ind]
+
 
 # Distance distribution for adv. inputs vs clean inputs
 distrib_dist_adv = compute_distances(dgms_dict, dgms_dict_adv)
@@ -244,7 +287,7 @@ inds_all_class_noise = {key: get_class_indices(key, number="all")[2*n+start_n:3*
 # organized by observed class (i.e. in each class, we have the persistent dgm
 # for the inputs classified correclty or not in this class)
 dgms_dict_noise = produce_dgms(net, test_set, loss_func, threshold, inds_all_class_noise,
-                 adversarial=False, noise=noise)
+                 adversarial=False, epsilon=epsilon, noise=noise)
       
 # Distance distribution for adv. inputs vs clean inputs
 distrib_dist_noise = compute_distances(dgms_dict, dgms_dict_noise,
@@ -266,7 +309,6 @@ for i in all_class:
     plt.show()
 
 
-
 count = [len(distrib_dist[classe]) for classe in distrib_dist.keys()]
 count_adv = [len(distrib_dist_adv[classe]) for classe in distrib_dist_adv.keys()]
 count_noise = [len(distrib_dist_noise[classe]) for classe in distrib_dist_noise.keys()]
@@ -275,56 +317,6 @@ count_noise = [len(distrib_dist_noise[classe]) for classe in distrib_dist_noise.
 # -----
 # Save and reimport files
 # -----
-
-# Save
-
-if save:
-    import os
-    param = "threshold_%s_eps_%s_noise_%s/" %(threshold, epsilon, noise)    
-    path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"+param
-    
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
-    import pickle
-    import _pickle as cPickle
-
-    # Clean input
-    t0 = time.time()
-    with open(path+'dgms_dict.pickle', 'wb') as fp:
-        cPickle.dump(dgms_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    t1 = time.time()
-    print("dgms_dict saved ! Time =", t1-t0)
-
-    with open(path+'distrib_dist.pickle', 'wb') as fp:
-        cPickle.dump(distrib_dist, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    with open(path+'inds_all_class.pickle', 'wb') as fp:
-        cPickle.dump(inds_all_class, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # Adv input
-    with open(path+'dgms_dict_adv.pickle', 'wb') as fp:
-        cPickle.dump(dgms_dict_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    print("dgms_dict_adv saved !")
-
-    with open(path+'distrib_dist_adv.pickle', 'wb') as fp:
-        cPickle.dump(distrib_dist_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    with open(path+'inds_all_class_adv.pickle', 'wb') as fp:
-        cPickle.dump(inds_all_class_adv, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # Noisy input
-    with open(path+'dgms_dict_noise.pickle', 'wb') as fp:
-        cPickle.dump(dgms_dict_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    print("dgms_dict_noise saved !")
-
-    with open(path+'inds_all_class_noise.pickle', 'wb') as fp:
-        cPickle.dump(inds_all_class_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
-        cPickle.dump(distrib_dist_noise, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-
 
 # Import
 

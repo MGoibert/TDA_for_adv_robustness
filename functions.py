@@ -18,6 +18,35 @@ from itertools import repeat
 
 from datasets import test_set
 
+# One-hot vector based on scalar
+def one_hot(y, num_classes=None):
+    if num_classes is None:
+        classes, _ = y.max(0)
+        num_classes = (classes.max() + 1).item()
+    if y.dim() > 0:
+        y_ = torch.zeros(len(y), num_classes, device=y.device)
+    else:
+        y_ = torch.zeros(1, num_classes)
+    y_.scatter_(1, y.unsqueeze(-1), 1)
+    return y_
+
+# Cross_entropy loss (output = post-softmax output of the model, and label =
+# one-hot)
+def CE_loss(outputs, labels, num_classes=None):
+    labels = one_hot(labels, num_classes=num_classes)
+    size = len(outputs)
+    if outputs[0].dim() == 0:
+        for i in range(size):
+            outputs[i] = outputs[i].unsqueeze(-1)
+    if labels[0].dim() == 0:
+        for i in range(size):
+            labels[i] = labels[i].unsqueeze(-1)
+    
+    res = 1. / size * sum([torch.dot(torch.log(outputs[i]), labels[i])
+                           for i in range(size)])
+    return -res
+
+
 # Train a model
 def train_NN(model, train_loader, val_loader, loss_func, num_epochs):
     optimizer = optim.SGD(model.parameters(), lr=0.1)
@@ -74,30 +103,30 @@ def compute_test_acc(model, test_loader):
     print("Test accuracy =", acc)
     return acc
 
+# Create an adversarial example (FGMS only for now)
+def adversarial_generation(model, numero_ex, epsilon=0.25, loss_func=CE_loss,
+                           num_classes=10):
+    x_clean = test_set[numero_ex][0].double()
+    x_clean.requires_grad = True
+    y_clean = torch.from_numpy(np.asarray(test_set[numero_ex][1])).unsqueeze(0)
+    output = model(x_clean)
+    loss = loss_func(output, y_clean, num_classes)
+    model.zero_grad()
+    loss.backward()
+    x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5).double()
+    
+    return x_adv
+
 
 # Compute the persistent diagram
 def compute_persistent_dgm(model, test_set, loss_func,
                            numero_ex=0, adversarial=False, epsilon= .25,
-                           threshold=0, noise=0):
+                           threshold=0, noise=0, num_classes=None):
     
     t0 = time.time()
     # Get the parameters of the model
     # Odd items are biases, so we just keep even elements (0, 2, etc.)
     w = list(model.parameters())[::2]
-
-    # Create an adversarial example
-    if adversarial:
-        x_clean = test_set[numero_ex][0]
-        x_clean = x_clean.double()
-        y_clean = torch.from_numpy(np.asarray(test_set[numero_ex][1])).unsqueeze(0)
-
-        x_clean.requires_grad = True
-        output = model(x_clean)
-        loss = loss_func(output, y_clean)
-        model.zero_grad()
-        loss.backward()
-        x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5)
-        pred = model(x_adv).argmax(dim=-1).item()
 
     # Input
     x = test_set[numero_ex][0]
@@ -105,9 +134,10 @@ def compute_persistent_dgm(model, test_set, loss_func,
 
     # If we use adversarial or noisy example!
     if adversarial:
-        x = x_adv
+        x = adversarial_generation(model, numero_ex, epsilon,
+                                   loss_func=loss_func, num_classes=num_classes)
     if noise > 0:
-        x = torch.clamp(x + noise*torch.randn(x.size()), -0.5, 0.5)
+        x = torch.clamp(x + noise*torch.randn(x.size()), -0.5, 0.5).double()
     
     pred = model(x).argmax(dim=-1).item()
     x = x.view(-1, 28*28)
@@ -280,7 +310,7 @@ def compute_inter_distances(dgms_dict):
 
 
 def produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
-                 adversarial=False, noise=0):
+                 adversarial=False, epsilon=0.25, noise=0):
     
     dgms_dict = {}
     dict_temp = {}
@@ -288,7 +318,7 @@ def produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
         for index in inds_all_class[i]:
             dict_temp[index] = compute_persistent_dgm(net, test_set, loss_func,
                  numero_ex=index, threshold=threshold, adversarial=adversarial,
-                 noise=noise)
+                 epsilon=epsilon, noise=noise)
 
     for i in inds_all_class.keys():
         temp = {}
@@ -298,5 +328,60 @@ def produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
         dgms_dict["dgms_" + str(i)] = temp
     
     return dgms_dict
+
+# Save results
+def save_result(result, threshold, epsilon, noise):
+    import os
+    param = "threshold_%s_eps_%s_noise_%s/" %(threshold, epsilon, noise)    
+    path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"+param
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+        
+    import pickle
+    import _pickle as cPickle
+
+    # Clean input
+    t0 = time.time()
+    with open(path+'dgms_dict.pickle', 'wb') as fp:
+        cPickle.dump(result[1], fp, protocol=pickle.HIGHEST_PROTOCOL)
+    t1 = time.time()
+    print("dgms_dict saved ! Time =", t1-t0)
+
+    with open(path+'distrib_dist.pickle', 'wb') as fp:
+        cPickle.dump(result[2], fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(path+'inds_all_class.pickle', 'wb') as fp:
+        cPickle.dump(result[0], fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Adv input
+    with open(path+'dgms_dict_adv.pickle', 'wb') as fp:
+        cPickle.dump(result[4], fp, protocol=pickle.HIGHEST_PROTOCOL)
+    print("dgms_dict_adv saved !")
+
+    with open(path+'distrib_dist_adv.pickle', 'wb') as fp:
+        cPickle.dump(result[5], fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(path+'inds_all_class_adv.pickle', 'wb') as fp:
+        cPickle.dump(result[3], fp, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    with open(path+'dgms_dict_adv_incorrect.pickle', 'wb') as fp:
+        cPickle.dump(result[6], fp, protocol=pickle.HIGHEST_PROTOCOL)
+    print("dgms_dict_adv_incorrect saved !")
+    
+    with open(path+'distrib_dist_adv_incorrect.pickle', 'wb') as fp:
+        cPickle.dump(result[7], fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Noisy input
+    with open(path+'dgms_dict_noise.pickle', 'wb') as fp:
+        cPickle.dump(result[9], fp, protocol=pickle.HIGHEST_PROTOCOL)
+    print("dgms_dict_noise saved !")
+
+    with open(path+'inds_all_class_noise.pickle', 'wb') as fp:
+        cPickle.dump(result[8], fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(path+'distrib_dist_noise.pickle', 'wb') as fp:
+        cPickle.dump(result[10], fp, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 
