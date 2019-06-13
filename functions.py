@@ -7,6 +7,7 @@ Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
 import torch
+import typing
 import torch.optim as optim
 import torch.nn as nn
 import dionysus as d
@@ -103,12 +104,13 @@ def compute_test_acc(model, test_loader):
     print("Test accuracy =", acc)
     return acc
 
+
 # Create an adversarial example (FGMS only for now)
-def adversarial_generation(model, numero_ex, epsilon=0.25, loss_func=CE_loss,
+def adversarial_generation(model, x, y, epsilon=0.25, loss_func=CE_loss,
                            num_classes=10):
-    x_clean = test_set[numero_ex][0].double()
+    x_clean = x.double()
     x_clean.requires_grad = True
-    y_clean = torch.from_numpy(np.asarray(test_set[numero_ex][1])).unsqueeze(0)
+    y_clean = torch.from_numpy(np.asarray(y)).unsqueeze(0)
     output = model(x_clean)
     loss = loss_func(output, y_clean, num_classes)
     model.zero_grad()
@@ -139,23 +141,47 @@ def compute_all_edge_values(model, x):
     return val
 
 
+def process_sample(
+        sample: typing.Tuple,
+        adversarial: bool = False,
+        noise: float = 0,
+        epsilon: float = 0,
+        model: typing.Optional[nn.Module] = None,
+        loss_func: typing.Optional[nn.Module] = None,
+        num_classes: int = 10
+):
+    # Casting to double
+    x, y = sample
+    x = x.double()
+
+    # If we use adversarial or noisy example!
+    if adversarial:
+        x = adversarial_generation(model, x, y, epsilon, num_classes=num_classes)
+    if noise > 0:
+        x = torch.clamp(x + noise * torch.randn(x.size()), -0.5, 0.5).double()
+
+    return x, y
+
+
 # Compute the persistent diagram
 def compute_persistent_dgm(model, test_set, loss_func,
-                           numero_ex=0, adversarial=False, epsilon= .25,
+                           numero_ex=0, adversarial=False, epsilon=.25,
                            threshold=0, noise=0, num_classes=None):
     
     t0 = time.time()
 
     # Input
-    x = test_set[numero_ex][0]
-    x = x.double()
+    sample = test_set[numero_ex]
 
-    # If we use adversarial or noisy example!
-    if adversarial:
-        x = adversarial_generation(model, numero_ex, epsilon,
-                                   loss_func=loss_func, num_classes=num_classes)
-    if noise > 0:
-        x = torch.clamp(x + noise * torch.randn(x.size()), -0.5, 0.5).double()
+    x, y = process_sample(
+        sample,
+        adversarial,
+        noise,
+        epsilon,
+        model,
+        loss_func,
+        num_classes
+    )
 
     pred = model(x).argmax(dim=-1).item()
     x = x.view(-1, 28 * 28)

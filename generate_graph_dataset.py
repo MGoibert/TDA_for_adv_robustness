@@ -3,7 +3,6 @@
 """
 Created on Fri May 24 12:30:59 2019
 
-Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
 import logging
@@ -25,7 +24,7 @@ from NN_architecture import MNISTMLP
 from datasets import (train_loader_MNIST, test_loader_MNIST, val_loader_MNIST,
                       test_set)
 from functions import (train_NN, compute_val_acc, compute_test_acc,
-                       compute_all_edge_values)
+                       compute_all_edge_values, process_sample)
 from utils import parse_cmdline_args
 
 try:
@@ -47,7 +46,6 @@ num_epochs = args.num_epochs
 epsilon = args.epsilon
 noise = args.noise
 threshold = args.threshold
-n = args.num_computation
 save = args.save
 
 
@@ -104,8 +102,23 @@ if __name__ == "__main__":
 
     graph_test_set = list()
 
-    for i in tqdm(range(int(len(test_set)*0.1))):
-        x, y = test_set[i]
+    ###########################
+    # Non-adversarial samples #
+    ###########################
+
+    for i in tqdm(range(int(len(test_set)*0.01))):
+        sample = test_set[i]
+
+        x, y = process_sample(
+            sample=sample,
+            adversarial=False,
+            noise=noise,
+            epsilon=epsilon,
+            model=model,
+            loss_func=loss_func,
+            num_classes=10
+        )
+
         y_adv = 0  # not an adversarial sample
         x_graph = compute_all_edge_values(model, x.double())
         graph_test_set.append((x_graph, y, y_adv))
@@ -113,4 +126,27 @@ if __name__ == "__main__":
     with open(f"graph_datasets/mnist_{num_epochs}", "wb") as f:
         pickle.dump(graph_test_set, f)
 
-    all_class = range(10)
+
+    #######################
+    # Adversarial samples #
+    #######################
+
+    for i in tqdm(range(int(len(test_set)*0.01))):
+        sample = test_set[i]
+
+        x, y = process_sample(
+            sample=sample,
+            adversarial=True,
+            noise=noise,
+            epsilon=epsilon,
+            model=model,
+            loss_func=loss_func,
+            num_classes=10
+        )
+
+        y_adv = 1  # not an adversarial sample
+        x_graph = compute_all_edge_values(model, x.double())
+        graph_test_set.append((x_graph, y, y_adv))
+
+    with open(f"graph_datasets/mnist_{num_epochs}_adv", "wb") as f:
+        pickle.dump(graph_test_set, f)
