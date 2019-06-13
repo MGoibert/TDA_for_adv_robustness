@@ -118,15 +118,33 @@ def adversarial_generation(model, numero_ex, epsilon=0.25, loss_func=CE_loss,
     return x_adv
 
 
+# Compute all edge values of the multipartite graph
+def compute_all_edge_values(model, x):
+    # Get the parameters of the model
+    # Odd items are biases, so we just keep even elements (0, 2, etc.)
+    w = list(model.parameters())[::2]
+
+    # Get the neurons value for each layer (intermediate x)
+    inter_x = model(x, return_intermediate=True)[1]
+
+    # Get the edge weights
+    # Step 1: compute the product of the weights and the intermediate x
+    val = {}
+    for k in range(len(w)):
+        val[k] = (w[k] * inter_x[k]).detach().numpy()
+
+    # Step 2: process (absolute value and rescaling)
+    val = {key: 10e5 * np.abs(v) for key, v in val.items()}
+
+    return val
+
+
 # Compute the persistent diagram
 def compute_persistent_dgm(model, test_set, loss_func,
                            numero_ex=0, adversarial=False, epsilon= .25,
                            threshold=0, noise=0, num_classes=None):
     
     t0 = time.time()
-    # Get the parameters of the model
-    # Odd items are biases, so we just keep even elements (0, 2, etc.)
-    w = list(model.parameters())[::2]
 
     # Input
     x = test_set[numero_ex][0]
@@ -137,23 +155,13 @@ def compute_persistent_dgm(model, test_set, loss_func,
         x = adversarial_generation(model, numero_ex, epsilon,
                                    loss_func=loss_func, num_classes=num_classes)
     if noise > 0:
-        x = torch.clamp(x + noise*torch.randn(x.size()), -0.5, 0.5).double()
-    
+        x = torch.clamp(x + noise * torch.randn(x.size()), -0.5, 0.5).double()
+
     pred = model(x).argmax(dim=-1).item()
-    x = x.view(-1, 28*28)
-    
-    # Get the neurons value for each layer (intermediate x)
-    inter_x = model(x, return_intermediate=True)[1]
-    
-    # Get the edge weights
-    # Step 1: compute the product of the weights and the intermediate x
-    val = {}
-    for k in range(len(w)):
-        val[k] = (w[k]*inter_x[k]).detach().numpy()
-    
-    # Step 2: process (absolute value and rescaling)
-    val = { key: 10e5*np.abs(v) for key, v in val.items() }
-   
+    x = x.view(-1, 28 * 28)
+
+    val = compute_all_edge_values(model, x)
+
     # Create the simplicial complexes using dionysus
     # Fast implementation but "by hand"
     vec = []
