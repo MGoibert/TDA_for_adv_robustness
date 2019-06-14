@@ -100,13 +100,13 @@ if __name__ == "__main__":
     print(model)
     print(loss_func)
 
-    graph_test_set = list()
-
     ###########################
     # Non-adversarial samples #
     ###########################
 
-    for i in tqdm(range(int(len(test_set)*0.01))):
+    graph_test_set = list()
+
+    for i in tqdm(range(int(len(test_set)*0.1))):
         sample = test_set[i]
 
         x, y = process_sample(
@@ -131,7 +131,9 @@ if __name__ == "__main__":
     # Adversarial samples #
     #######################
 
-    for i in tqdm(range(int(len(test_set)*0.01))):
+    graph_test_set = list()
+
+    for i in tqdm(range(int(len(test_set)*0.1))):
         sample = test_set[i]
 
         x, y = process_sample(
