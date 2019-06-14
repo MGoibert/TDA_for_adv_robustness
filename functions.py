@@ -141,6 +141,24 @@ def compute_all_edge_values(model, x):
     return val
 
 
+def adjacency_matrix_from_edge_values(val):
+    M0 = np.transpose(val[0])
+    M1 = np.transpose(val[1])
+    M2 = np.transpose(val[2])
+
+    s0 = np.shape(M0)[0]
+    s1 = np.shape(M1)[0]
+    s2 = np.shape(M2)[0]
+    s3 = np.shape(M2)[1]
+
+    return np.bmat([
+        [np.zeros((s0, s0)), M0, np.zeros((s0, s2)), np.zeros((s0, s3))],
+        [np.transpose(M0), np.zeros((s1, s1)), M1, np.zeros((s1, s3))],
+        [np.zeros((s2, s0)), np.transpose(M1), np.zeros((s2, s2)), M2],
+        [np.zeros((s3, s0)), np.zeros((s3, s1)), np.transpose(M2), np.zeros((s3, s3))],
+    ])
+
+
 def process_sample(
         sample: typing.Tuple,
         adversarial: bool = False,
