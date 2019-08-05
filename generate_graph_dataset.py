@@ -9,15 +9,17 @@ import logging
 import os
 import pickle
 
-import seaborn as sns
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-mpl_logger = logging.getLogger('matplotlib')
-mpl_logger.setLevel(logging.WARNING)
 torch.set_default_tensor_type(torch.DoubleTensor)
-sns.set()
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+logger.addHandler(handler)
 
 # Files from the project to import
 from NN_architecture import MNISTMLP
@@ -25,7 +27,6 @@ from datasets import (train_loader_MNIST, test_loader_MNIST, val_loader_MNIST,
                       test_set)
 from functions import (train_NN, compute_val_acc, compute_test_acc,
                        compute_all_edge_values, process_sample)
-from utils import parse_cmdline_args
 
 try:
     os.mkdir("trained_models")
@@ -37,17 +38,6 @@ try:
 except FileExistsError:
     pass
 
-# ------------------------
-# ----- Command line arguments
-# ------------------------
-
-args = parse_cmdline_args()
-num_epochs = args.num_epochs
-epsilon = args.epsilon
-noise = args.noise
-threshold = args.threshold
-save = args.save
-
 
 # --------------------
 # ----- Neural Network
@@ -57,7 +47,6 @@ save = args.save
 def get_model(
         num_epochs: int
 ) -> (nn.Module, nn.Module):
-
     model_filename = f"trained_models/mnist_{num_epochs}_epochs.model"
     loss_func = nn.CrossEntropyLoss()
 
@@ -88,39 +77,82 @@ def get_model(
     return net, loss_func
 
 
+def _get_dataset_path(
+        num_epochs: int,
+        epsilon: float,
+        noise: float,
+        adv: bool
+):
+    suffix = "_adv" if adv else ""
+    return f"graph_datasets/mnist_{num_epochs}_" \
+           f"{str(epsilon).replace('.', '_')}_" \
+           f"{str(noise).replace('.', '_')}{suffix}"
+
+
+def get_dataset(
+        num_epochs: int,
+        epsilon: float,
+        noise: float,
+        adv: bool
+):
+    dataset_path = _get_dataset_path(
+        num_epochs=num_epochs,
+        epsilon=epsilon,
+        noise=noise,
+        adv=adv
+    )
+
+    if os.path.exists(dataset_path):
+        with open(dataset_path, "rb") as f:
+            return pickle.load(f)
+
+    # Else we have to compute the dataset first
+    model, loss_func = get_model(num_epochs=num_epochs)
+    dataset = list()
+    N = int(len(test_set) * 0.1)
+    correct = 0
+
+    for i in tqdm(range(N)):
+        sample = test_set[i]
+
+        x, y = process_sample(
+            sample=sample,
+            adversarial=adv,
+            noise=noise,
+            epsilon=epsilon,
+            model=model,
+            num_classes=10
+        )
+
+        y_pred = model(x).argmax(dim=-1).item()
+        y_adv = 0 if not adv else 1  # is it adversarial
+        correct += 1 if y_pred == y else 0
+        x_graph = compute_all_edge_values(model,
+                                          x.view(-1, 28 * 28).double())
+        dataset.append((x_graph, y, y_pred, y_adv))
+
+    logger.info(f"Successfully generated dataset of {N} points"
+                f" (model accuracy {100 * float(correct) / N}%)")
+
+    with open(dataset_path, "wb") as f:
+        pickle.dump(dataset, f)
+
+    return dataset
+
+
 # ----------------
 # ----------------
 # Run experiment !
 # ----------------
 # ----------------
 
+
 if __name__ == "__main__":
-    model, loss_func = get_model(num_epochs=num_epochs)
 
-    print(model)
-    print(loss_func)
-
-    for adv in [False, True]:
-        graph_test_set = list()
-
-        for i in tqdm(range(int(len(test_set)*0.1))):
-            sample = test_set[i]
-
-            x, y = process_sample(
-                sample=sample,
-                adversarial=False,
-                noise=noise,
-                epsilon=epsilon,
-                model=model,
-                loss_func=loss_func,
-                num_classes=10
-            )
-
-            y_adv = 0 if not adv else 1  # is it adversarial
-            suffix = "" if not adv else "_adv"
-            x_graph = compute_all_edge_values(model, x.double())
-            graph_test_set.append((x_graph, y, y_adv))
-
-        with open(f"graph_datasets/mnist_{num_epochs}_{str(noise).replace('.','_')}{suffix}", "wb") as f:
-            pickle.dump(graph_test_set, f)
-
+    for adv in [True, False]:
+        dataset = get_dataset(
+            num_epochs=20,
+            epsilon=0.02,
+            noise=0.0,
+            adv=adv
+        )

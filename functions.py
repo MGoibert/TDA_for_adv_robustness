@@ -15,7 +15,6 @@ import numpy as np
 import time
 from tqdm import tqdm
 from operator import itemgetter
-from itertools import repeat
 
 from datasets import test_set
 
@@ -76,8 +75,11 @@ def train_NN(model, train_loader, val_loader, loss_func, num_epochs):
     
     return model, loss_history
 
-# Compute the accuracy on the validation set
+
 def compute_val_acc(model, val_loader):
+    """
+    Compute the accuracy on the validation set
+    """
     correct = 0
     model.eval()
     with torch.no_grad():
@@ -90,8 +92,11 @@ def compute_val_acc(model, val_loader):
     print("Val accuracy =", acc)
     return acc
 
-# Compute the accuracy on the test set
+
 def compute_test_acc(model, test_loader):
+    """
+    Compute the accuracy on the test set
+    """
     model.eval()
     correct = 0
     with torch.no_grad():
@@ -105,9 +110,11 @@ def compute_test_acc(model, test_loader):
     return acc
 
 
-# Create an adversarial example (FGMS only for now)
 def adversarial_generation(model, x, y, epsilon=0.25, loss_func=CE_loss,
                            num_classes=10):
+    """
+    Create an adversarial example (FGMS only for now)
+    """
     x_clean = x.double()
     x_clean.requires_grad = True
     y_clean = torch.from_numpy(np.asarray(y)).unsqueeze(0)
@@ -120,8 +127,11 @@ def adversarial_generation(model, x, y, epsilon=0.25, loss_func=CE_loss,
     return x_adv
 
 
-# Compute all edge values of the multipartite graph
-def compute_all_edge_values(model, x):
+def compute_all_edge_values(model, x) -> typing.Dict:
+    """
+    Compute all edge values of the multipartite graph
+    in the form of a dictionary
+    """
     # Get the parameters of the model
     # Odd items are biases, so we just keep even elements (0, 2, etc.)
     w = list(model.parameters())[::2]
@@ -136,27 +146,39 @@ def compute_all_edge_values(model, x):
         val[k] = (w[k] * inter_x[k]).detach().numpy()
 
     # Step 2: process (absolute value and rescaling)
-    val = {key: 10e5 * np.abs(v) for key, v in val.items()}
+    edge_dict = {key: 10e5 * np.abs(v) for key, v in val.items()}
 
-    return val
+    return edge_dict
 
 
-def adjacency_matrix_from_edge_values(val):
-    M0 = np.transpose(val[0])
-    M1 = np.transpose(val[1])
-    M2 = np.transpose(val[2])
+def adjacency_matrix_from_edge_values(
+        edge_dict: typing.Dict,
+        threshold: typing.Optional[int] = None
+) -> np.matrix:
+    """
+    Compute the adjacency matrix of the graph using
+    an edge_dict
+    """
+    M0 = np.transpose(edge_dict[0])
+    M1 = np.transpose(edge_dict[1])
+    M2 = np.transpose(edge_dict[2])
 
     s0 = np.shape(M0)[0]
     s1 = np.shape(M1)[0]
     s2 = np.shape(M2)[0]
     s3 = np.shape(M2)[1]
 
-    return np.bmat([
+    W = np.bmat([
         [np.zeros((s0, s0)), M0, np.zeros((s0, s2)), np.zeros((s0, s3))],
         [np.transpose(M0), np.zeros((s1, s1)), M1, np.zeros((s1, s3))],
         [np.zeros((s2, s0)), np.transpose(M1), np.zeros((s2, s2)), M2],
         [np.zeros((s3, s0)), np.zeros((s3, s1)), np.transpose(M2), np.zeros((s3, s3))],
     ])
+
+    if threshold:
+        W[W < threshold] = 0.0
+
+    return W
 
 
 def process_sample(
@@ -165,7 +187,6 @@ def process_sample(
         noise: float = 0,
         epsilon: float = 0,
         model: typing.Optional[nn.Module] = None,
-        loss_func: typing.Optional[nn.Module] = None,
         num_classes: int = 10
 ):
     # Casting to double
@@ -181,10 +202,67 @@ def process_sample(
     return x, y
 
 
-# Compute the persistent diagram
+def compute_dgm_from_edges(
+        edge_dict: typing.Dict,
+        threshold: int
+):
+    """
+    Create the simplicial complexes using dionysus
+    Fast implementation but "by hand"
+    """
+
+    vec = []
+    shape = np.cumsum([edge_dict[key].shape[1] for key in edge_dict.keys()])
+    shape = np.insert(shape, 0, 0)
+    shape = np.insert(shape, len(shape), shape[len(shape) - 1] + edge_dict[len(shape) - 2].shape[0])
+
+    for layer_idx in edge_dict.keys():
+        # Adding the edges
+        row, col = np.meshgrid(np.arange(shape[layer_idx], shape[layer_idx + 1]),
+                               np.arange(shape[layer_idx + 1], shape[layer_idx + 2]))
+        table = np.vstack((edge_dict[layer_idx].ravel(), row.ravel(), col.ravel())).T
+        table = np.delete(table, np.where((np.asarray(list(map(itemgetter(0), table))) < threshold))[0], axis=0)
+        if layer_idx == 0:
+            vec = list(zip(map(list, zip(map(lambda x: int(x), map(itemgetter(1), table)),
+                                         map(lambda x: int(x), map(itemgetter(2), table)))),
+                           map(itemgetter(0), table)))
+        else:
+            vec = vec + list(zip(map(list, zip(map(lambda x: int(x), map(itemgetter(1), table)),
+                                               map(lambda x: int(x), map(itemgetter(2), table)))),
+                                 map(itemgetter(0), table)))
+
+    # Fast implementation
+    # Adding the vertices
+    nb_vertices = int(max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array]))
+
+    dict_vertices = {key: [] for key in range(nb_vertices + 1)}
+    for edge, timing in vec:
+        if len(dict_vertices[edge[0]]) == 0 or timing <= min(dict_vertices[edge[0]]):
+            dict_vertices[edge[0]].append(timing)
+        if len(dict_vertices[edge[1]]) == 0 or timing <= min(dict_vertices[edge[1]]):
+            dict_vertices[edge[1]].append(timing)
+    for vertex in dict_vertices:
+        if len(dict_vertices[vertex]) > 0:
+            vec.append(([vertex], min(dict_vertices[vertex])))
+
+    # Dionysus computations (persistent diagrams)
+    f = d.Filtration()
+    for vertices, timing in vec:
+        f.append(d.Simplex(vertices, timing))
+    f.sort()
+    m = d.homology_persistence(f)
+    dgms = d.init_diagrams(m, f)
+
+    return dgms[0]
+
+
+# TODO: Deprecate this
 def compute_persistent_dgm(model, test_set, loss_func,
                            numero_ex=0, adversarial=False, epsilon=.25,
                            threshold=0, noise=0, num_classes=None):
+    """
+    Compute the persistent diagram
+    """
     
     t0 = time.time()
 
@@ -197,86 +275,26 @@ def compute_persistent_dgm(model, test_set, loss_func,
         noise,
         epsilon,
         model,
-        loss_func,
         num_classes
     )
 
     pred = model(x).argmax(dim=-1).item()
     x = x.view(-1, 28 * 28)
 
-    val = compute_all_edge_values(model, x)
+    edge_dict = compute_all_edge_values(model, x)
 
-    # Create the simplicial complexes using dionysus
-    # Fast implementation but "by hand"
-    vec = []
-    shape = np.cumsum([val[key].shape[1] for key in val.keys() ])
-    shape = np.insert(shape, 0, 0)
-    shape = np.insert(shape, len(shape), shape[len(shape)-1]+val[len(shape)-2].shape[0])
-    
-    # Old method: slower
-    #for key in val.keys():
-    #    for row in range(val[key].shape[0]):
-    #        for col in range(val[key].shape[1]):
-    #            if val[key][row,col] >= threshold:
-    #                vec.append( ([row+shape[key+1], col+shape[key]],
-    #                             val[key][row,col]) )
-    
-    #layer = {key:[] for key in range(len(val)+1)}
-    for key in val.keys():
-        # For vertices
-        #layer[key].append(list(map( lambda t: min((i for i in t if i>=threshold), default= np.inf) , val[key].T )))
-        #layer[key+1].append(list(map( lambda t: min((i for i in t if i>=threshold), default = np.inf) , val[key] )))
+    diagram = compute_dgm_from_edges(
+        edge_dict=edge_dict,
+        threshold=threshold
+    )
 
-        # Adding the edges
-        row, col = np.meshgrid(np.arange(shape[key], shape[key+1]),
-                               np.arange(shape[key+1], shape[key+2]))
-        table = np.vstack( (val[key].ravel(),row.ravel(),col.ravel()) ).T
-        table = np.delete(table,np.where((np.asarray(list(map(itemgetter(0), table))) < threshold))[0], axis=0)
-        if key == 0:
-            vec = list(zip(map(list, zip( map(lambda x: int(x), map(itemgetter(1), table)),
-                                         map(lambda x: int(x), map(itemgetter(2), table) ))),
-                            map(itemgetter(0), table))) 
-        else:
-           vec = vec+list(zip(map(list, zip( map(lambda x: int(x), map(itemgetter(1), table)),
-                                         map(lambda x: int(x), map(itemgetter(2), table) ))),
-                            map(itemgetter(0), table))) 
+    d.plot.plot_diagram(diagram, show=True)
 
-    #for key in layer.keys():
-    #    layer[key] = [min(x[i] for x in layer[key]) for i in range(len(layer[key][0]))]
-    #    new_val = list( zip( list(map(lambda x: [x], range(shape[key],shape[key+1]))), layer[key] ) )
-    #    new_val = [elem for elem in new_val if elem[1] != np.inf]
-    #    vec = vec+new_val
-
-    # Fast implementation
-    # Adding the vertices
-    nb_vertices = int(max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array]))
-
-    dict_vertices = {key: [] for key in range(nb_vertices+1)}
-    for edge, timing in vec:
-        if len(dict_vertices[edge[0]]) == 0 or  timing <= min(dict_vertices[edge[0]]):
-            dict_vertices[edge[0]].append(timing)
-        if len(dict_vertices[edge[1]]) == 0 or timing <= min(dict_vertices[edge[1]]):
-            dict_vertices[edge[1]].append(timing)
-    for vertex in dict_vertices:
-        if len(dict_vertices[vertex]) > 0:
-            vec.append( ([vertex], min(dict_vertices[vertex])) )
-    
-    # Dionysus computations (persistent diagrams)
-    f = d.Filtration()
-    for vertices, timing in vec:
-        f.append(d.Simplex(vertices, timing))
-    f.sort()
-    m = d.homology_persistence(f)
-    dgms = d.init_diagrams(m, f)
-    
-    d.plot.plot_diagram(dgms[0], show = True)
-    
     t1 = time.time()
-    print("Time: %s, true label = %s, pred = %s, adv = %s" %(np.round(t1 - t0, decimals=2), 
-                                         test_set[numero_ex][1], pred, adversarial))
-    
-    return dgms[0], test_set[numero_ex][1], adversarial, pred
+    print("Time: %s, true label = %s, pred = %s, adv = %s" % (np.round(t1 - t0, decimals=2),
+                                                              test_set[numero_ex][1], pred, adversarial))
 
+    return diagram, test_set[numero_ex][1], adversarial, pred
 
 
 # Derive valid indices for a specific class
@@ -339,6 +357,7 @@ def compute_distances(dgms_dict, dgms_dict_perturbed, adversarial=True, noisy=Fa
         distrib_dist["dist"+add+"_"+str(k)] = dist_temp
     return distrib_dist
 
+
 # Compute inter-class distribution for clean inputs.
 # Careful, very long to compute
 def compute_inter_distances(dgms_dict):
@@ -380,6 +399,7 @@ def produce_dgms(net, test_set, loss_func, threshold, inds_all_class,
         dgms_dict["dgms_" + str(i)] = temp
     
     return dgms_dict
+
 
 # Save results
 def save_result(result, threshold, epsilon, noise):

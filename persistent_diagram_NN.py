@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import dionysus as d
+import sys
 from scipy.spatial.distance import squareform
 
 import scipy.stats as stats
@@ -89,6 +90,7 @@ compute_test_acc(model, test_loader)
 
 def run_dist_detection(n, threshold, epsilon, noise, start_n=0, net=net, test_set=test_set,
                        loss_func=loss_func, num_classes=None):
+    all_class = range(10)
     
     # Indices for all classes
     ind_classes = {key: get_class_indices(key, number="all") for key in all_class}
@@ -188,7 +190,7 @@ result = run_dist_detection(n, threshold, epsilon, noise, start_n=start_n,
                             num_classes=num_classes)
 
 # Save
-#save_result(result, threshold, epsilon, noise)
+# save_result(result, threshold, epsilon, noise)
 
 distrib_dist = result[2]
 distrib_dist_adv = result[5]
@@ -223,7 +225,7 @@ epsilon = 0.2
 noise = 0.2
 import _pickle as cPickle
 param = "threshold_%s_eps_%s_noise_%s/" %(threshold, epsilon, noise)    
-path = "/Users/m.goibert/Documents/Criteo/Project_2-Persistent_Homology/TDA_for_adv_robustness/dict_files/"+param
+path = "/Users/t.ricatte/dev/tda_for_adv_robustness/dict_files/"+param
 
 with open(path+'distrib_dist.pickle', 'rb') as fp:
     distrib_dist = cPickle.load(fp)
