@@ -25,7 +25,7 @@ def get_embedding(
         return embedding
     elif embedding_type == EmbeddingType.WeisfeilerLehman:
         return get_wl_embedding(
-            graph=graph,
+            graph=graph.to_nx_graph(params['threshold']),
             height=params['height'],
             hash_size=params['hash_size']).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
