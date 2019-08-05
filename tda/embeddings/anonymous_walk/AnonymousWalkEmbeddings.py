@@ -9,25 +9,22 @@ Tensorflow implementation of distributed Anonymous Walks Embeddings (AWE).
 '''
 from __future__ import division, print_function
 
-import os
-import math
-import random
 import argparse
-import sys
-import time
+import math
+import os
+import random
 import re
 import shutil
-import threading
-from collections import Counter
+import sys
+import time
 
 import numpy as np
 import tensorflow as tf
-
-from AnonymousWalkKernel import AnonymousWalks, GraphKernel, Evaluation
-
 from sklearn import svm
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+
+from .AnonymousWalkKernel import AnonymousWalks, GraphKernel, Evaluation
 
 SEED = 2018
 

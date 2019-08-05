@@ -8,8 +8,11 @@ Author: Morgane Goibert <morgane.goibert@gmail.com>
 
 import torch.nn as nn
 
-# MLP for MNIST
+
 class MNISTMLP(nn.Module):
+    """
+    MLP for MNIST
+    """
     def __init__(self):
         super(MNISTMLP, self).__init__()
         self.fc1 = nn.Linear(28 * 28, 500)
