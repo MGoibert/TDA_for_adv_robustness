@@ -111,7 +111,8 @@ def get_dataset(
         num_epochs: int,
         epsilon: float,
         noise: float,
-        adv: bool
+        adv: bool,
+        use_cache: bool = False
 ) -> typing.List:
     dataset_path = _get_dataset_path(
         num_epochs=num_epochs,
@@ -120,7 +121,7 @@ def get_dataset(
         adv=adv
     )
 
-    if os.path.exists(dataset_path):
+    if use_cache and os.path.exists(dataset_path):
         with open(dataset_path, "rb") as f:
             return pickle.load(f)
 
@@ -154,8 +155,9 @@ def get_dataset(
     logger.info(f"Successfully generated dataset of {N} points"
                 f" (model accuracy {100 * float(correct) / N}%)")
 
-    with open(dataset_path, "wb") as f:
-        pickle.dump(dataset, f)
+    if use_cache:
+        with open(dataset_path, "wb") as f:
+            pickle.dump(dataset, f)
 
     return dataset
 

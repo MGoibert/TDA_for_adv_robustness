@@ -79,7 +79,7 @@ def train_network(model, train_loader, val_loader, loss_func, num_epochs):
 def get_mnist_model(
         num_epochs: int
 ) -> (nn.Module, nn.Module):
-    model_filename = f"/tmp/tda/mnist_{num_epochs}_epochs.model"
+    model_filename = f"/tmp/tda/trained_models/mnist_{num_epochs}_epochs.model"
     loss_func = nn.CrossEntropyLoss()
 
     try:
