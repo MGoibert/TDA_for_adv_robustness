@@ -131,7 +131,7 @@ def get_dataset(
     N = int(len(test_set) * 0.1)
     correct = 0
 
-    for i in tqdm(range(N)):
+    for i in range(N):
         sample = test_set[i]
 
         x, y = process_sample(
