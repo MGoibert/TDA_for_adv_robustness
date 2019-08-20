@@ -3,10 +3,12 @@
 
 import argparse
 import logging
+import typing
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
 from sklearn.metrics import roc_auc_score
 from sklearn.svm import OneClassSVM
+from multiprocessing import Pool
 
 from tda.embeddings import get_embedding
 from tda.graph_dataset import get_dataset
@@ -65,13 +67,13 @@ def get_vector_from_diagram(dgm):
     return list(reversed(sorted([dp.death - dp.birth for dp in dgm][1:])))[:20]
 
 
-embeddings = list()
+separability_values = list()
 
-for epsilon in all_epsilons:
+def get_embeddings(epsilon: float) -> typing.List:
     logger.info(f"Computing embeddings for epsilon={epsilon}")
+    embeddings = list()
     ds = datasets[epsilon]
     for idx in range(len(ds[:100])):
-
         embedding = get_embedding(
             embedding_type=args.embedding_type,
             graph=ds[idx][0],
@@ -84,15 +86,20 @@ for epsilon in all_epsilons:
 
         embeddings.append((embedding, ds[idx][1], ds[idx][2], ds[idx][3], epsilon))
 
+    return embeddings
 
-separability_values = list()
 
-for epsilon in all_epsilons:
+clean_embeddings = get_embeddings(0.0)
 
-    logger.info(f"Computing performance for epsilon={epsilon}")
+
+def process_epsilon(epsilon: float) -> float:
 
     if epsilon == 0.0:
-        continue
+        return 0.5
+
+    embeddings = clean_embeddings + get_embeddings(epsilon)
+
+    logger.info(f"Computing performance for epsilon={epsilon}")
 
     roc_values = list()
 
@@ -116,7 +123,11 @@ for epsilon in all_epsilons:
         roc_val = roc_auc_score(y_true=labels, y_score=predictions)
         roc_values.append(roc_val)
 
-    separability_values.append((epsilon, np.max(roc_values)))
+    return np.max(roc_values)
+
+
+with Pool(4) as p:
+    separability_values = p.map(process_epsilon, all_epsilons)
 
 logger.info(separability_values)
 
