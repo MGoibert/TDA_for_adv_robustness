@@ -123,5 +123,7 @@ logger.info(separability_values)
 my_db.update_experiment(
     experiment_id=args.experiment_id,
     run_id=args.run_id,
-    metrics=separability_values
+    metrics={
+        "separability_values": separability_values
+    }
 )

@@ -1,4 +1,6 @@
 import os
 
 rootpath = "{}/..".format(os.path.dirname(os.path.abspath(__file__)))
-db_path = f"/Users/{os.environ['USER']}/r3d3.db"
+
+_default_db_path = f"/Users/{os.environ['USER']}/r3d3.db"
+db_path = os.environ.get('TDA_DB_PATH', _default_db_path)

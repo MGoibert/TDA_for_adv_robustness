@@ -12,6 +12,9 @@ experiment = R3D3Experiment(
         'threshold': [
             5000,
             10000,
+            15000,
+            17500,
+            20000,
             25000,
             50000
         ],

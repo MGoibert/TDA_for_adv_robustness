@@ -1,7 +1,14 @@
 import typing
 import numpy as np
 from operator import itemgetter
-from dionysus import Filtration, Simplex, homology_persistence, init_diagrams
+try:
+    from dionysus import Filtration, Simplex, homology_persistence, init_diagrams
+except Exception as e:
+    print("Unable to find dionysus")
+    Filtration = None
+    Simplex = None
+    homology_persistence = None
+    init_diagrams = None
 
 
 def compute_dgm_from_edges(

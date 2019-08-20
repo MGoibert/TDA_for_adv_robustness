@@ -1,7 +1,6 @@
 numpy
 scipy
 seaborn
-dionysus
 torch
 torchvision
 ipython
