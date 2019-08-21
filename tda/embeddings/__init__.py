@@ -1,4 +1,5 @@
 import typing
+import numpy as np
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
@@ -9,6 +10,7 @@ class EmbeddingType(object):
     AnonymousWalk = "AnonymousWalk"
     WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
+    OriginalDataPoint = "OriginalDataPoint"
 
 
 def get_embedding(
@@ -30,3 +32,5 @@ def get_embedding(
             hash_size=params['hash_size']).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_edges(graph._edge_dict, params['threshold'])
+    elif embedding_type == EmbeddingType.OriginalDataPoint:
+        return np.reshape(graph.original_data_point, (-1))

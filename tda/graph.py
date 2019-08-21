@@ -7,13 +7,18 @@ from torch import Tensor
 
 class Graph(object):
 
-    def __init__(self, edge_dict: typing.Dict):
+    def __init__(self,
+                 edge_dict: typing.Dict,
+                 original_data_point: typing.Optional[np.ndarray] = None
+                 ):
         self._edge_dict = edge_dict
+        self.original_data_point = original_data_point
 
     @classmethod
     def from_model_and_data_point(cls,
                                   model: Module,
-                                  x: Tensor):
+                                  x: Tensor,
+                                  retain_data_point: bool = False):
         """
         Create graph from torch model and sample point
         """
@@ -34,7 +39,14 @@ class Graph(object):
         # Step 2: process (absolute value and rescaling)
         edge_dict = {key: 10e5 * np.abs(v) for key, v in val.items()}
 
-        return cls(edge_dict=edge_dict)
+        original_x = None
+        if retain_data_point:
+            original_x = x.detach().numpy()
+
+        return cls(
+            edge_dict=edge_dict,
+            original_data_point=original_x
+        )
 
     def get_adjacency_matrix(
             self,

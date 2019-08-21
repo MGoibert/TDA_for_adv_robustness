@@ -112,7 +112,8 @@ def get_dataset(
         epsilon: float,
         noise: float,
         adv: bool,
-        use_cache: bool = False
+        use_cache: bool = False,
+        retain_data_point: bool = False
 ) -> typing.List:
     dataset_path = _get_dataset_path(
         num_epochs=num_epochs,
@@ -148,7 +149,8 @@ def get_dataset(
         correct += 1 if y_pred == y else 0
         x_graph = Graph.from_model_and_data_point(
             model=model,
-            x=x.view(-1, 28 * 28).double()
+            x=x.view(-1, 28 * 28).double(),
+            retain_data_point=retain_data_point
         )
         dataset.append((x_graph, y, y_pred, y_adv))
 

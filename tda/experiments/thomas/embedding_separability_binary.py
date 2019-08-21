@@ -10,7 +10,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.svm import OneClassSVM
 from multiprocessing import Pool
 
-from tda.embeddings import get_embedding
+from tda.embeddings import get_embedding, EmbeddingType
 from tda.graph_dataset import get_dataset
 from tda.rootpath import db_path
 
@@ -38,11 +38,18 @@ logger = logging.getLogger(f"[{args.experiment_id}_{args.run_id}]")
 # Fetching datasets #
 #####################
 
+if args.embedding_type == EmbeddingType.OriginalDataPoint:
+    retain_data_point = True
+else:
+    retain_data_point = False
+
 datasets = {0: get_dataset(
     num_epochs=20,
     epsilon=0.04,
     noise=0.0,
-    adv=False)
+    adv=False,
+    retain_data_point=retain_data_point
+)
 }
 
 all_epsilons = list(sorted(np.linspace(0.01, 0.075, num=5)))
@@ -53,7 +60,8 @@ for epsilon in all_epsilons:
         num_epochs=20,
         epsilon=epsilon,
         noise=0.0,
-        adv=True
+        adv=True,
+        retain_data_point=retain_data_point
     )
 
 all_epsilons = [0.0] + all_epsilons
@@ -68,6 +76,7 @@ def get_vector_from_diagram(dgm):
 
 
 separability_values = list()
+
 
 def get_embeddings(epsilon: float) -> typing.List:
     logger.info(f"Computing embeddings for epsilon={epsilon}")
