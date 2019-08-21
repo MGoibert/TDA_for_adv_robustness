@@ -10,7 +10,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.svm import OneClassSVM
 from multiprocessing import Pool
 
-from tda.embeddings import get_embedding, EmbeddingType
+from tda.embeddings import get_embedding, EmbeddingType, get_kernel
 from tda.graph_dataset import get_dataset
 from tda.rootpath import db_path
 
@@ -98,6 +98,7 @@ def get_embeddings(epsilon: float) -> typing.List:
     return embeddings
 
 
+kernel = get_kernel(embedding_type=args.embedding_type)
 clean_embeddings = get_embeddings(0.0)
 
 
@@ -115,7 +116,9 @@ def process_epsilon(epsilon: float) -> float:
     for gamma in np.logspace(-6, -3, 10):
         ocs = OneClassSVM(
             tol=1e-5,
-            gamma=gamma)
+            gamma=gamma,
+            kernel=kernel if kernel else "rbf"
+        )
 
         clean_data = [np.ndarray.flatten(np.array((e[0]))) for e in embeddings if e[4] == 0.0]
         train_data = clean_data[:len(clean_data) // 2]
