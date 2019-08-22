@@ -30,6 +30,7 @@ parser.add_argument('--threshold', type=int, default=0)
 parser.add_argument('--height', type=int, default=1)
 parser.add_argument('--hash_size', type=int, default=100)
 parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
+parser.add_argument('--steps', type=int, default=1)
 
 args, _ = parser.parse_known_args()
 
@@ -92,7 +93,8 @@ def get_embeddings(epsilon: float) -> typing.List:
                 "threshold": int(args.threshold),
                 "hash_size": int(args.hash_size),
                 "height": int(args.height),
-                "node_labels": args.node_labels
+                "node_labels": args.node_labels,
+                "steps": args.steps
             }
         )
 
