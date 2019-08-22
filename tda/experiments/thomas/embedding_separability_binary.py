@@ -13,6 +13,7 @@ from multiprocessing import Pool
 from tda.embeddings import get_embedding, EmbeddingType
 from tda.graph_dataset import get_dataset
 from tda.rootpath import db_path
+from tda.embeddings.weisfeiler_lehman import NodeLabels
 
 my_db = ExperimentDB(db_path=db_path)
 
@@ -22,12 +23,13 @@ my_db = ExperimentDB(db_path=db_path)
 
 parser = argparse.ArgumentParser(
         description='Transform a dataset in pail files to tf records.')
-parser.add_argument('--experiment_id', type=int)
-parser.add_argument('--run_id', type=int)
-parser.add_argument('--embedding_type', type=str)
-parser.add_argument('--threshold', type=int)
-parser.add_argument('--height', type=int)
-parser.add_argument('--hash_size', type=int)
+parser.add_argument('--experiment_id', type=int, default=-1)
+parser.add_argument('--run_id', type=int, default=-1)
+parser.add_argument('--embedding_type', type=str, default=EmbeddingType.WeisfeilerLehman)
+parser.add_argument('--threshold', type=int, default=0)
+parser.add_argument('--height', type=int, default=1)
+parser.add_argument('--hash_size', type=int, default=100)
+parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
 
 args, _ = parser.parse_known_args()
 
@@ -89,7 +91,8 @@ def get_embeddings(epsilon: float) -> typing.List:
             params={
                 "threshold": int(args.threshold),
                 "hash_size": int(args.hash_size),
-                "height": int(args.height)
+                "height": int(args.height),
+                "node_labels": args.node_labels
             }
         )
 

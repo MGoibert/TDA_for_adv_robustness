@@ -27,9 +27,12 @@ def get_embedding(
         return embedding
     elif embedding_type == EmbeddingType.WeisfeilerLehman:
         return get_wl_embedding(
-            graph=graph.to_nx_graph(params['threshold']),
+            graph=graph,
+            threshold=params['threshold'],
             height=params['height'],
-            hash_size=params['hash_size']).todense()
+            hash_size=params['hash_size'],
+            node_labels=params["node_labels"]
+        ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_edges(graph._edge_dict, params['threshold'])
     elif embedding_type == EmbeddingType.OriginalDataPoint:

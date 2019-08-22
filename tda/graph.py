@@ -64,6 +64,8 @@ class Graph(object):
         s2 = np.shape(m2)[0]
         s3 = np.shape(m2)[1]
 
+        print((s0, s1, s2, s3))
+
         W = np.bmat([
             [np.zeros((s0, s0)), m0, np.zeros((s0, s2)), np.zeros((s0, s3))],
             [np.transpose(m0), np.zeros((s1, s1)), m1, np.zeros((s1, s3))],
@@ -75,6 +77,24 @@ class Graph(object):
             W[W < threshold] = 0.0
 
         return W
+
+    def get_layer_node_labels(self) -> typing.List[int]:
+        """
+        Return a list of label nodes equal to the layers they belong
+        """
+        m0 = np.transpose(self._edge_dict[0])
+        m1 = np.transpose(self._edge_dict[1])
+        m2 = np.transpose(self._edge_dict[2])
+
+        s0 = np.shape(m0)[0]
+        s1 = np.shape(m1)[0]
+        s2 = np.shape(m2)[0]
+        s3 = np.shape(m2)[1]
+
+        return [0 for _ in range(s0)] + \
+               [1 for _ in range(s1)] + \
+               [2 for _ in range(s2)] + \
+               [3 for _ in range(s3)]
 
     def to_nx_graph(
             self,
