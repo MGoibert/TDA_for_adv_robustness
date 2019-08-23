@@ -9,10 +9,12 @@ class Graph(object):
 
     def __init__(self,
                  edge_dict: typing.Dict,
+                 final_logits: typing.List[float],
                  original_data_point: typing.Optional[np.ndarray] = None
                  ):
         self._edge_dict = edge_dict
         self.original_data_point = original_data_point
+        self.final_logits = final_logits
 
     @classmethod
     def from_model_and_data_point(cls,
@@ -43,8 +45,12 @@ class Graph(object):
         if retain_data_point:
             original_x = x.detach().numpy()
 
+        # Step 3: Saving the final logits
+        final_logits = list(np.reshape(inter_x[-1].detach().numpy(), -1))
+
         return cls(
             edge_dict=edge_dict,
+            final_logits=final_logits,
             original_data_point=original_x
         )
 

@@ -11,6 +11,7 @@ class EmbeddingType(object):
     WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
     OriginalDataPoint = "OriginalDataPoint"
+    LastLayerSortedLogits = "LastLayerSortedLogits"
 
 
 def get_embedding(
@@ -37,3 +38,5 @@ def get_embedding(
         return compute_dgm_from_edges(graph._edge_dict, params['threshold'])
     elif embedding_type == EmbeddingType.OriginalDataPoint:
         return np.reshape(graph.original_data_point, (-1))
+    elif embedding_type == EmbeddingType.LastLayerSortedLogits:
+        return sorted(graph.final_logits)
