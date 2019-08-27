@@ -1,8 +1,10 @@
 import networkx as nx
 import typing
+import torch
 import numpy as np
 from torch.nn import Module
 from torch import Tensor
+from torch_geometric.data import Data
 
 
 class Graph(object):
@@ -107,3 +109,22 @@ class Graph(object):
             threshold: typing.Optional[int] = None
     ) -> nx.Graph:
         return nx.from_numpy_matrix(self.get_adjacency_matrix(threshold))
+
+    def to_pytorch_geometric_data(self, threshold: int) -> Data:
+        offset = 0
+        edge_indices = []
+        edge_weights = []
+        for key in self._edge_dict:
+            rows, cols = np.where(self._edge_dict[key] >= threshold)
+            edge_weights.append(torch.tensor(self._edge_dict[key][rows, cols]))
+            cols = torch.tensor(cols, dtype=torch.long).unsqueeze(1) + offset
+            offset += np.shape(self._edge_dict[key])[1]
+            rows = torch.tensor(rows, dtype=torch.long).unsqueeze(1) + offset
+            edge_indices.append(torch.cat((cols, rows), 1))
+
+        edge_index = torch.transpose(torch.cat(edge_indices, 0), 0, 1)
+        edge_weight = torch.cat(edge_weights, 0).unsqueeze(1)
+        x = torch.tensor(self.get_layer_node_labels(), dtype=torch.double).unsqueeze(1)
+
+        data = Data(x=x, edge_index=edge_index, edge_attr=edge_weight)
+        return data

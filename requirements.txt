@@ -3,6 +3,10 @@ scipy
 seaborn
 torch
 torchvision
+torch-scatter
+torch-sparse
+torch-cluster
+torch-geometric
 ipython
 tqdm
 scikit-learn
