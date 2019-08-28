@@ -131,7 +131,15 @@ class Graph(object):
 
         edge_index = torch.transpose(torch.cat(edge_indices, 0), 0, 1)
         edge_weight = torch.cat(edge_weights, 0).unsqueeze(1)
-        x = torch.tensor(self.get_layer_node_labels(), dtype=torch.double).unsqueeze(1)
 
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_weight)
+        # Node labels as one-hot encoded version of the layer index
+        x = torch.tensor(self.get_layer_node_labels(), dtype=torch.long).unsqueeze(1)
+        x_onehot = torch.FloatTensor(len(x), len(self._edge_dict)+1)
+        x_onehot.zero_()
+        x_onehot.scatter_(1, x, 1)
+
+        data = Data(
+            x=x_onehot.type(torch.double),
+            edge_index=edge_index,
+            edge_attr=edge_weight)
         return data
