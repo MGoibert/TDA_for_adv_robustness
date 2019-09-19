@@ -1,10 +1,17 @@
 import networkx as nx
 import typing
+import logging
 import torch
 import numpy as np
 from torch.nn import Module
 from torch import Tensor
-from torch_geometric.data import Data
+try:
+    from torch_geometric.data import Data
+except:
+    Data = None
+    logging.warning("torch_geometric wasn't found. You won't be able to use GNN algorithms."
+                    "Please follow https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html"
+                    " if you want to do so.")
 
 
 class Graph(object):
