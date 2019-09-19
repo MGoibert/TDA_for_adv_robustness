@@ -4,17 +4,18 @@
 import argparse
 import logging
 import typing
+from multiprocessing import Pool
+
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
 from sklearn.metrics import roc_auc_score
 from sklearn.svm import OneClassSVM
-from multiprocessing import Pool
 
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
+from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
 from tda.rootpath import db_path
-from tda.embeddings.weisfeiler_lehman import NodeLabels
 
 my_db = ExperimentDB(db_path=db_path)
 
@@ -27,7 +28,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--experiment_id', type=int, default=-1)
 parser.add_argument('--run_id', type=int, default=-1)
 parser.add_argument('--embedding_type', type=str, default=EmbeddingType.WeisfeilerLehman)
-parser.add_argument('--kernel_type', type=str, default=KernelType.Euclidean)
+parser.add_argument('--kernel_type', type=str, default=KernelType.RBF)
 parser.add_argument('--threshold', type=int, default=0)
 parser.add_argument('--height', type=int, default=1)
 parser.add_argument('--hash_size', type=int, default=100)
@@ -119,7 +120,17 @@ def process_epsilon(epsilon: float) -> float:
 
     roc_values = list()
 
-    for gamma in np.logspace(-6, -3, 10):
+    if args.kernel_type == KernelType.RBF:
+        param_space = [
+            {'gamma': gamma}
+            for gamma in np.logspace(-6, -3, 10)
+        ]
+    if args.kernel_type == KernelType.SlicedWasserstein:
+        param_space = [
+            {'M': 10, 'sigma': 5*10**(-5)}
+        ]
+
+    for param in param_space:
         ocs = OneClassSVM(
             tol=1e-5,
             kernel="precomputed")
@@ -135,16 +146,16 @@ def process_epsilon(epsilon: float) -> float:
         # Training model
 
         gram_train = get_gram_matrix(
-            KernelType.RBF, train_data, train_data,
-            {"gamma": gamma}
+            args.kernel_type, train_data, train_data,
+            param
         )
         ocs.fit(gram_train)
 
         # Testing model
 
         gram_test_and_bad = get_gram_matrix(
-            KernelType.RBF, test_data + bad_data, train_data,
-            {"gamma": gamma}
+            args.kernel_type, test_data + bad_data, train_data,
+            param
         )
         predictions = ocs.score_samples(gram_test_and_bad)
 
