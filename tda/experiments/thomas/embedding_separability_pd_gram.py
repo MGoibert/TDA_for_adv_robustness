@@ -15,6 +15,9 @@ experiment = R3D3Experiment(
         ],
         'threshold': [
             15000
+        ],
+        'noise': [
+            0, 0.02
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",

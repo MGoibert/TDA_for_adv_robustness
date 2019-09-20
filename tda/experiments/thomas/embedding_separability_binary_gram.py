@@ -4,6 +4,7 @@
 import argparse
 import logging
 import typing
+from random import shuffle
 from multiprocessing import Pool
 
 import numpy as np
@@ -24,7 +25,7 @@ my_db = ExperimentDB(db_path=db_path)
 ################
 
 parser = argparse.ArgumentParser(
-        description='Transform a dataset in pail files to tf records.')
+    description='Transform a dataset in pail files to tf records.')
 parser.add_argument('--experiment_id', type=int, default=-1)
 parser.add_argument('--run_id', type=int, default=-1)
 parser.add_argument('--embedding_type', type=str, default=EmbeddingType.WeisfeilerLehman)
@@ -34,6 +35,7 @@ parser.add_argument('--height', type=int, default=1)
 parser.add_argument('--hash_size', type=int, default=100)
 parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
 parser.add_argument('--steps', type=int, default=1)
+parser.add_argument('--noise', type=float, default=0.0)
 
 args, _ = parser.parse_known_args()
 
@@ -49,14 +51,24 @@ if args.embedding_type == EmbeddingType.OriginalDataPoint:
 else:
     retain_data_point = False
 
-datasets = {0: get_dataset(
-    num_epochs=20,
-    epsilon=0.04,
-    noise=0.0,
-    adv=False,
-    retain_data_point=retain_data_point
-)
-}
+ref_dataset = get_dataset(
+        num_epochs=20,
+        epsilon=0.04,
+        noise=0.0,
+        adv=False,
+        retain_data_point=retain_data_point
+    ) + get_dataset(
+        num_epochs=20,
+        epsilon=0.04,
+        noise=args.noise,
+        adv=False,
+        retain_data_point=retain_data_point
+    )
+
+shuffle(ref_dataset)
+
+datasets = {
+    0: ref_dataset}
 
 all_epsilons = list(sorted(np.linspace(0.01, 0.075, num=5)))
 
@@ -69,6 +81,7 @@ for epsilon in all_epsilons:
         adv=True,
         retain_data_point=retain_data_point
     )
+    shuffle(datasets[epsilon])
 
 all_epsilons = [0.0] + all_epsilons
 
@@ -110,7 +123,6 @@ clean_embeddings = get_embeddings(0.0)
 
 
 def process_epsilon(epsilon: float) -> float:
-
     if epsilon == 0.0:
         return 0.5
 
@@ -127,7 +139,7 @@ def process_epsilon(epsilon: float) -> float:
         ]
     if args.kernel_type == KernelType.SlicedWasserstein:
         param_space = [
-            {'M': 10, 'sigma': 5*10**(-5)}
+            {'M': 10, 'sigma': 5 * 10 ** (-5)}
         ]
 
     for param in param_space:
