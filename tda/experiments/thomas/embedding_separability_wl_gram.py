@@ -11,7 +11,7 @@ experiment = R3D3Experiment(
             EmbeddingType.WeisfeilerLehman
             ],
         'threshold': [
-            20000
+            15000, 20000
         ],
         'height': [
             5
@@ -22,6 +22,9 @@ experiment = R3D3Experiment(
         'node_labels': [
             NodeLabels.NONE,
             NodeLabels.LAYERS
+        ],
+        'noise': [
+            0.0, 0.02
         ]
 
     },
