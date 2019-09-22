@@ -53,13 +53,13 @@ else:
 
 ref_dataset = get_dataset(
         num_epochs=20,
-        epsilon=0.04,
+        epsilon=0.0,
         noise=0.0,
         adv=False,
         retain_data_point=retain_data_point
     ) + get_dataset(
         num_epochs=20,
-        epsilon=0.04,
+        epsilon=0.0,
         noise=args.noise,
         adv=False,
         retain_data_point=retain_data_point
@@ -179,7 +179,7 @@ def process_epsilon(epsilon: float) -> float:
     return np.max(roc_values)
 
 
-with Pool(4) as p:
+with Pool(2) as p:
     separability_values = p.map(process_epsilon, all_epsilons)
 
 logger.info(separability_values)
