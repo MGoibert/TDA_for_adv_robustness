@@ -15,6 +15,34 @@ $ pip install -e .
 ``` 
 * Opt. if you want to work on the GNN part, you will need pytorch geometric. The installation process is explained on this page https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html.
 
+### Caveats on a Criteo server
+
+All the code is compatible with the Criteo OS (i.e. the OS available either on Mozart or on the GPUs) except from dionysus, which required some additional setup.
+
+When you install dionysus, you need two ingredients that are not available by default:
+* Boost 1.55 (Criteo OS uses 1.53)
+* GCC 5.4 (Criteo OS uses 4.8)
+(cf. [official doc from dionysus](https://pypi.org/project/dionysus/))
+
+#### Boost 1.55
+
+To have boost available just follow these steps:
+````bash
+mkdir boost_155 && cd boost_155
+wget http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.gz
+tar xvzf boost_1_55_0.tar.gz
+cd boost_1_55_0
+pwd
+````
+
+The put the obtained path in the env variable `BOOST_ROOT` (in your bashrc).
+
+#### GCC 5.4
+
+This is a bit more tricky, we need a package that is not available by default aka `devtoolset`.
+If you are in mozart, you can install it directly but if you are on a GPU, you have to ask #gpu (maybe it should be installed by default, to be discussed).
+
+Then just run `scl enable devtoolset-8 bash` and now you are ready for the `pip install -e .`.
 
 ### Code organization
 
