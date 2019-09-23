@@ -1,21 +1,8 @@
 # Adversarial detection
 
-## Getting started
+## 1) Getting started
 
-### Setup
-
-*  Create a venv with python 3.6 and activate it
-```bash
-$ python -m venv my_env
-$ source ./my_env/bin/activate
-```
-* Install the project in the env (you should be in the root folder of the project)
-```bash
-$ pip install -e .
-``` 
-* Opt. if you want to work on the GNN part, you will need pytorch geometric. The installation process is explained on this page https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html.
-
-### Caveats on a Criteo server
+### A) Preparatory steps (on a criteo server, gpu, mozart)
 
 All the code is compatible with the Criteo OS (i.e. the OS available either on Mozart or on the GPUs) except from dionysus, which required some additional setup.
 
@@ -45,7 +32,21 @@ This is a bit more tricky, we need two packages that have been recently added to
  
 Then just run `scl enable devtoolset-8 bash` and now you are ready for the `pip install -e .`.
 
-### Code organization
+
+### B) Setup
+
+*  Create a venv with python 3.6 and activate it
+```bash
+$ python -m venv my_env
+$ source ./my_env/bin/activate
+```
+* Install the project in the env (you should be in the root folder of the project)
+```bash
+$ pip install -e .
+``` 
+* Opt. if you want to work on the GNN part, you will need pytorch geometric. The installation process is explained on this page https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html.
+
+### C) Code organization
 
 All experiments should go into experiments/YOUR_NAME. An experiments is currently based on an executable binary file and one or several experiment grid that are pointing to this binary.
 
@@ -56,16 +57,16 @@ For instance
  
  When an experiment is needs to be fixed, it should be copied to experiments/finalized/. Experiments in finalized are not meant to be modified.
  
- ## Launching experiments
+ ## 2) Launching experiments
  
- ### DB Setup
+ ### A) DB Setup
  
  All results are saved in a sqlite db using `r3d3`, a small lib that I have created to help ML experiments in general. 
  You need to set the value of the env variable `TDA_DB_PATH` in your bashrc.
  
  Note that the binary is responsible to call r3d3 (this is pretty explicit [here](tda/experiments/thomas/embedding_separability_binary_gram.py) for instance).
 
- ### Running the binary directly (not recommended)
+ ### B) Running the binary directly
  
  This is the most straightforward solution. For instance
  
@@ -77,7 +78,7 @@ You can check the binary to see what arguments are expected. There are two argum
 * experiment_id is the id you want to give to a group of experiments
 * run_id is an id within this group
 
-### Running using r3d3 (recommended)
+### C) Running using r3d3 (recommended)
 
 
 In r3d3, you basically create an experiment grid like [tda/experiments/thomas/embedding_separability_wl_gram.py](tda/experiments/thomas/embedding_separability_wl_gram.py) and then run it from the command line
@@ -88,7 +89,7 @@ r3d3-xp --experiment_file tda/experiments/thomas/embedding_separability_wl_gram.
 
 Under the hood it will create an experiment_id and run_ids for you, create the cartesian product of the grid and call the binary n times for all the possibilities.
 
-## Analyzing experiments
+## 3) Analyzing experiments
 
 You can easily explore the results using the `ExperimentDB` object from `r3d3`
 
