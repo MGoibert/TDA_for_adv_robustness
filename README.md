@@ -41,7 +41,7 @@ You can check the binary to see what arguments are expected. There are two argum
 * experiment_id is the id you want to give to a group of experiments
 * run_id is an id within this group
 
-All the results will be stored in an sqlite database.
+All the results will be stored in an sqlite database. To do so, the binary should use the `ExperimentDB` object from `r3d3` (pretty explicit in the existing binary).
 
 ### Running using r3d3 (recommended)
 
