@@ -39,9 +39,10 @@ The put the obtained path in the env variable `BOOST_ROOT` (in your bashrc).
 
 #### GCC 5.4
 
-This is a bit more tricky, we need a package that is not available by default aka `devtoolset`.
-If you are in mozart, you can install it directly but if you are on a GPU, you have to ask #gpu (maybe it should be installed by default, to be discussed).
-
+This is a bit more tricky, we need two packages that have been recently added to chef at my request:
+`devtoolset` and `cmake`. If they are not available on your machine and you are in mozart, you can install them directly.
+ Otherwise, ping #gpu.
+ 
 Then just run `scl enable devtoolset-8 bash` and now you are ready for the `pip install -e .`.
 
 ### Code organization
@@ -57,6 +58,13 @@ For instance
  
  ## Launching experiments
  
+ ### DB Setup
+ 
+ All results are saved in a sqlite db using `r3d3`, a small lib that I have created to help ML experiments in general. 
+ You need to set the value of the env variable `TDA_DB_PATH` in your bashrc.
+ 
+ Note that the binary is responsible to call r3d3 (this is pretty explicit [here](tda/experiments/thomas/embedding_separability_binary_gram.py) for instance).
+
  ### Running the binary directly (not recommended)
  
  This is the most straightforward solution. For instance
@@ -69,11 +77,9 @@ You can check the binary to see what arguments are expected. There are two argum
 * experiment_id is the id you want to give to a group of experiments
 * run_id is an id within this group
 
-All the results will be stored in an sqlite database. To do so, the binary should use the `ExperimentDB` object from `r3d3` (pretty explicit in the existing binary).
-
 ### Running using r3d3 (recommended)
 
-r3d3 is a small lib that I have done to help ML experiments in general. 
+
 In r3d3, you basically create an experiment grid like [tda/experiments/thomas/embedding_separability_wl_gram.py](tda/experiments/thomas/embedding_separability_wl_gram.py) and then run it from the command line
 
 ```bash
