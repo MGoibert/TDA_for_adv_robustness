@@ -7,11 +7,10 @@ import pickle
 import torch
 import numpy as np
 import typing
-from tqdm import tqdm
 
-from tda.models import get_mnist_model
-from tda.models.datasets import test_set
+from tda.models import get_deep_model
 from tda.graph import Graph
+from tda.models.datasets import Dataset
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -112,6 +111,7 @@ def get_dataset(
         epsilon: float,
         noise: float,
         adv: bool,
+        source_dataset_name: str = "MNIST",
         use_cache: bool = False,
         retain_data_point: bool = False
 ) -> typing.List:
@@ -127,13 +127,18 @@ def get_dataset(
             return pickle.load(f)
 
     # Else we have to compute the dataset first
-    model, loss_func = get_mnist_model(num_epochs=num_epochs)
+    source_dataset = Dataset(name=source_dataset_name)
+
+    model, loss_func = get_deep_model(
+        num_epochs=num_epochs,
+        dataset=source_dataset
+    )
     dataset = list()
-    N = int(len(test_set) * 0.1)
+    N = int(len(source_dataset.test_and_val_dataset) * 0.1)
     correct = 0
 
     for i in range(N):
-        sample = test_set[i]
+        sample = source_dataset.test_and_val_dataset[i]
 
         x, y = process_sample(
             sample=sample,

@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 import pathlib
 from tda.models.architectures import MNISTMLP
-from tda.models.datasets import train_loader_MNIST, test_loader_MNIST, val_loader_MNIST
+from tda.models.datasets import Dataset
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
@@ -76,8 +76,9 @@ def train_network(model, train_loader, val_loader, loss_func, num_epochs):
     return model, loss_history
 
 
-def get_mnist_model(
-        num_epochs: int
+def get_deep_model(
+        num_epochs: int,
+        dataset: Dataset
 ) -> (nn.Module, nn.Module):
     model_filename = f"/tmp/tda/trained_models/mnist_{num_epochs}_epochs.model"
     loss_func = nn.CrossEntropyLoss()
@@ -91,17 +92,17 @@ def get_mnist_model(
         # Use the MLP model
         model = MNISTMLP()
 
-        # MNIST dataset
-        train_loader = train_loader_MNIST
-        test_loader = test_loader_MNIST
-        val_loader = val_loader_MNIST
-
         # Train the NN
-        net = train_network(model, train_loader, val_loader, loss_func, num_epochs)[0]
+        net = train_network(
+            model,
+            dataset.train_loader,
+            dataset.val_loader,
+            loss_func,
+            num_epochs)[0]
 
         # Compute accuracies
-        compute_val_acc(model, val_loader)
-        compute_test_acc(model, test_loader)
+        compute_val_acc(model, dataset.val_loader)
+        compute_test_acc(model, dataset.test_loader)
 
         # Saving model
         torch.save(net, model_filename)
