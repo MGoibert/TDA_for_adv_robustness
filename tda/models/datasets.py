@@ -22,28 +22,49 @@ class Dataset(object):
                  name: str,
                  validation_size: int = 1000
                  ):
+
+        self.name = name.lower()
+
         if name == "MNIST":
-            dataclass = dset.MNIST
+            self.train_dataset = dset.MNIST(
+                root=_root,
+                train=True,
+                transform=_trans,
+                download=True)
+
+            self.test_and_val_dataset = dset.MNIST(
+                root=_root,
+                train=False,
+                transform=_trans,
+                download=True)
         elif name == "SVHN":
-            dataclass = dset.SVHN
+            self.train_dataset = dset.SVHN(
+                root=_root,
+                split="train",
+                transform=_trans,
+                download=True)
+
+            self.test_and_val_dataset = dset.SVHN(
+                root=_root,
+                split="test",
+                transform=_trans,
+                download=True)
         elif name == "CIFAR10":
-            dataclass = dset.CIFAR10
+            self.train_dataset = dset.CIFAR10(
+                root=_root,
+                train=True,
+                transform=_trans,
+                download=True)
+
+            self.test_and_val_dataset = dset.CIFAR10(
+                root=_root,
+                train=False,
+                transform=_trans,
+                download=True)
         else:
             raise NotImplementedError(
                 f"Unknown dataset {name}"
             )
-
-        self.train_dataset = dataclass(
-            root=_root,
-            train=True,
-            transform=_trans,
-            download=True)
-
-        self.test_and_val_dataset = dataclass(
-            root=_root,
-            train=False,
-            transform=_trans,
-            download=True)
 
         self.val_dataset = list()
         self.test_dataset = list()

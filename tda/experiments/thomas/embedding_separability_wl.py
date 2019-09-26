@@ -20,7 +20,6 @@ experiment = R3D3Experiment(
             50
         ],
         'node_labels': [
-            NodeLabels.NONE,
             NodeLabels.LAYERS
         ]
 

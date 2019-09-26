@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pathlib
-from tda.models.architectures import MNISTMLP
+from tda.models.architectures import mnist_mlp
 from tda.models.datasets import Dataset
 
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -80,7 +80,7 @@ def get_deep_model(
         num_epochs: int,
         dataset: Dataset
 ) -> (nn.Module, nn.Module):
-    model_filename = f"/tmp/tda/trained_models/mnist_{num_epochs}_epochs.model"
+    model_filename = f"/tmp/tda/trained_models/{dataset.name}_{num_epochs}_epochs.model"
     loss_func = nn.CrossEntropyLoss()
 
     try:
@@ -90,7 +90,7 @@ def get_deep_model(
         print(f"Unable to find model in {model_filename}... Retraining it...")
 
         # Use the MLP model
-        model = MNISTMLP()
+        model = mnist_mlp
 
         # Train the NN
         net = train_network(
