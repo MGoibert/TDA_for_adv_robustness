@@ -94,37 +94,14 @@ def process_sample(
     return x, y
 
 
-def _get_dataset_path(
-        num_epochs: int,
-        epsilon: float,
-        noise: float,
-        adv: bool
-) -> str:
-    suffix = "_adv" if adv else ""
-    return f"/tmp/tda/graph_datasets/mnist_{num_epochs}_" \
-           f"{str(epsilon).replace('.', '_')}_" \
-           f"{str(noise).replace('.', '_')}{suffix}"
-
-
 def get_dataset(
         num_epochs: int,
         epsilon: float,
         noise: float,
         adv: bool,
         source_dataset_name: str = "MNIST",
-        use_cache: bool = False,
         retain_data_point: bool = False
 ) -> typing.List:
-    dataset_path = _get_dataset_path(
-        num_epochs=num_epochs,
-        epsilon=epsilon,
-        noise=noise,
-        adv=adv
-    )
-
-    if use_cache and os.path.exists(dataset_path):
-        with open(dataset_path, "rb") as f:
-            return pickle.load(f)
 
     # Else we have to compute the dataset first
     source_dataset = Dataset(name=source_dataset_name)
@@ -161,10 +138,6 @@ def get_dataset(
 
     logger.info(f"Successfully generated dataset of {N} points"
                 f" (model accuracy {100 * float(correct) / N}%)")
-
-    if use_cache:
-        with open(dataset_path, "wb") as f:
-            pickle.dump(dataset, f)
 
     return dataset
 

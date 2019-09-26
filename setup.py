@@ -16,7 +16,7 @@ _INSTALL_REQUIRES = [l for l in _REQUIREMENTS_TXT if "://" not in l]
 
 setuptools.setup(
     name='tda',
-    version='0.1',
+    version='0.2',
     install_requires=_INSTALL_REQUIRES,
     data_files=[('.', ['requirements.txt'])],
     packages=setuptools.find_packages(),
