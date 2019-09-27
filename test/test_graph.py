@@ -14,14 +14,13 @@ def test_simple_graph():
             LinearLayer(3, 2)
         ])
 
-    logging.warn(simple_archi)
-
     simple_example = torch.ones(4)
 
-    out = simple_archi(simple_example)
+    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
 
-    print(simple_archi.get_graph_values(simple_example))
+    print(graph._edge_dict)
 
+    print(graph.get_adjacency_matrix())
 
 if __name__ == "__main__":
     test_simple_graph()

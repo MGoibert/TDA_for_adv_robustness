@@ -5,6 +5,9 @@ import torch
 import numpy as np
 from torch.nn import Module
 from torch import Tensor
+
+from tda.models.architectures import Architecture
+
 try:
     from torch_geometric.data import Data
 except:
@@ -24,6 +27,26 @@ class Graph(object):
         self._edge_dict = edge_dict
         self.original_data_point = original_data_point
         self.final_logits = final_logits
+
+    @classmethod
+    def from_architecture_and_data_point(cls,
+                                         model: Architecture,
+                                         x: Tensor,
+                                         retain_data_point: bool = False):
+        val = model.get_graph_values(x)
+
+        # Step 2: process (absolute value and rescaling)
+        edge_dict = {key: 10e5 * np.abs(v) for key, v in val.items()}
+
+        original_x = None
+        if retain_data_point:
+            original_x = x.detach().numpy()
+
+        return cls(
+            edge_dict=edge_dict,
+            final_logits=list(),
+            original_data_point=original_x
+        )
 
     @classmethod
     def from_model_and_data_point(cls,
@@ -70,23 +93,39 @@ class Graph(object):
         """
         Get the corresponding adjacency matrix
         """
-        m0 = np.transpose(self._edge_dict[0])
-        m1 = np.transpose(self._edge_dict[1])
-        m2 = np.transpose(self._edge_dict[2])
 
-        s0 = np.shape(m0)[0]
-        s1 = np.shape(m1)[0]
-        s2 = np.shape(m2)[0]
-        s3 = np.shape(m2)[1]
+        m = {
+            key: np.transpose(self._edge_dict[key])
+            for key in self._edge_dict
+        }
+        s = {
+            key: np.shape(m[key])[0]
+            for key in self._edge_dict
+        }
 
-        print((s0, s1, s2, s3))
+        n = len(self._edge_dict)
+        s[n] = np.shape(m[n-1])[1]
 
-        W = np.bmat([
-            [np.zeros((s0, s0)), m0, np.zeros((s0, s2)), np.zeros((s0, s3))],
-            [np.transpose(m0), np.zeros((s1, s1)), m1, np.zeros((s1, s3))],
-            [np.zeros((s2, s0)), np.transpose(m1), np.zeros((s2, s2)), m2],
-            [np.zeros((s3, s0)), np.zeros((s3, s1)), np.transpose(m2), np.zeros((s3, s3))],
-        ])
+        bmat_list = list()
+        for key_row in self._edge_dict:
+            bmat_row = list()
+            for key_col in self._edge_dict:
+                if key_col == key_row+1:
+                    bmat_row.append(m[key_row])
+                elif key_col == key_row-1:
+                    bmat_row.append(np.transpose(m[key_col]))
+                else:
+                    bmat_row.append(np.zeros((s[key_row], s[key_col])))
+            bmat_list.append(bmat_row)
+
+        W = np.bmat(bmat_list)
+
+        #W = np.bmat([
+        #    [np.zeros((s0, s0)), m0, np.zeros((s0, s2)), np.zeros((s0, s3))],
+        #    [np.transpose(m0), np.zeros((s1, s1)), m1, np.zeros((s1, s3))],
+        #    [np.zeros((s2, s0)), np.transpose(m1), np.zeros((s2, s2)), m2],
+        #    [np.zeros((s3, s0)), np.zeros((s3, s1)), np.transpose(m2), np.zeros((s3, s3))],
+        #])
 
         if threshold:
             W[W < threshold] = 0.0
@@ -97,19 +136,23 @@ class Graph(object):
         """
         Return a list of label nodes equal to the layers they belong
         """
-        m0 = np.transpose(self._edge_dict[0])
-        m1 = np.transpose(self._edge_dict[1])
-        m2 = np.transpose(self._edge_dict[2])
+        m = {
+            key: np.transpose(self._edge_dict[key])
+            for key in self._edge_dict
+        }
+        s = {
+            key: np.shape(m[key])[0]
+            for key in self._edge_dict
+        }
 
-        s0 = np.shape(m0)[0]
-        s1 = np.shape(m1)[0]
-        s2 = np.shape(m2)[0]
-        s3 = np.shape(m2)[1]
+        n = len(self._edge_dict)
+        s[n] = np.shape(m[n - 1])[1]
 
-        return [0 for _ in range(s0)] + \
-               [1 for _ in range(s1)] + \
-               [2 for _ in range(s2)] + \
-               [3 for _ in range(s3)]
+        ret = list()
+        for key in self._edge_dict:
+            ret += [key for _ in range(s[key])]
+
+        return ret
 
     def to_nx_graph(
             self,
@@ -134,7 +177,7 @@ class Graph(object):
 
         # Node labels as one-hot encoded version of the layer index
         x = torch.tensor(self.get_layer_node_labels(), dtype=torch.long).unsqueeze(1)
-        x_onehot = torch.FloatTensor(len(x), len(self._edge_dict)+1)
+        x_onehot = torch.FloatTensor(len(x), len(self._edge_dict) + 1)
         x_onehot.zero_()
         x_onehot.scatter_(1, x, 1)
 
