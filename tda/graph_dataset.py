@@ -129,7 +129,7 @@ def get_dataset(
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
         correct += 1 if y_pred == y else 0
-        x_graph = Graph.from_model_and_data_point(
+        x_graph = Graph.from_architecture_and_data_point(
             model=model,
             x=x.view(-1, 28 * 28).double(),
             retain_data_point=retain_data_point

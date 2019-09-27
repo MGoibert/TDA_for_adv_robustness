@@ -27,9 +27,15 @@ class Layer(object):
                  ):
         self.func = func
         self.graph_layer = graph_layer
+        self._activations = None
 
     def get_matrix(self):
         raise NotImplementedError()
+
+    def process(self, x, store_for_graph):
+        if store_for_graph:
+            self._activations = x
+        return self.func(x)
 
 
 class LinearLayer(Layer):
@@ -44,7 +50,8 @@ class LinearLayer(Layer):
         """
         Return the weight of the linear layer, ignore biases
         """
-        return list(self.func.parameters())[0]
+        m = list(self.func.parameters())[0]
+        return np.abs((self._activations * m).detach().numpy())
 
 
 class SoftMaxLayer(Layer):
@@ -75,32 +82,26 @@ class Architecture(nn.Module):
             for j, param in enumerate(layer.func.parameters()):
                 self.register_parameter(f"{i}_{j}", param)
 
-    def forward(self, x, return_intermediate=False):
+    def forward(self, x, store_for_graph=False):
         # List to store intermediate results if needed
-        all_x = list()
         x = self.preprocess(x)
-        if return_intermediate:
-            all_x.append(x)
         # Going through all layers
         for layer in self.layers:
-            x = layer.func(x.double())
-            if return_intermediate and layer.graph_layer:
-                all_x.append(x)
+            x = layer.process(x.double(), store_for_graph=store_for_graph)
         # Returning final result
-        if return_intermediate:
-            return x, all_x
-        else:
-            return x
+        return x
 
     def get_graph_values(self, x):
-        out, all_x = self.forward(x, return_intermediate=True)
-
+        # Processing sample
+        self.forward(x, store_for_graph=True)
+        # Getting matrix for each layer
         ret = dict()
-
-        for i, layer in enumerate(self.layers):
-            m = np.abs((all_x[i]*layer.get_matrix()).detach().numpy())
-            ret[i] = m
-
+        i = 0
+        for layer in self.layers:
+            if layer.graph_layer:
+                m = layer.get_matrix()
+                ret[i] = m
+                i += 1
         return ret
 
 
