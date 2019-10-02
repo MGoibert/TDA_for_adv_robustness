@@ -17,6 +17,7 @@ from tda.embeddings import get_embedding, EmbeddingType, \
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
 from tda.rootpath import db_path
+from tda.models.architectures import mnist_mlp, get_architecture
 
 my_db = ExperimentDB(db_path=db_path)
 
@@ -36,6 +37,8 @@ parser.add_argument('--hash_size', type=int, default=100)
 parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
 parser.add_argument('--steps', type=int, default=1)
 parser.add_argument('--noise', type=float, default=0.0)
+parser.add_argument('--dataset', type=str, default="MNIST")
+parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
 
 args, _ = parser.parse_known_args()
 
@@ -45,6 +48,8 @@ logger = logging.getLogger(f"[{args.experiment_id}_{args.run_id}]")
 #####################
 # Fetching datasets #
 #####################
+
+architecture = get_architecture(args.architecture)
 
 if args.embedding_type == EmbeddingType.OriginalDataPoint:
     retain_data_point = True
@@ -56,13 +61,17 @@ ref_dataset = get_dataset(
         epsilon=0.0,
         noise=0.0,
         adv=False,
-        retain_data_point=retain_data_point
+        retain_data_point=retain_data_point,
+        architecture=architecture,
+        source_dataset_name=args.dataset
     ) + get_dataset(
         num_epochs=20,
         epsilon=0.0,
         noise=args.noise,
         adv=False,
-        retain_data_point=retain_data_point
+        retain_data_point=retain_data_point,
+        architecture=architecture,
+        source_dataset_name=args.dataset
     )
 
 shuffle(ref_dataset)
@@ -79,7 +88,9 @@ for epsilon in all_epsilons:
         epsilon=epsilon,
         noise=0.0,
         adv=True,
-        retain_data_point=retain_data_point
+        retain_data_point=retain_data_point,
+        architecture=architecture,
+        source_dataset_name=args.dataset
     )
     shuffle(datasets[epsilon])
 

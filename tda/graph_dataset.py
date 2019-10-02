@@ -11,6 +11,7 @@ import typing
 from tda.models import get_deep_model
 from tda.graph import Graph
 from tda.models.datasets import Dataset
+from tda.models.architectures import Architecture, mnist_mlp
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -100,6 +101,7 @@ def get_dataset(
         noise: float,
         adv: bool,
         source_dataset_name: str = "MNIST",
+        architecture: Architecture = mnist_mlp,
         retain_data_point: bool = False
 ) -> typing.List:
 
@@ -108,7 +110,8 @@ def get_dataset(
 
     model, loss_func = get_deep_model(
         num_epochs=num_epochs,
-        dataset=source_dataset
+        dataset=source_dataset,
+        architecture=architecture
     )
     dataset = list()
     N = int(len(source_dataset.test_and_val_dataset) * 0.1)
