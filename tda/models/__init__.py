@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pathlib
-from tda.models.architectures import mnist_mlp
+from tda.models.architectures import mnist_mlp, Architecture
 from tda.models.datasets import Dataset
 
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -78,9 +78,10 @@ def train_network(model, train_loader, val_loader, loss_func, num_epochs):
 
 def get_deep_model(
         num_epochs: int,
-        dataset: Dataset
+        dataset: Dataset,
+        architecture: Architecture = mnist_mlp
 ) -> (nn.Module, nn.Module):
-    model_filename = f"/tmp/tda/trained_models/{dataset.name}_{num_epochs}_epochs.model"
+    model_filename = f"/tmp/tda/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
     loss_func = nn.CrossEntropyLoss()
 
     try:
@@ -89,20 +90,17 @@ def get_deep_model(
     except FileNotFoundError:
         print(f"Unable to find model in {model_filename}... Retraining it...")
 
-        # Use the MLP model
-        model = mnist_mlp
-
         # Train the NN
         net = train_network(
-            model,
+            architecture,
             dataset.train_loader,
             dataset.val_loader,
             loss_func,
             num_epochs)[0]
 
         # Compute accuracies
-        compute_val_acc(model, dataset.val_loader)
-        compute_test_acc(model, dataset.test_loader)
+        compute_val_acc(architecture, dataset.val_loader)
+        compute_test_acc(architecture, dataset.test_loader)
 
         # Saving model
         torch.save(net, model_filename)

@@ -202,8 +202,10 @@ class Architecture(nn.Module):
 
     def __init__(self,
                  layers: List[Layer],
-                 preprocess: Callable):
+                 preprocess: Callable,
+                 name: str = ""):
         super().__init__()
+        self.name = name
         self.layers = layers
         self.preprocess = preprocess
 
@@ -239,6 +241,7 @@ def mnist_preprocess(x):
 
 
 mnist_mlp = Architecture(
+    name="simple_fcn",
     preprocess=mnist_preprocess,
     layers=[
         LinearLayer(28 * 28, 500),
