@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from tda.graph import Graph
-from tda.models.architectures import Architecture, LinearLayer, ConvLayer
+from tda.models.architectures import Architecture, LinearLayer, ConvLayer, mnist_mlp
 
 
 def test_simple_graph():
@@ -20,6 +20,17 @@ def test_simple_graph():
     adjacency_matrix = graph.get_adjacency_matrix()
 
     assert np.shape(adjacency_matrix) == (9, 9)
+
+
+def test_mnist_graph():
+
+    simple_example = torch.randn((28, 28))
+
+    graph = Graph.from_architecture_and_data_point(mnist_mlp, simple_example)
+
+    adjacency_matrix = graph.get_adjacency_matrix()
+
+    assert np.shape(adjacency_matrix) == (1540, 1540)
 
 
 def test_simple_cnn_one_channel():

@@ -59,9 +59,10 @@ class LinearLayer(Layer):
         return np.abs((self._activations * m).detach().numpy())
 
     def process(self, x, store_for_graph):
+        _x = x.reshape(-1, self._in_width)
         if store_for_graph:
-            self._activations = x.reshape(-1, self._in_width)
-        return self.func(self._activations)
+            self._activations = _x
+        return self.func(_x)
 
 
 class ConvLayer(Layer):
