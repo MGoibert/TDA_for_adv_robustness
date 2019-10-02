@@ -22,7 +22,7 @@ def test_simple_graph():
     assert np.shape(adjacency_matrix) == (9, 9)
 
 
-def test_simple_cnn():
+def test_simple_cnn_one_channel():
     simple_archi = Architecture(
         preprocess=lambda x: x,
         layers=[
@@ -35,20 +35,53 @@ def test_simple_cnn():
         [9, 10, 11, 12]
     ]]])
 
-    print(simple_example)
-
     for param in simple_archi.parameters():
         param.data = torch.tensor([[[
             [10, 20],
             [30, 40]
         ]]]).double()
+        print(f"Kernel size is {list(param.shape)}")
 
     out = simple_archi(simple_example)
     print(out)
 
-    M = simple_archi.get_graph_values(simple_example)
+    m = simple_archi.get_graph_values(simple_example)
 
-    print(M)
+    print(m)
+
+    assert np.shape(m[0]) == (6, 12)
+
+
+def test_simple_cnn_multi_channels():
+    simple_archi = Architecture(
+        preprocess=lambda x: x,
+        layers=[
+            # 2 input channels
+            # 3 output channels
+            ConvLayer(2, 3, 2)
+        ])
+
+    simple_example = torch.tensor([[
+        [
+            [1, 2, 3, 4],
+            [5, 6, 7, 8],
+            [9, 10, 11, 12]
+        ],
+        [
+            [2, 4, 6, 8],
+            [10, 12, 14, 16],
+            [18, 20, 22, 24]
+        ]
+    ]])
+
+    for param in simple_archi.parameters():
+        print(f"Kernel size is {list(param.shape)}")
+
+    m = simple_archi.get_graph_values(simple_example)
+
+    # Shape should be 6*3 out_channels = 18 x 12*2 in_channels = 24
+    assert np.shape(m[0]) == (18, 24)
+
 
 if __name__ == "__main__":
     test_simple_graph()

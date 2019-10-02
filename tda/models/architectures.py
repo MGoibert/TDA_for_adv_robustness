@@ -15,6 +15,7 @@ from scipy.linalg import toeplitz
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
+
 ##########
 # Layers #
 ##########
@@ -58,6 +59,10 @@ class LinearLayer(Layer):
 class ConvLayer(Layer):
 
     def __init__(self, in_channels, out_channels, kernel_size):
+
+        self._in_channels = in_channels
+        self._out_channels = out_channels
+
         super().__init__(
             func=nn.Conv2d(
                 in_channels=in_channels,
@@ -78,29 +83,57 @@ class ConvLayer(Layer):
         return reduce(lambda a, b: a * b, list(t.shape))
 
     def get_matrix(self):
-        """
-        Return the weight of the linear layer, ignore biases
-        """
-        print(f"My activations : {self._activations}")
-        for param in self.func.parameters():
-            kernel = torch.squeeze(param.data)
-        print(f"My kernel: {kernel}")
 
-        # 1) Compute the size of the matrix
-        nbcols = ConvLayer._get_nb_elements(self._activations)
+        m = np.bmat([
+            [self.get_matrix_for_channel(in_c, out_c) for in_c in range(self._in_channels)]
+            for out_c in range(self._out_channels)
+        ]
+        )
+
+        return m
+
+    def get_matrix_for_channel(self,
+                               in_channel,
+                               out_channel):
+        """
+        Return the weight of unrolled weight matrix
+        for a convolutional layer
+        # TODO handle multi-channels in and out
+        """
+
+        ##############################################
+        # Selecting in and out channel in the kernel #
+        ##############################################
+
+        for param in self.func.parameters():
+            # TODO: why this order out / in ???
+            kernel = param.data[out_channel, in_channel, :, :]
+        print(f"My kernel for in={in_channel} and out={out_channel} has shape {kernel.shape}")
+
+        ##################################
+        # Compute the size of the matrix #
+        ##################################
+
+        activations = self._activations[:, in_channel, :, :]
+        print(f"My activations for in={in_channel} and out={out_channel} has shape {activations.shape}")
+
+        nbcols = ConvLayer._get_nb_elements(activations)
         print(f"NbCols={nbcols}")
 
         kernel_size = ConvLayer._get_nb_elements(kernel)
         print(f"Kernel_size={kernel_size}")
 
+        # TODO: Replace by closed-formula
         out = self.func(self._activations)
         nbrows = ConvLayer._get_nb_elements(out)
         print(f"NbRows={nbrows}")
 
-        # 2) Compute size of the Toeplitz matrix
+        #############################
+        # Compute Toeplitz matrices #
+        #############################
 
-        nbrows_t = list(self._activations.shape)[-1] - list(kernel.shape)[-1] + 1
-        nbcols_t = list(self._activations.shape)[-1]
+        nbrows_t = list(activations.shape)[-1] - list(kernel.shape)[-1] + 1
+        nbcols_t = list(activations.shape)[-1]
         print(f"The Toeplitz matrices are {nbrows_t}x{nbcols_t}")
 
         zero_toeplitz = np.zeros((nbrows_t, nbcols_t))
@@ -114,6 +147,10 @@ class ConvLayer(Layer):
             col_toeplitz[0, 0] = row_toeplitz[0, 0]
             topl = toeplitz(col_toeplitz, row_toeplitz)
             toeplitz_matrices.append(topl)
+
+        ##############################
+        # Stacking Toeplitz matrices #
+        ##############################
 
         nb_blocks_col = int(nbcols / nbcols_t)
         nb_blocks_zero = nb_blocks_col - len(toeplitz_matrices)
@@ -134,7 +171,7 @@ class ConvLayer(Layer):
             for rep in all_zero_block_repartitions
         ])
 
-        print(m)
+        return m
 
 
 class SoftMaxLayer(Layer):
@@ -146,6 +183,7 @@ class SoftMaxLayer(Layer):
 
     def get_matrix(self):
         raise NotImplementedError()
+
 
 #################
 # Architectures #
@@ -193,10 +231,10 @@ def mnist_preprocess(x):
 
 
 mnist_mlp = Architecture(
-        preprocess=mnist_preprocess,
-        layers=[
-            LinearLayer(28*28, 500),
-            LinearLayer(500, 256),
-            LinearLayer(256, 10),
-            SoftMaxLayer()
-])
+    preprocess=mnist_preprocess,
+    layers=[
+        LinearLayer(28 * 28, 500),
+        LinearLayer(500, 256),
+        LinearLayer(256, 10),
+        SoftMaxLayer()
+    ])

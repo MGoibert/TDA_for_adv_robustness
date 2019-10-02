@@ -120,13 +120,6 @@ class Graph(object):
 
         W = np.bmat(bmat_list)
 
-        #W = np.bmat([
-        #    [np.zeros((s0, s0)), m0, np.zeros((s0, s2)), np.zeros((s0, s3))],
-        #    [np.transpose(m0), np.zeros((s1, s1)), m1, np.zeros((s1, s3))],
-        #    [np.zeros((s2, s0)), np.transpose(m1), np.zeros((s2, s2)), m2],
-        #    [np.zeros((s3, s0)), np.zeros((s3, s1)), np.transpose(m2), np.zeros((s3, s3))],
-        #])
-
         if threshold:
             W[W < threshold] = 0.0
 
