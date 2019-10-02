@@ -263,8 +263,8 @@ def svhn_preprocess(x):
     return x
 
 
-svhn_mlp = Architecture(
-    name="simple_fcn_test_2_svhn",
+svhn_cnn_simple = Architecture(
+    name="simple_cnn_svhn",
     preprocess=svhn_preprocess,
     layers=[
         ConvLayer(3, 8, 5),  # output 8 * 28 * 28
@@ -274,3 +274,15 @@ svhn_mlp = Architecture(
         LinearLayer(256, 10),
         SoftMaxLayer()
     ])
+
+
+known_architectures: List[Architecture] = [
+    mnist_mlp,
+    svhn_cnn_simple
+]
+
+
+def get_architecture(architecture_name: str) -> Architecture:
+    for archi in known_architectures:
+        if architecture_name == archi.name:
+            return archi

@@ -16,7 +16,7 @@ def test_get_svhn_model():
     source_dataset = Dataset("SVHN")
     get_deep_model(
         dataset=source_dataset,
-        num_epochs=1,
+        num_epochs=2,
         architecture=svhn_mlp
     )
 
