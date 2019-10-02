@@ -58,7 +58,8 @@ def test_simple_cnn_multi_channels():
         layers=[
             # 2 input channels
             # 3 output channels
-            ConvLayer(2, 3, 2)
+            ConvLayer(2, 3, 2),
+            LinearLayer(18, 1)
         ])
 
     simple_example = torch.tensor([[
@@ -81,6 +82,12 @@ def test_simple_cnn_multi_channels():
 
     # Shape should be 6*3 out_channels = 18 x 12*2 in_channels = 24
     assert np.shape(m[0]) == (18, 24)
+    assert np.shape(m[1]) == (1, 18)
+
+    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
+    adjacency_matrix = graph.get_adjacency_matrix()
+
+    assert np.shape(adjacency_matrix) == (18+24, 18+24)
 
 
 if __name__ == "__main__":

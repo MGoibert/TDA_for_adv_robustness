@@ -43,6 +43,9 @@ class Layer(object):
 class LinearLayer(Layer):
 
     def __init__(self, in_width, out_width):
+
+        self._in_width = in_width
+
         super().__init__(
             func=nn.Linear(in_width, out_width),
             graph_layer=True
@@ -54,6 +57,11 @@ class LinearLayer(Layer):
         """
         m = list(self.func.parameters())[0]
         return np.abs((self._activations * m).detach().numpy())
+
+    def process(self, x, store_for_graph):
+        if store_for_graph:
+            self._activations = x.reshape(-1, self._in_width)
+        return self.func(self._activations)
 
 
 class ConvLayer(Layer):
@@ -98,7 +106,6 @@ class ConvLayer(Layer):
         """
         Return the weight of unrolled weight matrix
         for a convolutional layer
-        # TODO handle multi-channels in and out
         """
 
         ##############################################
