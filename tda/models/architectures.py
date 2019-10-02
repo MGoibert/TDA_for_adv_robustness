@@ -236,15 +236,40 @@ class Architecture(nn.Module):
         return ret
 
 
+#######################
+# MNIST Architectures #
+#######################
+
 def mnist_preprocess(x):
     return x.view(-1, 28 * 28)
 
 
 mnist_mlp = Architecture(
-    name="simple_fcn",
+    name="simple_fcn_mnist",
     preprocess=mnist_preprocess,
     layers=[
         LinearLayer(28 * 28, 500),
+        LinearLayer(500, 256),
+        LinearLayer(256, 10),
+        SoftMaxLayer()
+    ])
+
+######################
+# SVHN Architectures #
+######################
+
+
+def svhn_preprocess(x):
+    return x
+
+
+svhn_mlp = Architecture(
+    name="simple_fcn_test_2_svhn",
+    preprocess=svhn_preprocess,
+    layers=[
+        ConvLayer(3, 8, 5),  # output 8 * 28 * 28
+        ConvLayer(8, 3, 5),  # output 3 * 24 * 24
+        LinearLayer(3 * 24 * 24, 500),
         LinearLayer(500, 256),
         LinearLayer(256, 10),
         SoftMaxLayer()
