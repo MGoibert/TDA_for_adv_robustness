@@ -11,6 +11,6 @@ experiment = R3D3Experiment(
             EmbeddingType.LastLayerSortedLogits
             ]
     },
-    binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary.py",
+    binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
     max_nb_processes=1
 )
