@@ -1,6 +1,6 @@
 from tda.models import get_deep_model
 from tda.models.datasets import Dataset
-from tda.models.architectures import mnist_mlp, svhn_mlp
+from tda.models.architectures import mnist_mlp, svhn_cnn_simple
 
 
 def test_get_mnist_model():
@@ -17,6 +17,6 @@ def test_get_svhn_model():
     get_deep_model(
         dataset=source_dataset,
         num_epochs=2,
-        architecture=svhn_mlp
+        architecture=svhn_cnn_simple
     )
 

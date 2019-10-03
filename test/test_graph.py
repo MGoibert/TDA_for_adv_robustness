@@ -2,7 +2,8 @@ import numpy as np
 import torch
 
 from tda.graph import Graph
-from tda.models.architectures import Architecture, LinearLayer, ConvLayer, mnist_mlp
+from tda.models.architectures import Architecture, LinearLayer, \
+    ConvLayer, mnist_mlp, svhn_cnn_simple
 
 
 def test_simple_graph():
@@ -99,6 +100,17 @@ def test_simple_cnn_multi_channels():
     adjacency_matrix = graph.get_adjacency_matrix()
 
     assert np.shape(adjacency_matrix) == (18+24, 18+24)
+
+
+def test_svhn_graph():
+
+    simple_example = torch.randn((3, 32, 32))
+
+    graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example)
+
+    adjacency_matrix = graph.get_adjacency_matrix()
+
+    assert np.shape(adjacency_matrix) == (11828, 11828)
 
 
 if __name__ == "__main__":

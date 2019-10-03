@@ -260,7 +260,7 @@ mnist_mlp = Architecture(
 
 
 def svhn_preprocess(x):
-    return x
+    return x.reshape(-1, 3, 32, 32)
 
 
 svhn_cnn_simple = Architecture(

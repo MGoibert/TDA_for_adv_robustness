@@ -134,7 +134,7 @@ def get_dataset(
         correct += 1 if y_pred == y else 0
         x_graph = Graph.from_architecture_and_data_point(
             model=model,
-            x=x.view(-1, 28 * 28).double(),
+            x=x.double(),
             retain_data_point=retain_data_point
         )
         dataset.append((x_graph, y, y_pred, y_adv))
