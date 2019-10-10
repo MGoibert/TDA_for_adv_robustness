@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+from numba import jit
 import argparse
 import logging
 import typing
 from random import shuffle
 from multiprocessing import Pool
+import time
 
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
@@ -18,6 +20,8 @@ from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
 from tda.rootpath import db_path
 from tda.models.architectures import mnist_mlp, get_architecture
+
+start_time = time.time()
 
 my_db = ExperimentDB(db_path=db_path)
 
@@ -95,14 +99,6 @@ for epsilon in all_epsilons:
     shuffle(datasets[epsilon])
 
 all_epsilons = [0.0] + all_epsilons
-
-
-def get_vector_from_diagram(dgm):
-    """
-    Simple tentative to get vector from persistent diagram
-    (Top 20 lifespans)
-    """
-    return list(reversed(sorted([dp.death - dp.birth for dp in dgm][1:])))[:20]
 
 
 separability_values = list()
@@ -195,10 +191,13 @@ with Pool(2) as p:
 
 logger.info(separability_values)
 
+end_time = time.time()
+
 my_db.update_experiment(
     experiment_id=args.experiment_id,
     run_id=args.run_id,
     metrics={
-        "separability_values": dict(zip(all_epsilons, separability_values))
+        "separability_values": dict(zip(all_epsilons, separability_values)),
+        "running_time": end_time - start_time
     }
 )

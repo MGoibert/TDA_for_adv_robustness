@@ -4,6 +4,7 @@ import logging
 import pathlib
 import os
 import pickle
+import time
 import torch
 import numpy as np
 import typing
@@ -106,13 +107,18 @@ def get_dataset(
 ) -> typing.List:
 
     # Else we have to compute the dataset first
+    logger.info(f"Getting source dataset {source_dataset_name}")
     source_dataset = Dataset(name=source_dataset_name)
+    logger.info(f"Got source dataset {source_dataset_name} !!")
 
+    logger.info(f"Getting deep model...")
     model, loss_func = get_deep_model(
         num_epochs=num_epochs,
         dataset=source_dataset,
         architecture=architecture
     )
+    logger.info(f"Got deep model...")
+
     dataset = list()
     N = int(len(source_dataset.test_and_val_dataset) * 0.1)
     correct = 0
@@ -132,11 +138,14 @@ def get_dataset(
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
         correct += 1 if y_pred == y else 0
+
+        st = time.time()
         x_graph = Graph.from_architecture_and_data_point(
             model=model,
             x=x.double(),
             retain_data_point=retain_data_point
         )
+        logger.info(f"Computed graph in {time.time()-st} secs")
         dataset.append((x_graph, y, y_pred, y_adv))
 
     logger.info(f"Successfully generated dataset of {N} points"

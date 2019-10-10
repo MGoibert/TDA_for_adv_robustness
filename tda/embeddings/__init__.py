@@ -42,7 +42,7 @@ def get_embedding(
             node_labels=params["node_labels"]
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
-        return compute_dgm_from_edges(graph._edge_dict, params['threshold'])
+        return compute_dgm_from_edges(graph._edge_list, params['threshold'])
     elif embedding_type == EmbeddingType.OriginalDataPoint:
         return np.reshape(graph.original_data_point, (-1))
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:

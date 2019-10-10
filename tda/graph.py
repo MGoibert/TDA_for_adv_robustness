@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from torch.nn import Module
 from torch import Tensor
+from numba import jit
 
 from tda.models.architectures import Architecture
 
@@ -17,14 +18,38 @@ except:
                     " if you want to do so.")
 
 
+@jit(nopython=True)
+def _edge_dict_to_bmat_list(edge_list: typing.List):
+
+    m = [np.transpose(x) for x in edge_list]
+
+    s = [np.shape(x)[0] for x in m]
+    n = len(edge_list)
+    s.append(np.shape(m[n - 1])[1])
+
+    bmat_list = list()
+    for key_row in range(n+1):
+        bmat_row = list()
+        for key_col in range(n+1):
+            if key_col == key_row + 1:
+                bmat_row.append(m[key_row])
+            elif key_col == key_row - 1:
+                bmat_row.append(np.transpose(m[key_col]))
+            else:
+                bmat_row.append(np.zeros((s[key_row], s[key_col])))
+        bmat_list.append(bmat_row)
+
+    return bmat_list
+
+
 class Graph(object):
 
     def __init__(self,
-                 edge_dict: typing.Dict,
+                 edge_list: typing.List,
                  final_logits: typing.List[float],
                  original_data_point: typing.Optional[np.ndarray] = None
                  ):
-        self._edge_dict = edge_dict
+        self._edge_list = edge_list
         self.original_data_point = original_data_point
         self.final_logits = final_logits
 
@@ -36,53 +61,15 @@ class Graph(object):
         val = model.get_graph_values(x)
 
         # Step 2: process (absolute value and rescaling)
-        edge_dict = {key: 10e5 * np.abs(v) for key, v in val.items()}
+        edge_list = [10e5 * np.abs(v) for v in val]
 
         original_x = None
         if retain_data_point:
             original_x = x.detach().numpy()
 
         return cls(
-            edge_dict=edge_dict,
+            edge_list=edge_list,
             final_logits=list(),
-            original_data_point=original_x
-        )
-
-    @classmethod
-    def from_model_and_data_point(cls,
-                                  model: Module,
-                                  x: Tensor,
-                                  retain_data_point: bool = False):
-        """
-        Create graph from torch model and sample point
-        """
-
-        # Get the parameters of the model
-        # Odd items are biases, so we just keep even elements (0, 2, etc.)
-        w = list(model.parameters())[::2]
-
-        # Get the neurons value for each layer (intermediate x)
-        inter_x = model(x, return_intermediate=True)[1]
-
-        # Get the edge weights
-        # Step 1: compute the product of the weights and the intermediate x
-        val = {}
-        for k in range(len(w)):
-            val[k] = (w[k] * inter_x[k]).detach().numpy()
-
-        # Step 2: process (absolute value and rescaling)
-        edge_dict = {key: 10e5 * np.abs(v) for key, v in val.items()}
-
-        original_x = None
-        if retain_data_point:
-            original_x = x.detach().numpy()
-
-        # Step 3: Saving the final logits
-        final_logits = list(np.reshape(inter_x[-1].detach().numpy(), -1))
-
-        return cls(
-            edge_dict=edge_dict,
-            final_logits=final_logits,
             original_data_point=original_x
         )
 
@@ -94,31 +81,7 @@ class Graph(object):
         Get the corresponding adjacency matrix
         """
 
-        m = {
-            key: np.transpose(self._edge_dict[key])
-            for key in self._edge_dict
-        }
-        s = {
-            key: np.shape(m[key])[0]
-            for key in self._edge_dict
-        }
-
-        n = len(self._edge_dict)
-        s[n] = np.shape(m[n-1])[1]
-
-        bmat_list = list()
-        for key_row in self._edge_dict:
-            bmat_row = list()
-            for key_col in self._edge_dict:
-                if key_col == key_row+1:
-                    bmat_row.append(m[key_row])
-                elif key_col == key_row-1:
-                    bmat_row.append(np.transpose(m[key_col]))
-                else:
-                    bmat_row.append(np.zeros((s[key_row], s[key_col])))
-            bmat_list.append(bmat_row)
-
-        W = np.bmat(bmat_list)
+        W = np.bmat(_edge_dict_to_bmat_list(self._edge_list))
 
         if threshold:
             W[W < threshold] = 0.0
@@ -129,20 +92,22 @@ class Graph(object):
         """
         Return a list of label nodes equal to the layers they belong
         """
+
+        n = len(self._edge_list)
+
         m = {
-            key: np.transpose(self._edge_dict[key])
-            for key in self._edge_dict
+            key: np.transpose(self._edge_list[key])
+            for key in range(n)
         }
         s = {
             key: np.shape(m[key])[0]
-            for key in self._edge_dict
+            for key in range(n)
         }
 
-        n = len(self._edge_dict)
         s[n] = np.shape(m[n - 1])[1]
 
         ret = list()
-        for key in self._edge_dict:
+        for key in range(n+1):
             ret += [key for _ in range(s[key])]
 
         return ret
@@ -157,11 +122,11 @@ class Graph(object):
         offset = 0
         edge_indices = []
         edge_weights = []
-        for key in self._edge_dict:
-            rows, cols = np.where(self._edge_dict[key] >= threshold)
-            edge_weights.append(torch.tensor(self._edge_dict[key][rows, cols]))
+        for key, _ in enumerate(self._edge_list):
+            rows, cols = np.where(self._edge_list[key] >= threshold)
+            edge_weights.append(torch.tensor(self._edge_list[key][rows, cols]))
             cols = torch.tensor(cols, dtype=torch.long).unsqueeze(1) + offset
-            offset += np.shape(self._edge_dict[key])[1]
+            offset += np.shape(self._edge_list[key])[1]
             rows = torch.tensor(rows, dtype=torch.long).unsqueeze(1) + offset
             edge_indices.append(torch.cat((cols, rows), 1))
 
@@ -170,7 +135,7 @@ class Graph(object):
 
         # Node labels as one-hot encoded version of the layer index
         x = torch.tensor(self.get_layer_node_labels(), dtype=torch.long).unsqueeze(1)
-        x_onehot = torch.FloatTensor(len(x), len(self._edge_dict) + 1)
+        x_onehot = torch.FloatTensor(len(x), len(self._edge_list) + 1)
         x_onehot.zero_()
         x_onehot.scatter_(1, x, 1)
 
