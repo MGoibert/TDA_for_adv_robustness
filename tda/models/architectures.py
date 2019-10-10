@@ -6,9 +6,11 @@ Created on Wed May 29 13:24:22 2019
 Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
+from numba import jit
 import torch
 import torch.nn as nn
 import numpy as np
+import logging
 from typing import List, Callable
 from functools import reduce
 from scipy.linalg import toeplitz
@@ -96,8 +98,7 @@ class ConvLayer(Layer):
         m = np.bmat([
             [self.get_matrix_for_channel(in_c, out_c) for in_c in range(self._in_channels)]
             for out_c in range(self._out_channels)
-        ]
-        )
+        ])
 
         return m
 
@@ -113,28 +114,30 @@ class ConvLayer(Layer):
         # Selecting in and out channel in the kernel #
         ##############################################
 
+        # logging.info(f"Processing in={in_channel} and out={out_channel}")
+
         for param in self.func.parameters():
             # TODO: why this order out / in ???
             kernel = param.data[out_channel, in_channel, :, :]
-        print(f"My kernel for in={in_channel} and out={out_channel} has shape {kernel.shape}")
+        # logging.info(f"My kernel for in={in_channel} and out={out_channel} has shape {kernel.shape}")
 
         ##################################
         # Compute the size of the matrix #
         ##################################
 
         activations = self._activations[:, in_channel, :, :]
-        print(f"My activations for in={in_channel} and out={out_channel} has shape {activations.shape}")
+        # logging.info(f"My activations for in={in_channel} and out={out_channel} has shape {activations.shape}")
 
         nbcols = ConvLayer._get_nb_elements(activations)
-        print(f"NbCols={nbcols}")
+        # logging.info(f"NbCols={nbcols}")
 
         kernel_size = ConvLayer._get_nb_elements(kernel)
-        print(f"Kernel_size={kernel_size}")
+        # logging.info(f"Kernel_size={kernel_size}")
 
         # TODO: Replace by closed-formula
         out = self.func(self._activations)
         nbrows = ConvLayer._get_nb_elements(out)
-        print(f"NbRows={nbrows}")
+        # logging.info(f"NbRows={nbrows}")
 
         #############################
         # Compute Toeplitz matrices #
@@ -142,7 +145,7 @@ class ConvLayer(Layer):
 
         nbrows_t = list(activations.shape)[-1] - list(kernel.shape)[-1] + 1
         nbcols_t = list(activations.shape)[-1]
-        print(f"The Toeplitz matrices are {nbrows_t}x{nbcols_t}")
+        # logging.info(f"The Toeplitz matrices are {nbrows_t}x{nbcols_t}")
 
         zero_toeplitz = np.zeros((nbrows_t, nbcols_t))
 
@@ -224,15 +227,15 @@ class Architecture(nn.Module):
 
     def get_graph_values(self, x):
         # Processing sample
+        # logging.info(f"Shape of x is {x.shape}")
         self.forward(x, store_for_graph=True)
         # Getting matrix for each layer
-        ret = dict()
-        i = 0
+        ret = list()
         for layer in self.layers:
             if layer.graph_layer:
+                # logging.info(f"Processing layer {layer}")
                 m = layer.get_matrix()
-                ret[i] = m
-                i += 1
+                ret.append(m)
         return ret
 
 

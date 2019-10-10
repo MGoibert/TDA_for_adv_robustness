@@ -20,7 +20,11 @@ def test_simple_graph():
     graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix()
 
-    assert np.shape(adjacency_matrix) == (9, 9)
+    from matplotlib import pyplot as plt
+    plt.imshow(adjacency_matrix)
+    plt.savefig("/Users/t.ricatte/test.png")
+
+    assert np.shape(adjacency_matrix) == (19, 19)
 
 
 def test_mnist_graph():
@@ -31,7 +35,7 @@ def test_mnist_graph():
 
     adjacency_matrix = graph.get_adjacency_matrix()
 
-    assert np.shape(adjacency_matrix) == (1540, 1540)
+    assert np.shape(adjacency_matrix) == (1550, 1550)
 
 
 def test_simple_cnn_one_channel():
@@ -99,7 +103,7 @@ def test_simple_cnn_multi_channels():
     graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix()
 
-    assert np.shape(adjacency_matrix) == (18+24, 18+24)
+    assert np.shape(adjacency_matrix) == (18+24+1, 18+24+1)
 
 
 def test_svhn_graph():
@@ -110,7 +114,7 @@ def test_svhn_graph():
 
     adjacency_matrix = graph.get_adjacency_matrix()
 
-    assert np.shape(adjacency_matrix) == (11828, 11828)
+    assert np.shape(adjacency_matrix) == (11838, 11838)
 
 
 if __name__ == "__main__":
