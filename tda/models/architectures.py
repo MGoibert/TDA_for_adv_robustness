@@ -9,6 +9,7 @@ Author: Morgane Goibert <morgane.goibert@gmail.com>
 from numba import jit
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import logging
 from typing import List, Callable
@@ -44,9 +45,10 @@ class Layer(object):
 
 class LinearLayer(Layer):
 
-    def __init__(self, in_width, out_width):
+    def __init__(self, in_width, out_width, activ=None):
 
         self._in_width = in_width
+        self._activ = activ
 
         super().__init__(
             func=nn.Linear(in_width, out_width),
@@ -64,15 +66,55 @@ class LinearLayer(Layer):
         _x = x.reshape(-1, self._in_width)
         if store_for_graph:
             self._activations = _x
-        return self.func(_x)
+        if self._activ:
+            return self._activ(self.func(_x))
+        else:
+            return self.func(_x)
+
+
+class MaxPool2dLayer(Layer):
+
+    def __init__(self, kernel_size, activ=None):
+        
+        self._activ = activ
+
+        super().__init__(
+            func=nn.MaxPool2d(kernel_size, return_indices=True),
+            graph_layer=True
+        )
+
+    def get_matrix(self):
+        """
+        Return the weight of the linear layer, ignore biases
+        """
+        # print("input x is ", self._activations)
+        out, indx = self.func(self._activations)
+        idx = indx.numpy().flatten()
+        dim = 1
+        dim_out = 1
+        for d in self._activations.shape: dim *= d
+        for d in out.shape: dim_out *= d
+        # print("dim =", dim, "and dim output =", dim_out)
+        m = np.zeros((dim, dim_out))
+        for i in range(dim_out): m[:,i][idx[i]] = 1
+        return np.matrix(m.transpose())
+    
+    def process(self, x, store_for_graph):
+        if store_for_graph:
+            self._activations = x
+        if self._activ:
+            return self._activ(self.func(x)[0])
+        else:
+            return self.func(x)[0]
 
 
 class ConvLayer(Layer):
 
-    def __init__(self, in_channels, out_channels, kernel_size):
+    def __init__(self, in_channels, out_channels, kernel_size, activ=None):
 
         self._in_channels = in_channels
         self._out_channels = out_channels
+        self._activ = activ
 
         super().__init__(
             func=nn.Conv2d(
@@ -184,6 +226,15 @@ class ConvLayer(Layer):
 
         return m
 
+    def process(self, x, store_for_graph):
+        if store_for_graph:
+            self._activations = x
+        if self._activ:
+            return self._activ(self.func(x))
+        else:
+            return self.func(x)
+
+
 
 class SoftMaxLayer(Layer):
     def __init__(self):
@@ -279,9 +330,24 @@ svhn_cnn_simple = Architecture(
     ])
 
 
+svhn_lenet = Architecture(
+    name="simple_lenet",
+    preprocess=svhn_preprocess,
+    layers=[
+        ConvLayer(3, 6, 5, activ=F.relu),  # output 6 * 28 * 28
+        MaxPool2dLayer(2),
+        ConvLayer(6, 16, 5, activ=F.relu),  
+        MaxPool2dLayer(2) # output 16 * 5 * 5
+        LinearLayer(16 * 5 * 5, 120, activ=F.relu),
+        LinearLayer(120, 84, activ=F.relu),
+        LinearLayer(84, 10),
+        SoftMaxLayer()
+    ])
+
 known_architectures: List[Architecture] = [
     mnist_mlp,
-    svhn_cnn_simple
+    svhn_cnn_simple,
+    svhn_lenet
 ]
 
 
