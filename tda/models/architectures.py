@@ -331,7 +331,7 @@ svhn_cnn_simple = Architecture(
 
 
 svhn_lenet = Architecture(
-    name="simple_lenet",
+    name="svhn_lenet",
     preprocess=svhn_preprocess,
     layers=[
         ConvLayer(3, 6, 5, activ=F.relu),  # output 6 * 28 * 28
