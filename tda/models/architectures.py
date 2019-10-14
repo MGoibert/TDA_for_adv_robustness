@@ -6,14 +6,15 @@ Created on Wed May 29 13:24:22 2019
 Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
-from numba import jit
+
+from functools import reduce
+from typing import List, Callable
+
+import numpy as np
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import logging
-from typing import List, Callable
-from functools import reduce
 from scipy.linalg import toeplitz
 
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -47,13 +48,13 @@ class LinearLayer(Layer):
 
     def __init__(self, in_width, out_width, activ=None):
 
-        self._in_width = in_width
-        self._activ = activ
-
         super().__init__(
             func=nn.Linear(in_width, out_width),
             graph_layer=True
         )
+
+        self._in_width = in_width
+        self._activ = activ
 
     def get_matrix(self):
         """
@@ -75,7 +76,7 @@ class LinearLayer(Layer):
 class MaxPool2dLayer(Layer):
 
     def __init__(self, kernel_size, activ=None):
-        
+
         self._activ = activ
 
         super().__init__(
@@ -87,34 +88,34 @@ class MaxPool2dLayer(Layer):
         """
         Return the weight of the linear layer, ignore biases
         """
-        # print("input x is ", self._activations)
-        out, indx = self.func(self._activations)
-        idx = indx.numpy().flatten()
+        idx = self._indx.numpy().flatten()
         dim = 1
         dim_out = 1
-        for d in self._activations.shape: dim *= d
-        for d in out.shape: dim_out *= d
+        for d in self._activations_shape:
+            dim *= d
+        for d in self._out_shape:
+            dim_out *= d
         # print("dim =", dim, "and dim output =", dim_out)
         m = np.zeros((dim, dim_out))
-        for i in range(dim_out): m[:,i][idx[i]] = 1
+        for i in range(dim_out):
+            m[:, i][idx[i]] = 1
         return np.matrix(m.transpose())
-    
+
     def process(self, x, store_for_graph):
+        out, indx = self.func(x)
         if store_for_graph:
-            self._activations = x
+            self._activations_shape = x.shape
+            self._indx = indx
+            self._out_shape = out.shape
         if self._activ:
-            return self._activ(self.func(x)[0])
+            return self._activ(out)
         else:
-            return self.func(x)[0]
+            return out
 
 
 class ConvLayer(Layer):
 
     def __init__(self, in_channels, out_channels, kernel_size, activ=None):
-
-        self._in_channels = in_channels
-        self._out_channels = out_channels
-        self._activ = activ
 
         super().__init__(
             func=nn.Conv2d(
@@ -128,6 +129,10 @@ class ConvLayer(Layer):
             graph_layer=True
         )
 
+        self._in_channels = in_channels
+        self._out_channels = out_channels
+        self._activ = activ
+
     @staticmethod
     def _get_nb_elements(t):
         """
@@ -137,10 +142,10 @@ class ConvLayer(Layer):
 
     def get_matrix(self):
 
-        m = np.bmat([
-            [self.get_matrix_for_channel(in_c, out_c) for in_c in range(self._in_channels)]
+        m = np.bmat(tuple(
+            tuple(self.get_matrix_for_channel(in_c, out_c) for in_c in range(self._in_channels))
             for out_c in range(self._out_channels)
-        ])
+        ))
 
         return m
 
@@ -172,14 +177,6 @@ class ConvLayer(Layer):
 
         nbcols = ConvLayer._get_nb_elements(activations)
         # logging.info(f"NbCols={nbcols}")
-
-        kernel_size = ConvLayer._get_nb_elements(kernel)
-        # logging.info(f"Kernel_size={kernel_size}")
-
-        # TODO: Replace by closed-formula
-        out = self.func(self._activations)
-        nbrows = ConvLayer._get_nb_elements(out)
-        # logging.info(f"NbRows={nbrows}")
 
         #############################
         # Compute Toeplitz matrices #
@@ -219,10 +216,10 @@ class ConvLayer(Layer):
             [toeplitz_matrix for toeplitz_matrix in toeplitz_matrices],
             axis=1)
 
-        m = np.bmat([
-            [zero_toeplitz for _ in range(rep[0])] + [my_central_row] + [zero_toeplitz for _ in range(rep[1])]
+        m = np.bmat(tuple(
+            tuple(zero_toeplitz for _ in range(rep[0])) + (my_central_row,) + tuple(zero_toeplitz for _ in range(rep[1]))
             for rep in all_zero_block_repartitions
-        ])
+        ))
 
         return m
 
@@ -233,7 +230,6 @@ class ConvLayer(Layer):
             return self._activ(self.func(x))
         else:
             return self.func(x)
-
 
 
 class SoftMaxLayer(Layer):
@@ -308,6 +304,7 @@ mnist_mlp = Architecture(
         SoftMaxLayer()
     ])
 
+
 ######################
 # SVHN Architectures #
 ######################
@@ -329,15 +326,14 @@ svhn_cnn_simple = Architecture(
         SoftMaxLayer()
     ])
 
-
 svhn_lenet = Architecture(
     name="svhn_lenet",
     preprocess=svhn_preprocess,
     layers=[
         ConvLayer(3, 6, 5, activ=F.relu),  # output 6 * 28 * 28
         MaxPool2dLayer(2),
-        ConvLayer(6, 16, 5, activ=F.relu),  
-        MaxPool2dLayer(2), # output 16 * 5 * 5
+        ConvLayer(6, 16, 5, activ=F.relu),
+        MaxPool2dLayer(2),  # output 16 * 5 * 5
         LinearLayer(16 * 5 * 5, 120, activ=F.relu),
         LinearLayer(120, 84, activ=F.relu),
         LinearLayer(84, 10),

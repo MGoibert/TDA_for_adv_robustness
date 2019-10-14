@@ -139,13 +139,13 @@ def get_dataset(
         y_adv = 0 if not adv else 1  # is it adversarial
         correct += 1 if y_pred == y else 0
 
-        st = time.time()
+        # st = time.time()
         x_graph = Graph.from_architecture_and_data_point(
             model=model,
             x=x.double(),
             retain_data_point=retain_data_point
         )
-        logger.info(f"Computed graph in {time.time()-st} secs")
+        # logger.info(f"Computed graph in {time.time()-st} secs")
         dataset.append((x_graph, y, y_pred, y_adv))
 
     logger.info(f"Successfully generated dataset of {N} points"
