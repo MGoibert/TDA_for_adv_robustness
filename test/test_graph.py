@@ -106,15 +106,15 @@ def test_simple_cnn_multi_channels():
     assert np.shape(adjacency_matrix) == (18+24+1, 18+24+1)
 
 
-def test_svhn_graph():
+def test_svhn_graph(benchmark):
 
-    simple_example = torch.randn((3, 32, 32))
+    def foo():
+        simple_example = torch.randn((3, 32, 32))
+        graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example)
+        adjacency_matrix = graph.get_adjacency_matrix()
+        return np.shape(adjacency_matrix)
 
-    graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example)
-
-    adjacency_matrix = graph.get_adjacency_matrix()
-
-    assert np.shape(adjacency_matrix) == (11838, 11838)
+    assert benchmark(foo) == (11838, 11838)
 
 
 if __name__ == "__main__":

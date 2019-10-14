@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from numba import jit
 import argparse
 import logging
-import typing
-from random import shuffle
-from multiprocessing import Pool
 import time
+import typing
+from multiprocessing import Pool
+from random import shuffle
 
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
@@ -18,8 +17,8 @@ from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
-from tda.rootpath import db_path
 from tda.models.architectures import mnist_mlp, get_architecture
+from tda.rootpath import db_path
 
 start_time = time.time()
 
@@ -41,6 +40,7 @@ parser.add_argument('--hash_size', type=int, default=100)
 parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
 parser.add_argument('--steps', type=int, default=1)
 parser.add_argument('--noise', type=float, default=0.0)
+parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--dataset', type=str, default="MNIST")
 parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
 
@@ -61,7 +61,7 @@ else:
     retain_data_point = False
 
 ref_dataset = get_dataset(
-        num_epochs=20,
+        num_epochs=args.epochs,
         epsilon=0.0,
         noise=0.0,
         adv=False,
@@ -186,8 +186,10 @@ def process_epsilon(epsilon: float) -> float:
     return np.max(roc_values)
 
 
-with Pool(2) as p:
-    separability_values = p.map(process_epsilon, all_epsilons)
+# with Pool(2) as p:
+#     separability_values = p.map(process_epsilon, all_epsilons)
+
+separability_values = [process_epsilon(epsilon) for epsilon in all_epsilons]
 
 logger.info(separability_values)
 

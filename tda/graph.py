@@ -1,11 +1,10 @@
-import networkx as nx
-import typing
 import logging
-import torch
+import typing
+
+import networkx as nx
 import numpy as np
-from torch.nn import Module
+import torch
 from torch import Tensor
-from numba import jit
 
 from tda.models.architectures import Architecture
 
@@ -16,30 +15,6 @@ except:
     logging.warning("torch_geometric wasn't found. You won't be able to use GNN algorithms."
                     "Please follow https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html"
                     " if you want to do so.")
-
-
-@jit(nopython=True)
-def _edge_dict_to_bmat_list(edge_list: typing.List):
-
-    m = [np.transpose(x) for x in edge_list]
-
-    s = [np.shape(x)[0] for x in m]
-    n = len(edge_list)
-    s.append(np.shape(m[n - 1])[1])
-
-    bmat_list = list()
-    for key_row in range(n+1):
-        bmat_row = list()
-        for key_col in range(n+1):
-            if key_col == key_row + 1:
-                bmat_row.append(m[key_row])
-            elif key_col == key_row - 1:
-                bmat_row.append(np.transpose(m[key_col]))
-            else:
-                bmat_row.append(np.zeros((s[key_row], s[key_col])))
-        bmat_list.append(bmat_row)
-
-    return bmat_list
 
 
 class Graph(object):
@@ -81,7 +56,25 @@ class Graph(object):
         Get the corresponding adjacency matrix
         """
 
-        W = np.bmat(_edge_dict_to_bmat_list(self._edge_list))
+        m = [np.transpose(x) for x in self._edge_list]
+
+        s = [np.shape(x)[0] for x in m]
+        n = len(self._edge_list)
+        s.append(np.shape(m[n - 1])[1])
+
+        bmat_list = tuple()
+        for key_row in range(n + 1):
+            bmat_row = tuple()
+            for key_col in range(n + 1):
+                if key_col == key_row + 1:
+                    bmat_row += (m[key_row],)
+                elif key_col == key_row - 1:
+                    bmat_row += (np.transpose(m[key_col]),)
+                else:
+                    bmat_row += (np.zeros((s[key_row], s[key_col])),)
+            bmat_list += (bmat_row,)
+
+        W = np.bmat(bmat_list)
 
         if threshold:
             W[W < threshold] = 0.0
