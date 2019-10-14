@@ -24,6 +24,9 @@ experiment = R3D3Experiment(
         ],
         'noise': [
             0.02
+        ],
+        'epochs': [
+            20
         ]
 
     },

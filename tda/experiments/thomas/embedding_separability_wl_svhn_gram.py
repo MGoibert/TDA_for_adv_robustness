@@ -3,7 +3,7 @@ from r3d3 import R3D3Experiment
 from tda.rootpath import rootpath, db_path
 from tda.embeddings import EmbeddingType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.models.architectures import svhn_cnn_simple
+from tda.models.architectures import svhn_lenet
 
 experiment = R3D3Experiment(
     db_path=db_path,
@@ -27,10 +27,13 @@ experiment = R3D3Experiment(
             0.02
         ],
         'architecture': [
-            svhn_cnn_simple.name
+            svhn_lenet.name
         ],
         'dataset': [
             "SVHN"
+        ],
+        'epochs': [
+            50
         ]
 
     },
