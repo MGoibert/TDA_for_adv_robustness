@@ -221,7 +221,7 @@ class ConvLayer(Layer):
             for rep in all_zero_block_repartitions
         ))
 
-        return m
+        return np.abs(activations.detach().numpy().reshape(-1) * np.array(m))
 
     def process(self, x, store_for_graph):
         if store_for_graph:
