@@ -1,6 +1,10 @@
 import typing
 import numpy as np
 from operator import itemgetter
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 try:
     from dionysus import Filtration, Simplex, homology_persistence, init_diagrams
@@ -22,16 +26,30 @@ def compute_dgm_from_edges(
     """
 
     vec = []
-    shape = np.cumsum([edge_dict[key].shape[1] for key in edge_dict.keys()])
+    shape = np.cumsum([edge_dict[key].shape[1] for key in range(len(edge_dict))])
+    #logger.info(f"OK 1 !")
     shape = np.insert(shape, 0, 0)
     shape = np.insert(shape, len(shape), shape[len(shape) - 1] + edge_dict[len(shape) - 2].shape[0])
 
-    for layer_idx in edge_dict.keys():
+    for layer_idx in range(len(edge_dict)):
+        logger.info(f"Layer nb {layer_idx}")
         # Adding the edges
         row, col = np.meshgrid(np.arange(shape[layer_idx], shape[layer_idx + 1]),
                                np.arange(shape[layer_idx + 1], shape[layer_idx + 2]))
-        table = np.vstack((edge_dict[layer_idx].ravel(), row.ravel(), col.ravel())).T
-        table = np.delete(table, np.where((np.asarray(list(map(itemgetter(0), table))) < threshold))[0], axis=0)
+        ind = np.where(edge_dict[layer_idx].ravel() >= threshold)
+        if len(ind) > 1:
+            ind = ind[1]
+        else:
+            ind = ind[0]
+        if len(edge_dict[layer_idx].ravel()[0].shape) >= 1:
+            table = np.vstack((np.asarray(edge_dict[layer_idx].ravel())[0][ind], row.ravel()[ind], col.ravel()[ind])).T
+        else:
+            table = np.vstack((np.asarray(edge_dict[layer_idx].ravel())[ind], row.ravel()[ind], col.ravel()[ind])).T
+        #logger.info(f"table = {table[:5,:]}")
+        logger.info(f"shape table = {table.shape}")
+        #table = np.vstack((edge_dict[layer_idx].ravel(), row.ravel(), col.ravel())).T
+        #table = np.delete(table, np.where((np.asarray(list(map(itemgetter(0), table))) < threshold))[0], axis=0)
+        #table = table[ np.asarray(list(map(itemgetter(0), table))) >= threshold, :]
         if layer_idx == 0:
             vec = list(zip(map(list, zip(map(lambda x: int(x), map(itemgetter(1), table)),
                                          map(lambda x: int(x), map(itemgetter(2), table)))),
@@ -45,6 +63,8 @@ def compute_dgm_from_edges(
     # Adding the vertices
     nb_vertices = int(max([elem for array in tuple(map(itemgetter(0), vec)) for elem in array]))
 
+    #logger.info(f"OK 2 !")
+
     dict_vertices = {key: [] for key in range(nb_vertices + 1)}
     for edge, timing in vec:
         if len(dict_vertices[edge[0]]) == 0 or timing <= min(dict_vertices[edge[0]]):
@@ -56,6 +76,7 @@ def compute_dgm_from_edges(
             vec.append(([vertex], min(dict_vertices[vertex])))
 
     # Dionysus computations (persistent diagrams)
+    #logger.info(f"Before filtration")
     f = Filtration()
     for vertices, timing in vec:
         f.append(Simplex(vertices, timing))
@@ -67,6 +88,7 @@ def compute_dgm_from_edges(
 
 
 def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
+    #logger.info(f"Sliced Wass. Kernel ")
     vec1 = []
     vec2 = []
     for pt1 in dgm1:
@@ -86,6 +108,7 @@ def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
         val = np.nan_to_num(np.asarray(v1) - np.asarray(v2))
         sw = sw + s * np.linalg.norm(val, ord=1)
         theta = theta + s
+        #logger.info(f"End Sliced Wass. Kernel")
         # print("Run :", i, " and sw =", (1/np.pi)*sw)
     return (1 / np.pi) * sw
 
