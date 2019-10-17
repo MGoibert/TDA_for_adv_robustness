@@ -60,58 +60,25 @@ if args.embedding_type == EmbeddingType.OriginalDataPoint:
 else:
     retain_data_point = False
 
-ref_dataset = get_dataset(
-        num_epochs=args.epochs,
-        epsilon=0.0,
-        noise=0.0,
-        adv=False,
-        retain_data_point=retain_data_point,
-        architecture=architecture,
-        source_dataset_name=args.dataset
-    ) + get_dataset(
-        num_epochs=20,
-        epsilon=0.0,
-        noise=args.noise,
-        adv=False,
-        retain_data_point=retain_data_point,
-        architecture=architecture,
-        source_dataset_name=args.dataset
-    )
 
-shuffle(ref_dataset)
-
-datasets = {
-    0: ref_dataset}
-
-all_epsilons = list(sorted(np.linspace(0.01, 0.075, num=5)))
-
-for epsilon in all_epsilons:
-    logger.info(f"Computing dataset for epsilon={epsilon}")
-    datasets[epsilon] = get_dataset(
-        num_epochs=20,
-        epsilon=epsilon,
-        noise=0.0,
-        adv=True,
-        retain_data_point=retain_data_point,
-        architecture=architecture,
-        source_dataset_name=args.dataset
-    )
-    shuffle(datasets[epsilon])
-
-all_epsilons = [0.0] + all_epsilons
-
-
-separability_values = list()
-
-
-def get_embeddings(epsilon: float) -> typing.List:
-    logger.info(f"Computing embeddings for epsilon={epsilon}")
-    embeddings = list()
-    ds = datasets[epsilon]
-    for idx in range(len(ds[:100])):
-        embedding = get_embedding(
+def get_embeddings(epsilon: float, noise: float) -> typing.List:
+    """
+    Helper function to get list of embeddings
+    """
+    my_embeddings = list()
+    for line in get_dataset(
+            num_epochs=args.epochs,
+            epsilon=epsilon,
+            noise=noise,
+            adv=epsilon > 0.0,
+            retain_data_point=retain_data_point,
+            architecture=architecture,
+            source_dataset_name=args.dataset,
+            perc_data=0.1
+        ):
+        my_embeddings.append(get_embedding(
             embedding_type=args.embedding_type,
-            graph=ds[idx][0],
+            graph=line[0],
             params={
                 "threshold": int(args.threshold),
                 "hash_size": int(args.hash_size),
@@ -119,21 +86,31 @@ def get_embeddings(epsilon: float) -> typing.List:
                 "node_labels": args.node_labels,
                 "steps": args.steps
             }
-        )
-
-        embeddings.append((embedding, ds[idx][1], ds[idx][2], ds[idx][3], epsilon))
-
-    return embeddings
+        ))
+    logger.info(f"Computed embeddings for (eps={epsilon}, noise={noise})")
+    return my_embeddings
 
 
-clean_embeddings = get_embeddings(0.0)
+# Clean embeddings
+clean_embeddings = get_embeddings(epsilon=0.0, noise=0.0)
+clean_embeddings += get_embeddings(epsilon=0.0, noise=args.noise)
+shuffle(clean_embeddings)
+
+all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.075, num=5)))
+
+adv_embeddings = dict()
+for epsilon in all_epsilons[1:]:
+    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0)
+    shuffle(adv_embeddings[epsilon])
+
+separability_values = list()
 
 
 def process_epsilon(epsilon: float) -> float:
     if epsilon == 0.0:
         return 0.5
 
-    embeddings = clean_embeddings + get_embeddings(epsilon)
+    # embeddings = clean_embeddings + adv_embeddings[epsilon]
 
     logger.info(f"Computing performance for epsilon={epsilon}")
 
@@ -156,14 +133,11 @@ def process_epsilon(epsilon: float) -> float:
 
         # Datasets used for the OneClassSVM
 
-        clean_data = [np.ndarray.flatten(np.array((e[0]))) for e in embeddings if e[4] == 0.0]
-        train_data = clean_data[:len(clean_data) // 2]
-        test_data = clean_data[len(clean_data) // 2:]
-
-        bad_data = [np.ndarray.flatten(np.array((e[0]))) for e in embeddings if e[4] == epsilon]
+        # clean_data = [np.ndarray.flatten(np.array((e[0]))) for e in embeddings if e[4] == 0.0]
+        train_data = clean_embeddings[:len(clean_embeddings) // 2]
+        test_data = clean_embeddings[len(clean_embeddings) // 2:]
 
         # Training model
-
         gram_train = get_gram_matrix(
             args.kernel_type, train_data, train_data,
             param
@@ -173,12 +147,12 @@ def process_epsilon(epsilon: float) -> float:
         # Testing model
 
         gram_test_and_bad = get_gram_matrix(
-            args.kernel_type, test_data + bad_data, train_data,
+            args.kernel_type, test_data + adv_embeddings[epsilon], train_data,
             param
         )
         predictions = ocs.score_samples(gram_test_and_bad)
 
-        labels = np.concatenate((np.ones(len(test_data)), np.zeros(len(bad_data))))
+        labels = np.concatenate((np.ones(len(test_data)), np.zeros(len(adv_embeddings[epsilon]))))
 
         roc_val = roc_auc_score(y_true=labels, y_score=predictions)
         roc_values.append(roc_val)
