@@ -43,6 +43,7 @@ parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--dataset', type=str, default="MNIST")
 parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
+parser.add_argument('--dataset_size', type=int, default=100)
 
 args, _ = parser.parse_known_args()
 
@@ -74,7 +75,7 @@ def get_embeddings(epsilon: float, noise: float) -> typing.List:
             retain_data_point=retain_data_point,
             architecture=architecture,
             source_dataset_name=args.dataset,
-            perc_data=0.1
+            dataset_size=args.dataset_size
         ):
         my_embeddings.append(get_embedding(
             embedding_type=args.embedding_type,
@@ -102,8 +103,6 @@ adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
     adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0)
     shuffle(adv_embeddings[epsilon])
-
-separability_values = list()
 
 
 def process_epsilon(epsilon: float) -> float:

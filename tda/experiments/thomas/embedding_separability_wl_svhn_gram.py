@@ -33,7 +33,7 @@ experiment = R3D3Experiment(
             "SVHN"
         ],
         'epochs': [
-            50
+            100
         ]
 
     },

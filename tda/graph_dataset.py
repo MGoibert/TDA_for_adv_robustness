@@ -104,7 +104,7 @@ def get_dataset(
         source_dataset_name: str = "MNIST",
         architecture: Architecture = mnist_mlp,
         retain_data_point: bool = False,
-        perc_data: float = 0.1
+        dataset_size: int = 100
 ) -> typing.Generator:
 
     # Else we have to compute the dataset first
@@ -120,7 +120,7 @@ def get_dataset(
     )
     logger.info(f"Got deep model...")
 
-    N = int(len(source_dataset.test_and_val_dataset) * perc_data)
+    N = dataset_size
 
     logger.info(f"I am going to generate a dataset of {N} points...")
 
