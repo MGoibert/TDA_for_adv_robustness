@@ -103,8 +103,9 @@ def get_dataset(
         adv: bool,
         source_dataset_name: str = "MNIST",
         architecture: Architecture = mnist_mlp,
-        retain_data_point: bool = False
-) -> typing.List:
+        retain_data_point: bool = False,
+        perc_data: float = 0.1
+) -> typing.Generator:
 
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -119,9 +120,9 @@ def get_dataset(
     )
     logger.info(f"Got deep model...")
 
-    dataset = list()
-    N = int(len(source_dataset.test_and_val_dataset) * 0.1)
-    correct = 0
+    N = int(len(source_dataset.test_and_val_dataset) * perc_data)
+
+    logger.info(f"I am going to generate a dataset of {N} points...")
 
     for i in range(N):
         sample = source_dataset.test_and_val_dataset[i]
@@ -137,7 +138,6 @@ def get_dataset(
 
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
-        correct += 1 if y_pred == y else 0
 
         # st = time.time()
         x_graph = Graph.from_architecture_and_data_point(
@@ -146,12 +146,7 @@ def get_dataset(
             retain_data_point=retain_data_point
         )
         # logger.info(f"Computed graph in {time.time()-st} secs")
-        dataset.append((x_graph, y, y_pred, y_adv))
-
-    logger.info(f"Successfully generated dataset of {N} points"
-                f" (model accuracy {100 * float(correct) / N}%)")
-
-    return dataset
+        yield (x_graph, y, y_pred, y_adv)
 
 
 if __name__ == "__main__":
