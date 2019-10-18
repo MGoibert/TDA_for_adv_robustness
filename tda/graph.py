@@ -33,10 +33,10 @@ class Graph(object):
                                          model: Architecture,
                                          x: Tensor,
                                          retain_data_point: bool = False):
-        val = model.get_graph_values(x)
+        edge_list = model.get_graph_values(x)
 
         # Step 2: process (absolute value and rescaling)
-        edge_list = [10e5 * np.abs(v) for v in val]
+        # edge_list = [10e5 * np.abs(v) for v in val]
 
         original_x = None
         if retain_data_point:
