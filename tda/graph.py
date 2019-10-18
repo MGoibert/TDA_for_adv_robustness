@@ -36,7 +36,7 @@ class Graph(object):
         edge_list = model.get_graph_values(x)
 
         # Step 2: process (absolute value and rescaling)
-        # edge_list = [10e5 * np.abs(v) for v in val]
+        edge_list = [10e5 * np.abs(v) for v in edge_list]
 
         original_x = None
         if retain_data_point:
