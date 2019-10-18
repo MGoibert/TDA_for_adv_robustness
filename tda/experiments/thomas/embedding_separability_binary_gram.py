@@ -34,7 +34,7 @@ parser.add_argument('--experiment_id', type=int, default=-1)
 parser.add_argument('--run_id', type=int, default=-1)
 parser.add_argument('--embedding_type', type=str, default=EmbeddingType.WeisfeilerLehman)
 parser.add_argument('--kernel_type', type=str, default=KernelType.RBF)
-parser.add_argument('--threshold', type=int, default=0)
+parser.add_argument('--thresholds', type=str, default='0')
 parser.add_argument('--height', type=int, default=1)
 parser.add_argument('--hash_size', type=int, default=100)
 parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
@@ -61,6 +61,8 @@ if args.embedding_type == EmbeddingType.OriginalDataPoint:
 else:
     retain_data_point = False
 
+thresholds = [int(x) for x in args.thresholds.split("_")]
+
 
 def get_embeddings(epsilon: float, noise: float) -> typing.List:
     """
@@ -75,13 +77,13 @@ def get_embeddings(epsilon: float, noise: float) -> typing.List:
             retain_data_point=retain_data_point,
             architecture=architecture,
             source_dataset_name=args.dataset,
-            dataset_size=args.dataset_size
+            dataset_size=args.dataset_size,
+            thresholds=thresholds
         ):
         my_embeddings.append(get_embedding(
             embedding_type=args.embedding_type,
             graph=line[0],
             params={
-                "threshold": int(args.threshold),
                 "hash_size": int(args.hash_size),
                 "height": int(args.height),
                 "node_labels": args.node_labels,

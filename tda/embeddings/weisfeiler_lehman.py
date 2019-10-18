@@ -22,12 +22,11 @@ def _get_hash_value(s: str, max_val: int):
 
 def get_wl_embedding(
         graph: Graph,
-        threshold: int = 0,
         height: int = 1,
         hash_size: int = 100,
         node_labels: str = NodeLabels.NONE):
     counters = OrderedDict()
-    nxgraph = graph.to_nx_graph(threshold=threshold)
+    nxgraph = graph.to_nx_graph()
 
     if node_labels == NodeLabels.LAYERS:
         labels = graph.get_layer_node_labels()
