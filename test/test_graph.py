@@ -3,7 +3,7 @@ import torch
 
 from tda.graph import Graph
 from tda.models.architectures import Architecture, LinearLayer, \
-    ConvLayer, mnist_mlp, svhn_cnn_simple
+    ConvLayer, mnist_mlp, svhn_cnn_simple, svhn_lenet
 
 
 def test_simple_graph():
@@ -115,6 +115,14 @@ def test_svhn_graph(benchmark):
         return np.shape(adjacency_matrix)
 
     assert benchmark(foo) == (11838, 11838)
+
+
+def test_svhn_lenet_graph():
+
+    simple_example = torch.randn((3, 32, 32))
+    graph = Graph.from_architecture_and_data_point(svhn_lenet, simple_example)
+
+    assert len(graph._edge_list) == svhn_lenet.get_nb_graph_layers()
 
 
 if __name__ == "__main__":
