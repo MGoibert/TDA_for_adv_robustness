@@ -104,7 +104,8 @@ def get_dataset(
         source_dataset_name: str = "MNIST",
         architecture: Architecture = mnist_mlp,
         retain_data_point: bool = False,
-        dataset_size: int = 100
+        dataset_size: int = 100,
+        thresholds: typing.Optional[typing.List[int]] = None
 ) -> typing.Generator:
 
     # Else we have to compute the dataset first
@@ -143,7 +144,8 @@ def get_dataset(
         x_graph = Graph.from_architecture_and_data_point(
             model=model,
             x=x.double(),
-            retain_data_point=retain_data_point
+            retain_data_point=retain_data_point,
+            thresholds=thresholds
         )
         # logger.info(f"Computed graph in {time.time()-st} secs")
         yield (x_graph, y, y_pred, y_adv)

@@ -32,11 +32,16 @@ class Graph(object):
     def from_architecture_and_data_point(cls,
                                          model: Architecture,
                                          x: Tensor,
-                                         retain_data_point: bool = False):
-        edge_list = model.get_graph_values(x)
+                                         thresholds: typing.Optional[typing.List[int]] = None,
+                                         retain_data_point: bool = False
+                                         ):
+        raw_edge_list = model.get_graph_values(x)
 
-        # Step 2: process (absolute value and rescaling)
-        edge_list = [10e5 * np.abs(v) for v in edge_list]
+        edge_list = list()
+        for i, v in enumerate(raw_edge_list):
+            if thresholds:
+                v[v < thresholds[i]] = 0.0
+            edge_list.append(10e5 * np.abs(v))
 
         original_x = None
         if retain_data_point:
@@ -49,8 +54,7 @@ class Graph(object):
         )
 
     def get_adjacency_matrix(
-            self,
-            threshold: typing.Optional[int] = None
+            self
     ) -> np.matrix:
         """
         Get the corresponding adjacency matrix
@@ -76,9 +80,6 @@ class Graph(object):
 
         W = np.bmat(bmat_list)
 
-        if threshold:
-            W[W < threshold] = 0.0
-
         return W
 
     def get_layer_node_labels(self) -> typing.List[int]:
@@ -100,16 +101,15 @@ class Graph(object):
         s[n] = np.shape(m[n - 1])[1]
 
         ret = list()
-        for key in range(n+1):
+        for key in range(n + 1):
             ret += [key for _ in range(s[key])]
 
         return ret
 
     def to_nx_graph(
-            self,
-            threshold: typing.Optional[int] = None
+            self
     ) -> nx.Graph:
-        return nx.from_numpy_matrix(self.get_adjacency_matrix(threshold))
+        return nx.from_numpy_matrix(self.get_adjacency_matrix())
 
     def to_pytorch_geometric_data(self, threshold: int) -> Data:
         offset = 0

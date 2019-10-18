@@ -27,7 +27,7 @@ def get_embedding(
         params: typing.Dict
 ):
     if embedding_type == EmbeddingType.AnonymousWalk:
-        walk = AnonymousWalks(G=graph.to_nx_graph(params['threshold']))
+        walk = AnonymousWalks(G=graph.to_nx_graph())
         embedding = walk.embed(
             steps=params['steps'],
             method="sampling",
@@ -36,13 +36,12 @@ def get_embedding(
     elif embedding_type == EmbeddingType.WeisfeilerLehman:
         return get_wl_embedding(
             graph=graph,
-            threshold=params['threshold'],
             height=params['height'],
             hash_size=params['hash_size'],
             node_labels=params["node_labels"]
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
-        return compute_dgm_from_edges(graph._edge_list, params['threshold'])
+        return compute_dgm_from_edges(graph._edge_list)
     elif embedding_type == EmbeddingType.OriginalDataPoint:
         return np.reshape(graph.original_data_point, (-1))
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:

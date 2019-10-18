@@ -9,11 +9,11 @@ import numpy as np
 
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset
-from tda.models.architectures import mnist_mlp, get_architecture
+from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet
 
-#from igraph import Graph as IGraph
-#from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
-#from networkx.algorithms.centrality.katz import katz_centrality
+from igraph import Graph as IGraph
+from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
+from networkx.algorithms.centrality.katz import katz_centrality
 
 start_time = time.time()
 
@@ -24,14 +24,13 @@ start_time = time.time()
 parser = argparse.ArgumentParser()
 parser.add_argument('--threshold', type=int, default=0)
 parser.add_argument('--noise', type=float, default=0.0)
-parser.add_argument('--epochs', type=int, default=20)
-parser.add_argument('--dataset', type=str, default="MNIST")
-parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
-parser.add_argument('--dataset_size', type=int, default=100)
+parser.add_argument('--epochs', type=int, default=100)
+parser.add_argument('--dataset', type=str, default="SVHN")
+parser.add_argument('--architecture', type=str, default=svhn_lenet.name)
+parser.add_argument('--dataset_size', type=int, default=10)
 
 args, _ = parser.parse_known_args()
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GraphStats")
 
 #####################
@@ -40,11 +39,16 @@ logger = logging.getLogger("GraphStats")
 
 architecture = get_architecture(args.architecture)
 
+thresholds = [int(x) for x in args.thresholds.split("_")]
+
 
 def get_stats(epsilon: float, noise: float) -> typing.List:
     """
     Helper function to get list of embeddings
     """
+
+    weights_per_layer = dict()
+
     for line in get_dataset(
             num_epochs=args.epochs,
             epsilon=epsilon,
@@ -53,48 +57,38 @@ def get_stats(epsilon: float, noise: float) -> typing.List:
             retain_data_point=False,
             architecture=architecture,
             source_dataset_name=args.dataset,
-            dataset_size=args.dataset_size
+            dataset_size=args.dataset_size,
+            thresholds=thresholds
         ):
 
-        logger.info("Loading graph !")
         graph: Graph = line[0]
 
         for i, layer_matrix in enumerate(graph._edge_list):
-            degrees = np.sum(layer_matrix, 1)
+            if i in weights_per_layer:
+                weights_per_layer[i] = np.concatenate([weights_per_layer[i], layer_matrix])
+            else:
+                weights_per_layer[i] = layer_matrix
 
-            q1_w = np.quantile(layer_matrix, 0.1)
-            q9_w = np.quantile(layer_matrix, 0.9)
+    all_weights = list()
 
-            q1_d = np.quantile(degrees, 0.1)
-            q9_d = np.quantile(degrees, 0.9)
+    for i in weights_per_layer:
+        m = weights_per_layer[i]
+        nonzero_m = m[np.where(m > 0)].reshape(-1, 1)
+        all_weights.append(nonzero_m)
 
-            logger.info(f"Weights layer {i}: {q1_w} {q9_w}")
-            logger.info(f"Degrees layer {i}: {q1_d} {q9_d}")
+        q10 = np.quantile(nonzero_m, 0.1)
+        q50 = np.quantile(nonzero_m, 0.5)
+        q90 = np.quantile(nonzero_m, 0.9)
+        print(f"Layer {i} weights {q50} [{q10}; {q90}]")
 
-        #my_igraph: IGraph = IGraph.Adjacency(graph.get_adjacency_matrix().tolist())
+    all_weights = np.concatenate(all_weights, axis=0)
+    q10 = np.quantile(all_weights, 0.1)
+    q50 = np.quantile(all_weights, 0.5)
+    q90 = np.quantile(all_weights, 0.9)
+    q95 = np.quantile(all_weights, 0.95)
+    q99 = np.quantile(all_weights, 0.99)
+    print(f"All weights {q50} [{q10}; {q90} {q95} {q99}]")
 
-        #logger.info(f"Successfully created my igraph with {my_igraph.ecount()} edges !")
-
-
-        #ec = my_igraph.eigenvector_centrality(directed=False)
-
-        #logger.info(f"{len(ec)} {np.quantile(ec, 0.1)} {np.quantile(ec, 0.9)}")
-
-        #nx_graph = graph.to_nx_graph()
-        #logger.info("Successfully created nx graph !")
-
-        #kc = katz_centrality(nx_graph)
-        #logger.info(kc)
-
-        #ec = eigenvector_centrality(nx_graph)
-        #logger.info(ec)
-
-        #bc = betweenness_centrality(nx_graph)
-        #logger.info(bc)
-
-        break
-
-    return
 
 get_stats(epsilon=0.0, noise=0.0)
 
