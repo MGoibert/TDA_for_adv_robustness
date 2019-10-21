@@ -35,6 +35,9 @@ experiment = R3D3Experiment(
         ],
         'epochs': [
             100
+        ],
+        'dataset_size': [
+            25
         ]
 
     },
