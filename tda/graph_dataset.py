@@ -77,7 +77,7 @@ def adversarial_generation(model, x, y,
 
 def process_sample(
         sample: typing.Tuple,
-        adversarial: bool = False,
+        adversarial: bool,
         noise: float = 0,
         epsilon: float = 0,
         model: typing.Optional[torch.nn.Module] = None,
@@ -88,6 +88,7 @@ def process_sample(
     x = x.double()
 
     # If we use adversarial or noisy example!
+
     if adversarial:
         x = adversarial_generation(model, x, y, epsilon, num_classes=num_classes)
     if noise > 0:
@@ -105,7 +106,8 @@ def get_dataset(
         architecture: Architecture = mnist_mlp,
         retain_data_point: bool = False,
         dataset_size: int = 100,
-        thresholds: typing.Optional[typing.List[int]] = None
+        thresholds: typing.Optional[typing.List[int]] = None,
+        only_successful_adversaries: bool = True
 ) -> typing.Generator:
 
     # Else we have to compute the dataset first
@@ -121,11 +123,13 @@ def get_dataset(
     )
     logger.info(f"Got deep model...")
 
-    N = dataset_size
+    logger.info(f"I am going to generate a dataset of {dataset_size} points...")
+    logger.info(f"Only successful adversaries ? {'yes' if only_successful_adversaries else 'no'}")
 
-    logger.info(f"I am going to generate a dataset of {N} points...")
+    nb_samples = 0
+    i = 0
 
-    for i in range(N):
+    while nb_samples < dataset_size:
         sample = source_dataset.test_and_val_dataset[i]
 
         x, y = process_sample(
@@ -140,15 +144,22 @@ def get_dataset(
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
 
-        # st = time.time()
-        x_graph = Graph.from_architecture_and_data_point(
-            model=model,
-            x=x.double(),
-            retain_data_point=retain_data_point,
-            thresholds=thresholds
-        )
-        # logger.info(f"Computed graph in {time.time()-st} secs")
-        yield (x_graph, y, y_pred, y_adv)
+        if adv and only_successful_adversaries and y_pred == y:
+            logger.info(f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv})")
+            i += 1
+            continue
+        else:
+            # st = time.time()
+            x_graph = Graph.from_architecture_and_data_point(
+                model=model,
+                x=x.double(),
+                retain_data_point=retain_data_point,
+                thresholds=thresholds
+            )
+            # logger.info(f"Computed graph in {time.time()-st} secs")
+            nb_samples += 1
+            i += 1
+            yield (x_graph, y, y_pred, y_adv)
 
 
 if __name__ == "__main__":
