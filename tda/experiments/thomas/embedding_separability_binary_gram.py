@@ -44,6 +44,7 @@ parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--dataset', type=str, default="MNIST")
 parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
 parser.add_argument('--dataset_size', type=int, default=100)
+parser.add_argument('--successful_adv', type=bool, default=True)
 
 args, _ = parser.parse_known_args()
 
@@ -62,9 +63,9 @@ else:
     retain_data_point = False
 
 thresholds = [int(x) for x in args.thresholds.split("_")]
+print(thresholds)
 
-
-def get_embeddings(epsilon: float, noise: float) -> typing.List:
+def get_embeddings(epsilon: float, noise: float, successful_adv=False) -> typing.List:
     """
     Helper function to get list of embeddings
     """
@@ -80,17 +81,20 @@ def get_embeddings(epsilon: float, noise: float) -> typing.List:
             dataset_size=args.dataset_size,
             thresholds=thresholds
         ):
-        my_embeddings.append(get_embedding(
-            embedding_type=args.embedding_type,
-            graph=line[0],
-            params={
-                "hash_size": int(args.hash_size),
-                "height": int(args.height),
-                "node_labels": args.node_labels,
-                "steps": args.steps
-            }
-        ))
-    logger.info(f"Computed embeddings for (eps={epsilon}, noise={noise})")
+        logger.info(f"Line = {line}")
+        if (successful_adv and line[1]!=line[2]) or (not successful_adv):
+            logger.info(f"Appending embeddings")
+            my_embeddings.append(get_embedding(
+                embedding_type=args.embedding_type,
+                graph=line[0],
+                params={
+                    "hash_size": int(args.hash_size),
+                    "height": int(args.height),
+                    "node_labels": args.node_labels,
+                    "steps": args.steps
+                }
+            ))
+    logger.info(f"Computed embeddings for (eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
     return my_embeddings
 
 
@@ -103,7 +107,7 @@ all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.075, num=5)))
 
 adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
-    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0)
+    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, successful_adv=args.successful_adv)
     shuffle(adv_embeddings[epsilon])
 
 
