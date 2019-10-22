@@ -22,7 +22,7 @@ start_time = time.time()
 ################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--threshold', type=int, default=0)
+parser.add_argument('--thresholds', type=str, default="0_0_0_0_0_0_0")
 parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--dataset', type=str, default="SVHN")
@@ -41,6 +41,8 @@ architecture = get_architecture(args.architecture)
 
 thresholds = [int(x) for x in args.thresholds.split("_")]
 
+epsilon = 0.02
+print("epsilon =", epsilon)
 
 def get_stats(epsilon: float, noise: float) -> typing.List:
     """
@@ -48,6 +50,8 @@ def get_stats(epsilon: float, noise: float) -> typing.List:
     """
 
     weights_per_layer = dict()
+    epsilon = 0.02
+    print("eps =", epsilon)
 
     for line in get_dataset(
             num_epochs=args.epochs,
@@ -78,8 +82,13 @@ def get_stats(epsilon: float, noise: float) -> typing.List:
 
         q10 = np.quantile(nonzero_m, 0.1)
         q50 = np.quantile(nonzero_m, 0.5)
+        q75 = np.quantile(nonzero_m, 0.75)
+        q80 = np.quantile(nonzero_m, 0.8)
         q90 = np.quantile(nonzero_m, 0.9)
-        print(f"Layer {i} weights {q50} [{q10}; {q90}]")
+        q95 = np.quantile(nonzero_m, 0.95)
+        q99 = np.quantile(nonzero_m, 0.99)
+        qmax = max(nonzero_m)
+        print(f"Layer {i} weights med = {q50} [{q10}; 0.75 = {q75}; 0.8 = {q80}; 0.9 = {q90}; 0.95 = {q95}; 0.99 = {q99}; max = {qmax}]")
 
     all_weights = np.concatenate(all_weights, axis=0)
     q10 = np.quantile(all_weights, 0.1)
