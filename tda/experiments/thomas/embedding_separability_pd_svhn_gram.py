@@ -14,7 +14,7 @@ experiment = R3D3Experiment(
             KernelType.SlicedWasserstein
         ],
         'thresholds': [
-            "25000_1_1125000_1_2000000_5700000_25400000"
+            "70000_1_100000_1_25000_70000_230000"
         ],
         'noise': [
             0.0
@@ -29,7 +29,7 @@ experiment = R3D3Experiment(
             100
         ],
         'dataset_size':[
-            30
+            40
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
