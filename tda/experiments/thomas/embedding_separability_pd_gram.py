@@ -1,6 +1,7 @@
 from r3d3 import R3D3Experiment
 
 from tda.embeddings import EmbeddingType, KernelType
+from tda.models import mnist_mlp
 from tda.rootpath import rootpath, db_path
 
 experiment = R3D3Experiment(
@@ -13,7 +14,8 @@ experiment = R3D3Experiment(
             KernelType.SlicedWasserstein
         ],
         'threshold': [
-            15000, 20000
+            '_'.join([str(15000) for _ in range(mnist_mlp.get_nb_graph_layers())]),
+            '_'.join([str(20000) for _ in range(mnist_mlp.get_nb_graph_layers())])
         ],
         'noise': [
             0.0, 0.02
