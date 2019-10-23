@@ -132,6 +132,57 @@ def process_sample(
     return x, y
 
 
+def compute_adv_accuracy(
+        num_epochs: int,
+        epsilon: float,
+        noise: float,
+        source_dataset_name: str = "MNIST",
+        architecture: Architecture = mnist_mlp,
+        dataset_size: int = 100,
+        attack_type: str = "FGSM"
+) -> float:
+    # Else we have to compute the dataset first
+    logger.info(f"Getting source dataset {source_dataset_name}")
+    source_dataset = Dataset(name=source_dataset_name)
+    logger.info(f"Got source dataset {source_dataset_name} !!")
+
+    logger.info(f"Getting deep model...")
+    model, loss_func = get_deep_model(
+        num_epochs=num_epochs,
+        dataset=source_dataset,
+        architecture=architecture
+    )
+    logger.info(f"Got deep model...")
+
+    logger.info(f"I am going to generate a dataset of {dataset_size} points...")
+
+    nb_samples = 0
+    i = 0
+    corr = 0
+
+    while nb_samples < dataset_size:
+        sample = source_dataset.test_and_val_dataset[nb_samples]
+
+        x, y = process_sample(
+            sample=sample,
+            adversarial=epsilon > 0,
+            noise=noise,
+            epsilon=epsilon,
+            model=model,
+            num_classes=10,
+            attack_type=attack_type
+        )
+
+        y_pred = model(x).argmax(dim=-1).item()
+
+        if y == y_pred:
+            corr += 1
+
+        nb_samples += 1
+
+    return corr / dataset_size
+
+
 def get_dataset(
         num_epochs: int,
         epsilon: float,
@@ -146,7 +197,6 @@ def get_dataset(
         attack_type: str = "FGSM",
         num_iter: int = 10
 ) -> typing.Generator:
-
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
     source_dataset = Dataset(name=source_dataset_name)
