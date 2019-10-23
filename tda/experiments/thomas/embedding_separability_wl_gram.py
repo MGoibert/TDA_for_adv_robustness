@@ -3,6 +3,7 @@ from r3d3 import R3D3Experiment
 from tda.rootpath import rootpath, db_path
 from tda.embeddings import EmbeddingType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
+from tda.models.architectures import mnist_mlp
 
 experiment = R3D3Experiment(
     db_path=db_path,
@@ -11,7 +12,7 @@ experiment = R3D3Experiment(
             EmbeddingType.WeisfeilerLehman
             ],
         'threshold': [
-            20000
+            '_'.join([str(20000) for _ in range(mnist_mlp.get_nb_graph_layers())])
         ],
         'height': [
             5

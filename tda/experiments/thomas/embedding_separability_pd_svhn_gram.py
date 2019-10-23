@@ -17,7 +17,7 @@ experiment = R3D3Experiment(
             "70000_1_100000_1_20000_0_0"
         ],
         'noise': [
-            0.0
+            [0.0, 0.01]
         ],
         'architecture': [
             svhn_lenet.name
