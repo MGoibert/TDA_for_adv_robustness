@@ -39,8 +39,8 @@ class Graph(object):
 
         edge_list = list()
         for i, v in enumerate(raw_edge_list):
+            v = np.abs(v) * 10e5
             if thresholds:
-                v = np.abs(v) * 10e5
                 v[v < thresholds[i]] = 0.0
             edge_list.append(v)
 

@@ -285,6 +285,11 @@ class Architecture(nn.Module):
                 ret.append(m)
         return ret
 
+    def get_nb_graph_layers(self) -> int:
+        return sum([
+            1 for layer in self.layers if layer.graph_layer
+        ])
+
 
 #######################
 # MNIST Architectures #

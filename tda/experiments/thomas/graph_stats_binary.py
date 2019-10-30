@@ -6,6 +6,7 @@ import logging
 import time
 import typing
 import numpy as np
+import matplotlib.pyplot as plt
 
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset
@@ -28,6 +29,7 @@ parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--dataset', type=str, default="SVHN")
 parser.add_argument('--architecture', type=str, default=svhn_lenet.name)
 parser.add_argument('--dataset_size', type=int, default=10)
+parser.add_argument('--num_iter', type=int, default=10)
 
 args, _ = parser.parse_known_args()
 
@@ -41,16 +43,12 @@ architecture = get_architecture(args.architecture)
 
 thresholds = [int(x) for x in args.thresholds.split("_")]
 
-epsilon = 0.02
-print("epsilon =", epsilon)
-
-def get_stats(epsilon: float, noise: float) -> typing.List:
+def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> typing.List:
     """
     Helper function to get list of embeddings
     """
 
     weights_per_layer = dict()
-    epsilon = 0.02
     print("eps =", epsilon)
 
     for line in get_dataset(
@@ -62,10 +60,24 @@ def get_stats(epsilon: float, noise: float) -> typing.List:
             architecture=architecture,
             source_dataset_name=args.dataset,
             dataset_size=args.dataset_size,
-            thresholds=thresholds
+            thresholds=thresholds,
+            only_successful_adversaries=False,
+            attack_type=attack_type,
+            num_iter=args.num_iter
         ):
 
         graph: Graph = line[0]
+        logger.info(f"The data point: y = {line[1]}, y_pred = {line[2]} and adv = {line[3]} and the attack = {attack_type}")
+        adjacency_matrix = graph.get_adjacency_matrix()
+        #adjacency_matrix = 92000000*np.random.rand(10000,10000)
+        print(np.shape(adjacency_matrix))
+        print(adjacency_matrix[0,0])
+        print("Nan =", np.isnan(adjacency_matrix).sum())
+        print(adjacency_matrix.min(), adjacency_matrix.max())
+        plt.matshow(adjacency_matrix, vmin=0, vmax=750000, cmap='Greys')
+        filename = "/Users/m.goibert/Downloads/test_adj_matrix_" + str(epsilon) +  "_" + str(attack_type) + ".png"
+        plt.savefig(filename, dpi=800)
+        plt.show()
 
         for i, layer_matrix in enumerate(graph._edge_list):
             if i in weights_per_layer:
@@ -98,8 +110,32 @@ def get_stats(epsilon: float, noise: float) -> typing.List:
     q99 = np.quantile(all_weights, 0.99)
     print(f"All weights {q50} [{q10}; {q90} {q95} {q99}]")
 
+    return adjacency_matrix
 
-get_stats(epsilon=0.0, noise=0.0)
+# FGSM part
+a = get_stats(epsilon=0.0, noise=0.0)
+b = get_stats(epsilon=0.02, noise=0.0, attack_type="FGSM")
+diff_mat = a - b
+print("Extreme values =", diff_mat.min(), diff_mat.max())
+print("Quantile =", np.quantile(diff_mat, 0.001), np.quantile(diff_mat, 0.01), np.quantile(diff_mat, 0.05), np.quantile(diff_mat, 0.1), np.quantile(diff_mat, 0.2), np.quantile(diff_mat, 0.5), np.quantile(diff_mat, 0.8), np.quantile(diff_mat, 0.9), np.quantile(diff_mat, 0.95), np.quantile(diff_mat, 0.99), np.quantile(diff_mat, 0.999))
+print("Quantile v2 =", np.quantile(diff_mat[np.where(diff_mat != 0)], 0.01), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.05), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.1), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.2), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.8), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.9), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.95), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.99))
+plt.matshow(diff_mat, vmin=-50000, vmax=50000, cmap='Greys')
+plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_FGSM_" ".png", dpi=800)
+plt.show()
+
+c = get_stats(epsilon=0.2, noise=0.0, attack_type="DeepFool")
+diff_mat2 = a - c
+print("Extreme values =", diff_mat2.min(), diff_mat2.max())
+print("Quantile =", np.quantile(diff_mat2, 0.001), np.quantile(diff_mat2, 0.01), np.quantile(diff_mat2, 0.05), np.quantile(diff_mat2, 0.1), np.quantile(diff_mat2, 0.2), np.quantile(diff_mat2, 0.5), np.quantile(diff_mat2, 0.8), np.quantile(diff_mat2, 0.9), np.quantile(diff_mat2, 0.95), np.quantile(diff_mat2, 0.99), np.quantile(diff_mat2, 0.999))
+print("Quantile v2 =", np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.01), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.05), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.1), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.2), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.8), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.9), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.95), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.99))
+plt.matshow(diff_mat2, vmin=-50000, vmax=50000, cmap='Greys')
+plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_DeepFool_" ".png", dpi=800)
+plt.show()
+
+diff_mat_att = np.abs(b - c)
+plt.matshow(diff_mat_att, vmin=0, vmax=0.1, cmap='Greys')
+plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_FGSMvsDeepFool_" ".png", dpi=800)
+plt.show()
 
 end_time = time.time()
 
