@@ -44,7 +44,9 @@ parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--dataset', type=str, default="MNIST")
 parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
 parser.add_argument('--dataset_size', type=int, default=100)
-parser.add_argument('--successful_adv', type=bool, default=True)
+parser.add_argument('--successful_adv', type=int, default=1)
+parser.add_argument('--attack_type', type=str, default="FGSM")
+parser.add_argument('--num_iter', type=int, default=10)
 
 args, _ = parser.parse_known_args()
 
@@ -64,8 +66,10 @@ else:
 
 thresholds = [int(x) for x in args.thresholds.split("_")]
 print(thresholds)
+stats = {}
 
-def get_embeddings(epsilon: float, noise: float, successful_adv=False) -> typing.List:
+
+def get_embeddings(epsilon: float, noise: float) -> typing.List:
     """
     Helper function to get list of embeddings
     """
@@ -79,37 +83,45 @@ def get_embeddings(epsilon: float, noise: float, successful_adv=False) -> typing
             architecture=architecture,
             source_dataset_name=args.dataset,
             dataset_size=args.dataset_size,
-            thresholds=thresholds
+            thresholds=thresholds,
+            only_successful_adversaries=args.successful_adv > 0,
+            attack_type=args.attack_type,
+            num_iter=args.num_iter
         ):
-        logger.info(f"Line = {line}")
-        if (successful_adv and line[1]!=line[2]) or (not successful_adv):
-            logger.info(f"Appending embeddings")
-            my_embeddings.append(get_embedding(
-                embedding_type=args.embedding_type,
-                graph=line[0],
-                params={
-                    "hash_size": int(args.hash_size),
-                    "height": int(args.height),
-                    "node_labels": args.node_labels,
-                    "steps": args.steps
-                }
-            ))
-    logger.info(f"Computed embeddings for (eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
+        logger.info(f"Line = {line[:3]} and diff = {line[4]}")
+        stats[epsilon].append(line[4])
+        my_embeddings.append(get_embedding(
+            embedding_type=args.embedding_type,
+            graph=line[0],
+            params={
+                "hash_size": int(args.hash_size),
+                "height": int(args.height),
+                "node_labels": args.node_labels,
+                "steps": args.steps
+            }
+        ))
+    logger.info(f"Computed embeddings for (attack = {args.attack_type}, eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
     return my_embeddings
 
 
 # Clean embeddings
+stats[0.0] = list()
 clean_embeddings = get_embeddings(epsilon=0.0, noise=0.0)
-clean_embeddings += get_embeddings(epsilon=0.0, noise=args.noise)
+#clean_embeddings += get_embeddings(epsilon=0.0, noise=args.noise)
 shuffle(clean_embeddings)
 
-all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.075, num=5)))
+if args.attack_type in ["FGSM", "BIM"]:
+    all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.075, num=5)))
+else:
+    all_epsilons = [0.0, 1]
+#all_epsilons = [0.0] + list(sorted(np.logspace(-15, -15, 1)))
 
 adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
-    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, successful_adv=args.successful_adv)
+    stats[epsilon] = list()
+    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0)
     shuffle(adv_embeddings[epsilon])
-
+    logger.info(f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
 
 def process_epsilon(epsilon: float) -> float:
     if epsilon == 0.0:
