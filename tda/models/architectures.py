@@ -263,14 +263,20 @@ class Architecture(nn.Module):
             for j, param in enumerate(layer.func.parameters()):
                 self.register_parameter(f"{i}_{j}", param)
 
-    def forward(self, x, store_for_graph=False):
+    def forward(self, x, store_for_graph=False, presoft=False):
         # List to store intermediate results if needed
         x = self.preprocess(x)
+        nb_layer = sum([1 for layer in self.layers if layer.graph_layer])
         # Going through all layers
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
             x = layer.process(x.double(), store_for_graph=store_for_graph)
+            if presoft and (i == nb_layer - 1):
+                x_presoft = x
         # Returning final result
-        return x
+        if presoft:
+            return x_presoft
+        else:
+            return x
 
     def get_graph_values(self, x):
         # Processing sample
