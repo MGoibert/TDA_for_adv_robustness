@@ -120,6 +120,7 @@ adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
     stats[epsilon] = list()
     adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0)
+    #adv_embeddings[epsilon] = get_embeddings(epsilon=1e-15, noise=epsilon)
     shuffle(adv_embeddings[epsilon])
     logger.info(f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
 

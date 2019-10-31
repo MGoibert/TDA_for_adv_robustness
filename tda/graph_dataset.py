@@ -180,7 +180,7 @@ def get_dataset(
             attack_type=attack_type,
             num_iter=num_iter
         )
-        stat = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), np.inf)
+        stat = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), 2)
         #logger.info(f"x from process sample = {x}")
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial

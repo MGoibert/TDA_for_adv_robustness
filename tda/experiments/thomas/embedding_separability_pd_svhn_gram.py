@@ -15,6 +15,7 @@ experiment = R3D3Experiment(
         ],
         'thresholds': [
             "70000_1_100000_1_20000_0_0"
+            #"70000_1_220000_1_350000_1050000_4500000"
         ],
         'noise': [
             0.0
@@ -29,13 +30,13 @@ experiment = R3D3Experiment(
             100
         ],
         'dataset_size':[
-            10
+            30
         ],
         'attack_type':[
             "DeepFool"
         ],
         'num_iter':[
-            50
+            100
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
