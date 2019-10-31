@@ -17,7 +17,7 @@ experiment = R3D3Experiment(
             "70000_1_100000_1_20000_0_0"
         ],
         'noise': [
-            [0.0, 0.01]
+            0.0, 1e-4, 0.01
         ],
         'architecture': [
             svhn_lenet.name
@@ -29,7 +29,7 @@ experiment = R3D3Experiment(
             100
         ],
         'dataset_size':[
-            10
+            30
         ],
         'attack_type':[
             "DeepFool"
