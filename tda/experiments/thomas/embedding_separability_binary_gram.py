@@ -156,18 +156,26 @@ def process_epsilon(epsilon: float) -> float:
         test_data = clean_embeddings[len(clean_embeddings) // 2:]
 
         # Training model
+        start_time = time.time()
         gram_train = get_gram_matrix(
             args.kernel_type, train_data, train_data,
             param
         )
+        logger.info(f"Computed Gram Matrix in {time.time()-start_time} secs")
+
+        start_time = time.time()
         ocs.fit(gram_train)
+        logger.info(f"Trained model in {time.time()-start_time} secs")
 
         # Testing model
 
+        start_time = time.time()
         gram_test_and_bad = get_gram_matrix(
             args.kernel_type, test_data + adv_embeddings[epsilon], train_data,
             param
         )
+        logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
+
         predictions = ocs.score_samples(gram_test_and_bad)
 
         labels = np.concatenate((np.ones(len(test_data)), np.zeros(len(adv_embeddings[epsilon]))))
