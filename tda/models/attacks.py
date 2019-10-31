@@ -72,13 +72,14 @@ class BIM(_BaseAttack):
         target = target.detach()
         if epsilon_iter is None:
             epsilon_iter = 5 * epsilon / self.num_iter
+        logger.info(f"BIM num iter = {self.num_iter} and epsilon iter = {epsilon_iter}")
 
         x_ori = data.data
         for _ in range(self.num_iter):
-            x_adv = Variable(data.data, requires_grad=True)
+            data = Variable(data.data, requires_grad = True)
 
             # forward pass
-            h_adv = self.model(x_adv)
+            h_adv = self.model(data)
             self.model.zero_grad()
             loss = self.loss_func(h_adv, target, num_classes)
 
@@ -86,15 +87,11 @@ class BIM(_BaseAttack):
             loss.backward(retain_graph=True)
 
             # single-step of FGSM: data <-- x_adv
-            #x_adv.grad.sign_()  # x_adv.grad <-- x_adv.grad.sign()
             x_adv = data + epsilon_iter * data.grad.sign()
             eta = torch.clamp(x_adv - x_ori, min=-epsilon, max=epsilon)
             data = self.clamp(x_ori + eta)
-            #x_adv = where(x_adv > data + epsilon, data + epsilon, x_adv)
-            #x_adv = where(x_adv < data - epsilon, data - epsilon, x_adv)
-        x_adv = data
 
-        return x_adv
+        return data
 
 # Define CW attack then CW
 def _to_attack_space(x, lims=(-0.5, 0.5)):
@@ -263,7 +260,7 @@ class CW(_BaseAttack):
     """
     Carlini-Wagner Method
     """
-    def __init__(self, model, binary_search_steps=5,
+    def __init__(self, model, binary_search_steps=10,
                  num_iter=50, lims=(-0.5, 0.5)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
