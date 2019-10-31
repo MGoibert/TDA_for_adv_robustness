@@ -150,7 +150,7 @@ def _soft_to_logit(softmax_list):
 # ----------
 
 
-def _fct_to_min(adv_x, reconstruct_data, target, y_pred, c, confidence=0, lims=(-0.5, 0.5)):
+def _fct_to_min(adv_x, reconstruct_data, target, y_pred, logits, c, confidence=0, lims=(-0.5, 0.5)):
     """
     C&W attack: Objective function to minimize. Untargeted implementation.
     Parameters
@@ -180,7 +180,7 @@ def _fct_to_min(adv_x, reconstruct_data, target, y_pred, c, confidence=0, lims=(
     and Wagner, 2017 for more information.
     """
     # Logits
-    logits = _soft_to_logit(y_pred)
+    #logits = _soft_to_logit(y_pred)
 
     # Index of original class
     if False:
@@ -239,8 +239,9 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
             #logger.info(f"Just before x torch cat = {torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb])} and size = {torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]).size()}")
             x = _to_model_space(att_original + torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]) , lims=lims)
             y_pred = model(x)
-            logits = _soft_to_logit(y_pred)
-            cost = _fct_to_min(x, reconstruct_original, target, y_pred, c,
+            #logits = _soft_to_logit(y_pred)
+            logits = model(x, presoft=True)
+            cost = _fct_to_min(x, reconstruct_original, target, y_pred, logits, c,
                                confidence, lims=lims)
             #logger.info(f"    x = {x}")
             #logger.info(f"    y_pred = {y_pred}")
@@ -274,7 +275,7 @@ class CW(_BaseAttack):
     """
     Carlini-Wagner Method
     """
-    def __init__(self, model, binary_search_steps=15,
+    def __init__(self, model, binary_search_steps=30,
                  num_iter=50, lims=(-0.5, 0.5)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
@@ -300,12 +301,19 @@ class DeepFool(_BaseAttack):
     def run(self, image, true_label, epsilon=None):
         #logger.info(f"DeepFool number of iteration = {self.num_iter}")
         self.model.eval()
+
+        #logger.info(f"model = {self.model}")
+        #logger.info(f"model modules = {list(self.model.modules())}")
+        #newmodel = torch.nn.Sequential(*(list(self.model.modules())[:-1]))
+        #logger.info(f"newmodel = {newmodel}")
+
         nx = torch.unsqueeze(image, 0).detach().cpu().numpy().copy()
         nx = torch.from_numpy(nx)
         nx.requires_grad = True
         eta = torch.zeros(nx.shape)
 
-        out = _soft_to_logit(self.model(nx+eta))
+        out = self.model(nx+eta, presoft=True)
+        #logger.info(f"newmodel pred = {newmodel(nx)}")
         #logger.info(f"out = {out}")
         py = out.max(1)[1].item()
         ny = out.max(1)[1].item()
@@ -329,12 +337,16 @@ class DeepFool(_BaseAttack):
                 grad_i = nx.grad.data.clone()
 
                 wi = grad_i - grad_np
-                #logger.info(f"grad_i = {grad_np} and grad_np = {grad_np} and denominator = {np.linalg.norm(wi.numpy().flatten())}")
+                if np.linalg.norm(wi.numpy().flatten())==0.0: logger.info(f"Denominator = 0 for i = {i} and iter = {i_iter}")
                 fi = out[0, i] - out[0, py]
                 value_i = np.abs(fi.item()) / np.linalg.norm(wi.numpy().flatten())
+                #logger.info(f"wi val = {wi}")
+                #logger.info(f"fi val = {fi}")
+                #logger.info(f"value i val = {value_i}")
 
                 if value_i < value_l:
                     ri = value_i/np.linalg.norm(wi.numpy().flatten()) * wi
+                    #logger.info(f"r_i val = {ri}")
 
             eta += ri.clone() if type(ri) != type(None) else 0
             nx.grad.data.zero_()
@@ -342,6 +354,9 @@ class DeepFool(_BaseAttack):
             py = out.max(1)[1].item()
             i_iter += 1
         
+        #logger.info(f"DeepFool total run = {i_iter}")
+        #if i_iter == self.num_iter:
+        #    logger.info(f"eta (perturbation) after {i_iter} run = {eta} and norm = {np.linalg.norm(eta.detach().numpy().flatten())}")
         x_adv = nx + eta
         #x_adv.clamp_(self.clip_min, self.clip_max)
         x_adv.squeeze_(0)
