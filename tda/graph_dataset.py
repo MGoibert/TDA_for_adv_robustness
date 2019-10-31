@@ -139,7 +139,8 @@ def compute_adv_accuracy(
         source_dataset_name: str = "MNIST",
         architecture: Architecture = mnist_mlp,
         dataset_size: int = 100,
-        attack_type: str = "FGSM"
+        attack_type: str = "FGSM",
+        num_iter: int = 50
 ) -> float:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -170,7 +171,8 @@ def compute_adv_accuracy(
             epsilon=epsilon,
             model=model,
             num_classes=10,
-            attack_type=attack_type
+            attack_type=attack_type,
+            num_iter=num_iter
         )
 
         y_pred = model(x).argmax(dim=-1).item()

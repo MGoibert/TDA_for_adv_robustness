@@ -215,9 +215,7 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
     """
     data = data.unsqueeze(0)
     batch_size = 1 if len(data.size()) < 4 else len(data)
-    #logger.info(f"batch size = {batch_size}")
     att_original = _to_attack_space(data.detach(), lims=lims)
-    #logger.info(f"att_original size = {att_original.size()}")
     reconstruct_original = _to_model_space(att_original, lims=lims)
 
     c = torch.ones(batch_size) * initial_c
@@ -228,31 +226,21 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
     for binary_search_step in range(binary_search_steps):
         perturb = [ torch.zeros_like(att_original[t], requires_grad=True)
                    for t in range(batch_size)]
-        #logger.info(f"perturb = {perturb}")
         optimizer_CW = [torch.optim.Adam([perturb[t]], lr=learning_rate)
                         for t in range(batch_size)]
         found_adv = torch.zeros(batch_size).byte()
-        #logger.info(f"found_adv = {found_adv}")
 
         for iteration in range(num_iter):
-            #logger.info(f"Iteration = {iteration}")
-            #logger.info(f"Just before x torch cat = {torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb])} and size = {torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]).size()}")
             x = _to_model_space(att_original + torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]) , lims=lims)
             y_pred = model(x)
-            #logits = _soft_to_logit(y_pred)
             logits = model(x, presoft=True)
             cost = _fct_to_min(x, reconstruct_original, target, y_pred, logits, c,
                                confidence, lims=lims)
-            #logger.info(f"    x = {x}")
-            #logger.info(f"    y_pred = {y_pred}")
-            #logger.info(f"    logits = {logits}")
-            #logger.info(f"    cost = {cost}")
+
             for t in range(batch_size):
                 optimizer_CW[t].zero_grad()
                 cost[t].backward(retain_graph=True)
-                #logger.info(f"    Gradients = {perturb[t].grad}")
                 optimizer_CW[t].step()
-                #logger.info(f"    perturb = {perturb} and size = {perturb[0].size()} and unsqueeze version = {perturb[0].unsqueeze(0)} and size unsqueeze = {perturb[0].unsqueeze(0).size()}")
                 if logits[t].squeeze().argmax(-1, keepdim=True).item() != target[t]:
                     found_adv[t] = 1
                 else:
@@ -275,7 +263,7 @@ class CW(_BaseAttack):
     """
     Carlini-Wagner Method
     """
-    def __init__(self, model, binary_search_steps=30,
+    def __init__(self, model, binary_search_steps=5,
                  num_iter=50, lims=(-0.5, 0.5)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
@@ -299,13 +287,8 @@ class DeepFool(_BaseAttack):
         self.model = model
 
     def run(self, image, true_label, epsilon=None):
-        #logger.info(f"DeepFool number of iteration = {self.num_iter}")
+        logger.info(f"DeepFool number of iteration = {self.num_iter}")
         self.model.eval()
-
-        #logger.info(f"model = {self.model}")
-        #logger.info(f"model modules = {list(self.model.modules())}")
-        #newmodel = torch.nn.Sequential(*(list(self.model.modules())[:-1]))
-        #logger.info(f"newmodel = {newmodel}")
 
         nx = torch.unsqueeze(image, 0).detach().cpu().numpy().copy()
         nx = torch.from_numpy(nx)
@@ -313,8 +296,6 @@ class DeepFool(_BaseAttack):
         eta = torch.zeros(nx.shape)
 
         out = self.model(nx+eta, presoft=True)
-        #logger.info(f"newmodel pred = {newmodel(nx)}")
-        #logger.info(f"out = {out}")
         py = out.max(1)[1].item()
         ny = out.max(1)[1].item()
 
@@ -322,7 +303,6 @@ class DeepFool(_BaseAttack):
 
         while py == ny and i_iter < self.num_iter:
             out[0, py].backward(retain_graph=True)
-            #logger.info(f"out[0, py] = {out[0, py]}")
             grad_np = nx.grad.data.clone()
             value_l = np.inf
             ri = None
@@ -333,20 +313,15 @@ class DeepFool(_BaseAttack):
 
                 nx.grad.data.zero_()
                 out[0, i].backward(retain_graph=True)
-                #logger.info(f"out[0, i] = {out[0, i]}")
                 grad_i = nx.grad.data.clone()
 
                 wi = grad_i - grad_np
-                if np.linalg.norm(wi.numpy().flatten())==0.0: logger.info(f"Denominator = 0 for i = {i} and iter = {i_iter}")
                 fi = out[0, i] - out[0, py]
                 value_i = np.abs(fi.item()) / np.linalg.norm(wi.numpy().flatten())
-                #logger.info(f"wi val = {wi}")
-                #logger.info(f"fi val = {fi}")
-                #logger.info(f"value i val = {value_i}")
+
 
                 if value_i < value_l:
                     ri = value_i/np.linalg.norm(wi.numpy().flatten()) * wi
-                    #logger.info(f"r_i val = {ri}")
 
             eta += ri.clone() if type(ri) != type(None) else 0
             nx.grad.data.zero_()
@@ -354,12 +329,8 @@ class DeepFool(_BaseAttack):
             py = out.max(1)[1].item()
             i_iter += 1
         
-        #logger.info(f"DeepFool total run = {i_iter}")
-        #if i_iter == self.num_iter:
-        #    logger.info(f"eta (perturbation) after {i_iter} run = {eta} and norm = {np.linalg.norm(eta.detach().numpy().flatten())}")
         x_adv = nx + eta
         #x_adv.clamp_(self.clip_min, self.clip_max)
         x_adv.squeeze_(0)
 
-        #logger.info(f"x_adv = {x_adv} and size = {x_adv.size()}")
         return self.clamp(x_adv)
