@@ -1,4 +1,4 @@
-import typing
+from typing import List, Optional, Dict
 import numpy as np
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
@@ -24,7 +24,7 @@ class KernelType(object):
 def get_embedding(
         embedding_type: str,
         graph: Graph,
-        params: typing.Dict
+        params: Dict
 ):
     if embedding_type == EmbeddingType.AnonymousWalk:
         walk = AnonymousWalks(G=graph.to_nx_graph())
@@ -50,15 +50,43 @@ def get_embedding(
 
 def get_gram_matrix(
         kernel_type: str,
-        embeddings_in: typing.List,
-        embeddings_out: typing.List,
-        params: typing.Dict = dict()
+        embeddings_in: List,
+        embeddings_out: Optional[List] = None,
+        params: Dict = dict()
 ):
+    """
+    Compute the gram matrix of the given embeddings
+    using a specific kernel
+
+    :param kernel_type: Kernel to be used (str)
+    :param embeddings_in: Embeddings in
+    :param embeddings_out: Embeddings out
+        if None, we use the same as embeddings_in and use the fact
+        the matrix is symmetric to speed up the process
+    :param params: Parameters for the kernel
+    :return:
+    """
+
     n = len(embeddings_in)
-    m = len(embeddings_out)
-    gram = np.zeros([n, m])
+
+    # If no embeddings out is specified, we use embeddings_in
+    if not embeddings_out:
+        embeddings_out = embeddings_in
+        gram = np.zeros([n, n])
+        sym = True
+    else:
+        m = len(embeddings_out)
+        gram = np.zeros([n, m])
+        sym = False
+
     for i in range(n):
-        for j in range(m):
+
+        if sym:
+            lim = i+1
+        else:
+            lim = m
+
+        for j in range(lim):
             if kernel_type == KernelType.Euclidean:
                 gram[i, j] = np.dot(
                     embeddings_in[i],
@@ -78,4 +106,6 @@ def get_gram_matrix(
                 raise NotImplementedError(
                     f"Unknown kenerl {kernel_type}"
                 )
+            if sym:
+                gram[j, i] = gram[i, j]
     return gram
