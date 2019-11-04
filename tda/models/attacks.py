@@ -72,13 +72,14 @@ class BIM(_BaseAttack):
         target = target.detach()
         if epsilon_iter is None:
             epsilon_iter = 5 * epsilon / self.num_iter
+        logger.info(f"BIM num iter = {self.num_iter} and epsilon iter = {epsilon_iter}")
 
         x_ori = data.data
         for _ in range(self.num_iter):
-            x_adv = Variable(data.data, requires_grad=True)
+            data = Variable(data.data, requires_grad = True)
 
             # forward pass
-            h_adv = self.model(x_adv)
+            h_adv = self.model(data)
             self.model.zero_grad()
             loss = self.loss_func(h_adv, target, num_classes)
 
@@ -86,15 +87,11 @@ class BIM(_BaseAttack):
             loss.backward(retain_graph=True)
 
             # single-step of FGSM: data <-- x_adv
-            #x_adv.grad.sign_()  # x_adv.grad <-- x_adv.grad.sign()
             x_adv = data + epsilon_iter * data.grad.sign()
             eta = torch.clamp(x_adv - x_ori, min=-epsilon, max=epsilon)
             data = self.clamp(x_ori + eta)
-            #x_adv = where(x_adv > data + epsilon, data + epsilon, x_adv)
-            #x_adv = where(x_adv < data - epsilon, data - epsilon, x_adv)
-        x_adv = data
 
-        return x_adv
+        return data
 
 # Define CW attack then CW
 def _to_attack_space(x, lims=(-0.5, 0.5)):
@@ -150,7 +147,7 @@ def _soft_to_logit(softmax_list):
 # ----------
 
 
-def _fct_to_min(adv_x, reconstruct_data, target, y_pred, c, confidence=0, lims=(-0.5, 0.5)):
+def _fct_to_min(adv_x, reconstruct_data, target, y_pred, logits, c, confidence=0, lims=(-0.5, 0.5)):
     """
     C&W attack: Objective function to minimize. Untargeted implementation.
     Parameters
@@ -180,7 +177,7 @@ def _fct_to_min(adv_x, reconstruct_data, target, y_pred, c, confidence=0, lims=(
     and Wagner, 2017 for more information.
     """
     # Logits
-    logits = _soft_to_logit(y_pred)
+    #logits = _soft_to_logit(y_pred)
 
     # Index of original class
     if False:
@@ -215,9 +212,7 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
     """
     data = data.unsqueeze(0)
     batch_size = 1 if len(data.size()) < 4 else len(data)
-    #logger.info(f"batch size = {batch_size}")
     att_original = _to_attack_space(data.detach(), lims=lims)
-    #logger.info(f"att_original size = {att_original.size()}")
     reconstruct_original = _to_model_space(att_original, lims=lims)
 
     c = torch.ones(batch_size) * initial_c
@@ -228,30 +223,21 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
     for binary_search_step in range(binary_search_steps):
         perturb = [ torch.zeros_like(att_original[t], requires_grad=True)
                    for t in range(batch_size)]
-        #logger.info(f"perturb = {perturb}")
         optimizer_CW = [torch.optim.Adam([perturb[t]], lr=learning_rate)
                         for t in range(batch_size)]
         found_adv = torch.zeros(batch_size).byte()
-        #logger.info(f"found_adv = {found_adv}")
 
         for iteration in range(num_iter):
-            #logger.info(f"Iteration = {iteration}")
-            #logger.info(f"Just before x torch cat = {torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb])} and size = {torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]).size()}")
             x = _to_model_space(att_original + torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]) , lims=lims)
             y_pred = model(x)
-            logits = _soft_to_logit(y_pred)
-            cost = _fct_to_min(x, reconstruct_original, target, y_pred, c,
+            logits = model(x, presoft=True)
+            cost = _fct_to_min(x, reconstruct_original, target, y_pred, logits, c,
                                confidence, lims=lims)
-            #logger.info(f"    x = {x}")
-            #logger.info(f"    y_pred = {y_pred}")
-            #logger.info(f"    logits = {logits}")
-            #logger.info(f"    cost = {cost}")
+
             for t in range(batch_size):
                 optimizer_CW[t].zero_grad()
                 cost[t].backward(retain_graph=True)
-                #logger.info(f"    Gradients = {perturb[t].grad}")
                 optimizer_CW[t].step()
-                #logger.info(f"    perturb = {perturb} and size = {perturb[0].size()} and unsqueeze version = {perturb[0].unsqueeze(0)} and size unsqueeze = {perturb[0].unsqueeze(0).size()}")
                 if logits[t].squeeze().argmax(-1, keepdim=True).item() != target[t]:
                     found_adv[t] = 1
                 else:
@@ -274,7 +260,7 @@ class CW(_BaseAttack):
     """
     Carlini-Wagner Method
     """
-    def __init__(self, model, binary_search_steps=15,
+    def __init__(self, model, binary_search_steps=10,
                  num_iter=50, lims=(-0.5, 0.5)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
@@ -298,15 +284,15 @@ class DeepFool(_BaseAttack):
         self.model = model
 
     def run(self, image, true_label, epsilon=None):
-        #logger.info(f"DeepFool number of iteration = {self.num_iter}")
+        logger.info(f"DeepFool number of iteration = {self.num_iter}")
         self.model.eval()
+
         nx = torch.unsqueeze(image, 0).detach().cpu().numpy().copy()
         nx = torch.from_numpy(nx)
         nx.requires_grad = True
         eta = torch.zeros(nx.shape)
 
-        out = _soft_to_logit(self.model(nx+eta))
-        #logger.info(f"out = {out}")
+        out = self.model(nx+eta, presoft=True)
         py = out.max(1)[1].item()
         ny = out.max(1)[1].item()
 
@@ -314,7 +300,6 @@ class DeepFool(_BaseAttack):
 
         while py == ny and i_iter < self.num_iter:
             out[0, py].backward(retain_graph=True)
-            #logger.info(f"out[0, py] = {out[0, py]}")
             grad_np = nx.grad.data.clone()
             value_l = np.inf
             ri = None
@@ -325,13 +310,12 @@ class DeepFool(_BaseAttack):
 
                 nx.grad.data.zero_()
                 out[0, i].backward(retain_graph=True)
-                #logger.info(f"out[0, i] = {out[0, i]}")
                 grad_i = nx.grad.data.clone()
 
                 wi = grad_i - grad_np
-                #logger.info(f"grad_i = {grad_np} and grad_np = {grad_np} and denominator = {np.linalg.norm(wi.numpy().flatten())}")
                 fi = out[0, i] - out[0, py]
                 value_i = np.abs(fi.item()) / np.linalg.norm(wi.numpy().flatten())
+
 
                 if value_i < value_l:
                     ri = value_i/np.linalg.norm(wi.numpy().flatten()) * wi
@@ -346,5 +330,4 @@ class DeepFool(_BaseAttack):
         #x_adv.clamp_(self.clip_min, self.clip_max)
         x_adv.squeeze_(0)
 
-        #logger.info(f"x_adv = {x_adv} and size = {x_adv.size()}")
         return self.clamp(x_adv)

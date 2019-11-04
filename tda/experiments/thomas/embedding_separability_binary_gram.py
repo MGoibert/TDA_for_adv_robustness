@@ -69,7 +69,7 @@ print(thresholds)
 stats = {}
 
 
-def get_embeddings(epsilon: float, noise: float) -> typing.List:
+def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     """
     Helper function to get list of embeddings
     """
@@ -86,7 +86,8 @@ def get_embeddings(epsilon: float, noise: float) -> typing.List:
             thresholds=thresholds,
             only_successful_adversaries=args.successful_adv > 0,
             attack_type=args.attack_type,
-            num_iter=args.num_iter
+            num_iter=args.num_iter,
+            start=start
         ):
         logger.info(f"Line = {line[:3]} and diff = {line[4]}")
         stats[epsilon].append(line[4])
@@ -107,8 +108,15 @@ def get_embeddings(epsilon: float, noise: float) -> typing.List:
 # Clean embeddings
 stats[0.0] = list()
 clean_embeddings = get_embeddings(epsilon=0.0, noise=0.0)
-#clean_embeddings += get_embeddings(epsilon=0.0, noise=args.noise)
-shuffle(clean_embeddings)
+logger.info(f"clean emb before = {clean_embeddings}")
+#shuffle(clean_embeddings)
+clean_embeddings2 = get_embeddings(epsilon=0.0, noise=args.noise)
+logger.info(f"noisy clean emb before = {clean_embeddings2}")
+clean_tot = list(zip(clean_embeddings, clean_embeddings2))
+shuffle(clean_tot)
+clean_embeddings, clean_embeddings2 = zip(*clean_tot)
+clean_embeddings, clean_embeddings2 = list(clean_embeddings), list(clean_embeddings2)
+logger.info(f"clean emb after = {clean_embeddings} and noisy = {clean_embeddings2}")
 
 if args.attack_type in ["FGSM", "BIM"]:
     all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.075, num=5)))
@@ -119,7 +127,8 @@ else:
 adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
     stats[epsilon] = list()
-    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0)
+    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=args.dataset_size)
+    #adv_embeddings[epsilon] = get_embeddings(epsilon=1e-15, noise=epsilon)
     shuffle(adv_embeddings[epsilon])
     logger.info(f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
 
@@ -151,8 +160,8 @@ def process_epsilon(epsilon: float) -> float:
         # Datasets used for the OneClassSVM
 
         # clean_data = [np.ndarray.flatten(np.array((e[0]))) for e in embeddings if e[4] == 0.0]
-        train_data = clean_embeddings[:len(clean_embeddings) // 2]
-        test_data = clean_embeddings[len(clean_embeddings) // 2:]
+        train_data = clean_embeddings[:len(clean_embeddings) // 2] + clean_embeddings2[:len(clean_embeddings) // 2]
+        test_data = clean_embeddings[len(clean_embeddings) // 2:] + clean_embeddings2[len(clean_embeddings) // 2:]
 
         # Training model
         start_time = time.time()
