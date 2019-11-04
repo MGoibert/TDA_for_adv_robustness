@@ -22,7 +22,6 @@ start_time = time.time()
 ################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--thresholds', type=str, default="0_0_0_0_0_0_0")
 parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--dataset', type=str, default="SVHN")
@@ -57,6 +56,7 @@ for epsilon in all_epsilons:
 
     )
 
+    logging.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
     accuracies[epsilon] = adversarial_acc
 
 logging.info(accuracies)
