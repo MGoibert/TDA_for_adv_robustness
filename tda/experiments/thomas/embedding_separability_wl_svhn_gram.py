@@ -12,17 +12,17 @@ experiment = R3D3Experiment(
             EmbeddingType.WeisfeilerLehman
             ],
         'thresholds': [
-            # '_'.join([str(50000) for _ in range(svhn_lenet.get_nb_graph_layers())]),
+            '_'.join([str(50000) for _ in range(svhn_lenet.get_nb_graph_layers())]),
             '22500_1_1115000_1_1960000_5460000_25365000'
         ],
         'height': [
             5
         ],
         'hash_size': [
-            100
+            1000
         ],
         'node_labels': [
-            NodeLabels.NONE
+            NodeLabels.LAYERS
         ],
         'noise': [
             0.02
@@ -37,7 +37,7 @@ experiment = R3D3Experiment(
             100
         ],
         'dataset_size': [
-            25
+            30
         ]
 
     },
