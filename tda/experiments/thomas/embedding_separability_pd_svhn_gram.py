@@ -17,11 +17,11 @@ experiment = R3D3Experiment(
             "70000_1_100000_1_20000_0_0"
             #"70000_1_220000_1_350000_1050000_4500000"
         ],
-        'noise': [
-            [0.0, 0.01]
-        ],
         'architecture': [
             svhn_lenet.name
+        ],
+        'noise': [
+            0.01
         ],
         'dataset': [
             "SVHN"
@@ -30,13 +30,13 @@ experiment = R3D3Experiment(
             100
         ],
         'dataset_size':[
-            30
+            100
         ],
         'attack_type':[
             "DeepFool"
         ],
         'num_iter':[
-            100
+            20
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
