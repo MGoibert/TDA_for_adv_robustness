@@ -164,8 +164,10 @@ def process_epsilon(epsilon: float) -> float:
         # Training model
         start_time = time.time()
         gram_train = get_gram_matrix(
-            args.kernel_type, train_data, train_data,
-            param
+            kernel_type=args.kernel_type,
+            embeddings_in=train_data,
+            embeddings_out=None,
+            params=param
         )
         logger.info(f"Computed Gram Matrix in {time.time()-start_time} secs")
 
@@ -177,8 +179,10 @@ def process_epsilon(epsilon: float) -> float:
 
         start_time = time.time()
         gram_test_and_bad = get_gram_matrix(
-            args.kernel_type, test_data + adv_embeddings[epsilon], train_data,
-            param
+            kernel_type=args.kernel_type,
+            embeddings_in=test_data + adv_embeddings[epsilon],
+            embeddings_out=train_data,
+            params=param
         )
         logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
 
