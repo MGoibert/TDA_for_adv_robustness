@@ -197,7 +197,8 @@ def get_dataset(
         thresholds: typing.Optional[typing.List[int]] = None,
         only_successful_adversaries: bool = True,
         attack_type: str = "FGSM",
-        num_iter: int = 10
+        num_iter: int = 10,
+        start: int = 0,
 ) -> typing.Generator:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -217,7 +218,7 @@ def get_dataset(
     logger.info(f"Which attack ? {attack_type}")
 
     nb_samples = 0
-    i = 0
+    i = start
 
     while nb_samples < dataset_size:
         sample = source_dataset.test_and_val_dataset[i]
