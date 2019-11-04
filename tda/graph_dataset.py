@@ -139,7 +139,8 @@ def compute_adv_accuracy(
         source_dataset_name: str = "MNIST",
         architecture: Architecture = mnist_mlp,
         dataset_size: int = 100,
-        attack_type: str = "FGSM"
+        attack_type: str = "FGSM",
+        num_iter: int = 50
 ) -> float:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -170,7 +171,8 @@ def compute_adv_accuracy(
             epsilon=epsilon,
             model=model,
             num_classes=10,
-            attack_type=attack_type
+            attack_type=attack_type,
+            num_iter=num_iter
         )
 
         y_pred = model(x).argmax(dim=-1).item()
@@ -195,7 +197,8 @@ def get_dataset(
         thresholds: typing.Optional[typing.List[int]] = None,
         only_successful_adversaries: bool = True,
         attack_type: str = "FGSM",
-        num_iter: int = 10
+        num_iter: int = 10,
+        start: int = 0,
 ) -> typing.Generator:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -215,7 +218,7 @@ def get_dataset(
     logger.info(f"Which attack ? {attack_type}")
 
     nb_samples = 0
-    i = 0
+    i = start
 
     while nb_samples < dataset_size:
         sample = source_dataset.test_and_val_dataset[i]
@@ -230,7 +233,7 @@ def get_dataset(
             attack_type=attack_type,
             num_iter=num_iter
         )
-        stat = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), np.inf)
+        stat = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), 2)
         #logger.info(f"x from process sample = {x}")
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
