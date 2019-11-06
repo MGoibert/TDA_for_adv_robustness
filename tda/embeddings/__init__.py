@@ -24,7 +24,7 @@ class KernelType(object):
 def get_embedding(
         embedding_type: str,
         graph: Graph,
-        params: Dict
+        params: Dict = dict()
 ):
     if embedding_type == EmbeddingType.AnonymousWalk:
         walk = AnonymousWalks(G=graph.to_nx_graph())
