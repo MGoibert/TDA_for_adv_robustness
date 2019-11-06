@@ -4,7 +4,7 @@ import time
 import typing
 from multiprocessing import Pool
 from random import shuffle
-from dionysus import wasserstein_distance
+#from dionysus import wasserstein_distance
 import os
 import copy
 
@@ -19,12 +19,13 @@ from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
-from tda.models.architectures import mnist_mlp, get_architecture
+from tda.models.architectures import mnist_mlp, svhn_lenet, get_architecture
 from tda.rootpath import db_path
+from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel
 
 start_time = time.time()
 
-directory = "plots"
+directory = "plots/wasserstein_distance"
 if not os.path.exists(directory):
     os.mkdir(directory)
 
@@ -57,6 +58,9 @@ args, _ = parser.parse_known_args()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(f"[{args.experiment_id}_{args.run_id}]")
+logger.info(f"architecture = {svhn_lenet} ")
+
+wasserstein_distance = sliced_wasserstein_kernel
 
 #####################
 # Fetching datasets #
@@ -118,7 +122,7 @@ def get_embeddings_per_class(epsilon: float, noise: float, start: int = 0) -> ty
                 }))
         start_i += args.check_nb_sample
         logger.info(f"inds class = {inds_class} and start i = {start_i}")
-        if all([inds_class[k] >= args.dataset_size for k in range(len(inds_class))]):
+        if all([inds_class[k] >= args.dataset_size for k in [0,1,2,3,4,5,6,8,9]]):
             break
 
     last_start_i = copy.deepcopy(start_i)
@@ -136,7 +140,7 @@ logger.info(f"Last start i = {last_start_i}")
 noisy_embeddings = get_embeddings_per_class(epsilon=0.0, noise=args.noise, start=last_start_i)
 
 if args.attack_type in ["FGSM", "BIM"]:
-    all_epsilons = list(sorted(np.linspace(0.1, 0.1, num=1)))
+    all_epsilons = list(sorted(np.linspace(0.01, 0.01, num=1)))
 else:
     all_epsilons = [1]
 
@@ -158,14 +162,14 @@ def persistent_dgm_dist(dgms1, dgms2=None):
             dist = []
             for i, dgm1 in enumerate(dgms1[ind]):
                 for j, dgm2 in enumerate(dgms2[ind]):
-                    dist.append(wasserstein_distance(dgm1, dgm2, q=2))
+                    dist.append(wasserstein_distance(dgm1, dgm2))
             dist_dict[ind] = dist
     else:
         for ind in range(10):
             dist = []
             for i, dgm1 in enumerate(dgms1[ind]):
                 for j, dgm2 in enumerate(dgms1[ind][i+1:]):
-                    dist.append(wasserstein_distance(dgm1, dgm2, q=2))
+                    dist.append(wasserstein_distance(dgm1, dgm2))
             dist_dict[ind] = dist
     return dist_dict
 
@@ -187,12 +191,14 @@ logger.info(f"Clean vs Adv distances computed in {t3 - t2} seconds !")
 
 
 for ind in range(10):
-    logger.info(f"For class {ind}, size clean = {len(clean_embeddings[ind])}, noisy = {len(noisy_embeddings[ind])} and adv = {len(adv_embeddings[0.1][ind])}")
+    if len(dist_clean[ind]) <= 1 or len(dist_clean_noisy[ind]) <= 1:
+        continue 
+    logger.info(f"For class {ind}, size clean = {len(clean_embeddings[ind])}, noisy = {len(noisy_embeddings[ind])} and adv = {[len(adv_embeddings[epsilon][ind]) for epsilon in all_epsilons]}")
     sns.distplot(dist_clean[ind], hist=False, label="Clean")
     sns.distplot(dist_clean_noisy[ind], hist=False, label="Noisy")
     for epsilon in all_epsilons:
         sns.distplot(dist_clean_adv[epsilon][ind], hist=False, label="Adv epsilon = " + str(epsilon))
-    plt.savefig(directory + "/dist_plot_" + args.attack_type + "_class_" + str(ind) + ".png", dpi=800)
+    plt.savefig(directory + "/dist_plot_" + args.attack_type + "_" + args.dataset + "_class_" + str(ind) + ".png", dpi=800)
     plt.close()
 
 ########################
@@ -208,25 +214,26 @@ for epsilon in all_epsilons:
 dist_clean_tot = []
 for i, dgm1 in enumerate(clean_all):
     for j, dgm2 in enumerate(clean_all[i+1:]):
-        dist_clean_tot.append(wasserstein_distance(dgm1, dgm2, q=2))
+        dist_clean_tot.append(wasserstein_distance(dgm1, dgm2))
 logger.info(f"Clean done ! Size = {len(dist_clean_tot)}")
 dist_noisy_tot = []
 for i, dgm1 in enumerate(clean_all):
     for j, dgm2 in enumerate(noisy_all):
-        dist_noisy_tot.append(wasserstein_distance(dgm1, dgm2, q=2))
+        dist_noisy_tot.append(wasserstein_distance(dgm1, dgm2))
 logger.info(f"Noisy done ! Size = {len(dist_noisy_tot)}")
 dist_adv_tot = dict()
 for epsilon in all_epsilons:
     dist_adv_tot[epsilon] = list()
     for i, dgm1 in enumerate(clean_all):
         for j, dgm2 in enumerate(adv_all[epsilon]):
-            dist_adv_tot[epsilon].append(wasserstein_distance(dgm1, dgm2, q=2))
+            dist_adv_tot[epsilon].append(wasserstein_distance(dgm1, dgm2))
     logger.info(f"Adv done for eps = {epsilon} ! Size = {len(dist_adv_tot[epsilon])}")
+
 sns.distplot(dist_clean_tot, hist=False, label="Clean")
 sns.distplot(dist_noisy_tot, hist=False, label="Noisy")
 for epsilon in all_epsilons:
     sns.distplot(dist_adv_tot[epsilon], hist=False, label="Adv epsilon = " + str(epsilon))
-plt.savefig(directory + "/dist_plot_" + args.attack_type + "_tot" + ".png", dpi=800)
+plt.savefig(directory + "/dist_plot_" + args.dataset + "_" + args.attack_type + "_tot" + ".png", dpi=800)
 plt.close()
 
 end_time = time.time()
