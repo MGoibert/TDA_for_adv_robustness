@@ -258,7 +258,7 @@ def get_dataset(
             # logger.info(f"Computed graph in {time.time()-st} secs")
             nb_samples += 1
             i += 1
-            yield (x_graph, y, y_pred, y_adv, stat)
+            yield (x_graph, y, y_pred, y_adv, stat, i-1)
 
 
 if __name__ == "__main__":
