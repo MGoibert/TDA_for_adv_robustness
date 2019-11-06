@@ -33,13 +33,16 @@ experiment = R3D3Experiment(
             100
         ],
         'dataset_size':[
-            100
+            30
         ],
         'attack_type':[
             "DeepFool"
         ],
         'num_iter':[
             20
+        ],
+        'identical_train_samples':[
+            0, 1
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
