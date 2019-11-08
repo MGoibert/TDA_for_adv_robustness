@@ -16,8 +16,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.linalg import toeplitz
+import logging
 
 torch.set_default_tensor_type(torch.DoubleTensor)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
 
 
 ##########
@@ -304,6 +307,9 @@ class Architecture(nn.Module):
 def mnist_preprocess(x):
     return x.view(-1, 28 * 28)
 
+def mnist_preprocess2(x):
+    return x.view(-1, 1, 28, 28)
+
 
 mnist_mlp = Architecture(
     name="simple_fcn_mnist",
@@ -312,6 +318,19 @@ mnist_mlp = Architecture(
         LinearLayer(28 * 28, 500),
         LinearLayer(500, 256),
         LinearLayer(256, 10),
+        SoftMaxLayer()
+    ])
+
+mnist_lenet = Architecture(
+    name="mnist_lenet",
+    preprocess=mnist_preprocess2,
+    layers=[
+        ConvLayer(1, 10, 5, activ=F.relu),  # output 6 * 28 * 28
+        MaxPool2dLayer(2),
+        ConvLayer(10, 20, 5, activ=F.relu),  # output 6 * 28 * 28
+        MaxPool2dLayer(2),
+        LinearLayer(320, 50, activ=F.relu),
+        LinearLayer(50, 10),
         SoftMaxLayer()
     ])
 
@@ -354,7 +373,8 @@ svhn_lenet = Architecture(
 known_architectures: List[Architecture] = [
     mnist_mlp,
     svhn_cnn_simple,
-    svhn_lenet
+    svhn_lenet,
+    mnist_lenet
 ]
 
 

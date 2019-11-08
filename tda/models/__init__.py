@@ -3,8 +3,10 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pathlib
+import logging
 from tda.models.architectures import mnist_mlp, Architecture
 from tda.models.datasets import Dataset
+logger = logging.getLogger()
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
@@ -82,6 +84,7 @@ def get_deep_model(
         architecture: Architecture = mnist_mlp
 ) -> (nn.Module, nn.Module):
     model_filename = f"/tmp/tda/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
+    logger.info(f"Filename = {model_filename} \n")
     loss_func = nn.CrossEntropyLoss()
 
     try:
@@ -99,8 +102,8 @@ def get_deep_model(
             num_epochs)[0]
 
         # Compute accuracies
-        compute_val_acc(architecture, dataset.val_loader)
-        compute_test_acc(architecture, dataset.test_loader)
+        logger.info(f"Validation accuracy = {compute_val_acc(architecture, dataset.val_loader)}")
+        logger.info(f"Test accuracy = {compute_test_acc(architecture, dataset.test_loader)}")
 
         # Saving model
         torch.save(net, model_filename)
