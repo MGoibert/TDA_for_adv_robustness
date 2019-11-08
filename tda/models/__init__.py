@@ -83,7 +83,7 @@ def get_deep_model(
         dataset: Dataset,
         architecture: Architecture = mnist_mlp
 ) -> (nn.Module, nn.Module):
-    model_filename = f"/tmp/tda/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
+    model_filename = f"~/.tda/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
     logger.info(f"Filename = {model_filename} \n")
     loss_func = nn.CrossEntropyLoss()
 
