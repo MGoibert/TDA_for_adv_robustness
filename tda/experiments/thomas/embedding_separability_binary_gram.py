@@ -47,6 +47,7 @@ parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--successful_adv', type=int, default=1)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--num_iter', type=int, default=10)
+parser.add_argument('--identical_train_samples', type=int, default=0)
 
 args, _ = parser.parse_known_args()
 
@@ -88,7 +89,7 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
             attack_type=args.attack_type,
             num_iter=args.num_iter,
             start=start
-        ):
+    ):
         logger.info(f"Line = {line[:3]} and diff = {line[4]}")
         stats[epsilon].append(line[4])
         my_embeddings.append(get_embedding(
@@ -101,34 +102,65 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
                 "steps": args.steps
             }
         ))
-    logger.info(f"Computed embeddings for (attack = {args.attack_type}, eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
+    logger.info(
+        f"Computed embeddings for (attack = {args.attack_type}, eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
     return my_embeddings
 
 
 # Clean embeddings
 stats[0.0] = list()
-clean_embeddings = get_embeddings(epsilon=0.0, noise=0.0)
-clean_embeddings += get_embeddings(epsilon=0.0, noise=args.noise, start=args.dataset_size)
-shuffle(clean_embeddings)
-#clean_embeddings2 = get_embeddings(epsilon=0.0, noise=args.noise)
-#clean_tot = list(zip(clean_embeddings, clean_embeddings2))
-#shuffle(clean_tot)
-#clean_embeddings, clean_embeddings2 = zip(*clean_tot)
-#clean_embeddings, clean_embeddings2 = list(clean_embeddings), list(clean_embeddings2)
+
+start = 0
+
+# Clean train
+clean_embeddings_train = get_embeddings(epsilon=0.0, noise=0.0, start=0)
+if args.identical_train_samples < 0.5:
+    start += args.dataset_size
+
+# Noisy train
+noisy_embeddings_train = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
+start += args.dataset_size
+
+if args.kernel_type == KernelType.RBF:
+    param_space = [
+        {'gamma': gamma}
+        for gamma in np.logspace(-6, -3, 10)
+    ]
+if args.kernel_type == KernelType.SlicedWasserstein:
+    param_space = [
+        {'M': 10, 'sigma': 5 * 10 ** (-5)}
+    ]
+
+gram_train_matrices = {i: get_gram_matrix(
+    kernel_type=args.kernel_type,
+    embeddings_in=clean_embeddings_train + noisy_embeddings_train,
+    embeddings_out=None,
+    params=param
+)
+    for i, param in enumerate(param_space)
+}
+logger.info(f"Computed all Gram train matrices !")
+
+# Clean test
+clean_embeddings_test = get_embeddings(epsilon=0.0, noise=0.0, start=start)
+start += args.dataset_size
+
+# Noisy test
+noisy_embeddings_test = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
+start += args.dataset_size
 
 if args.attack_type in ["FGSM", "BIM"]:
     all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.075, num=5)))
 else:
     all_epsilons = [0.0, 1]
-#all_epsilons = [0.0] + list(sorted(np.logspace(-15, -15, 1)))
 
 adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
     stats[epsilon] = list()
-    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=2*args.dataset_size)
-    #adv_embeddings[epsilon] = get_embeddings(epsilon=1e-15, noise=epsilon)
-    shuffle(adv_embeddings[epsilon])
-    logger.info(f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
+    adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=start)
+    logger.info(
+        f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
+
 
 def process_epsilon(epsilon: float) -> float:
     if epsilon == 0.0:
@@ -140,51 +172,35 @@ def process_epsilon(epsilon: float) -> float:
 
     roc_values = list()
 
-    if args.kernel_type == KernelType.RBF:
-        param_space = [
-            {'gamma': gamma}
-            for gamma in np.logspace(-6, -3, 10)
-        ]
-    if args.kernel_type == KernelType.SlicedWasserstein:
-        param_space = [
-            {'M': 10, 'sigma': 5 * 10 ** (-5)}
-        ]
-
-    for param in param_space:
+    for i, param in enumerate(param_space):
         ocs = OneClassSVM(
             tol=1e-5,
             kernel="precomputed")
 
-        # Datasets used for the OneClassSVM
-
-        # clean_data = [np.ndarray.flatten(np.array((e[0]))) for e in embeddings if e[4] == 0.0]
-        train_data = clean_embeddings[:len(clean_embeddings) // 2] #+ clean_embeddings2[:len(clean_embeddings) // 2]
-        test_data = clean_embeddings[len(clean_embeddings) // 2:] #+ clean_embeddings2[len(clean_embeddings) // 2:]
-
         # Training model
         start_time = time.time()
-        gram_train = get_gram_matrix(
-            args.kernel_type, train_data, train_data,
-            param
-        )
-        logger.info(f"Computed Gram Matrix in {time.time()-start_time} secs")
-
-        start_time = time.time()
-        ocs.fit(gram_train)
-        logger.info(f"Trained model in {time.time()-start_time} secs")
+        ocs.fit(gram_train_matrices[i])
+        logger.info(f"Trained model in {time.time() - start_time} secs")
 
         # Testing model
-
         start_time = time.time()
         gram_test_and_bad = get_gram_matrix(
-            args.kernel_type, test_data + adv_embeddings[epsilon], train_data,
-            param
+            kernel_type=args.kernel_type,
+            embeddings_in=clean_embeddings_test + noisy_embeddings_test + adv_embeddings[epsilon],
+            embeddings_out=clean_embeddings_train + noisy_embeddings_train,
+            params=param
         )
         logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
 
         predictions = ocs.score_samples(gram_test_and_bad)
 
-        labels = np.concatenate((np.ones(len(test_data)), np.zeros(len(adv_embeddings[epsilon]))))
+        labels = np.concatenate(
+            (
+                np.ones(len(clean_embeddings_test)),
+                np.ones(len(noisy_embeddings_test)),
+                np.zeros(len(adv_embeddings[epsilon]))
+            )
+        )
 
         roc_val = roc_auc_score(y_true=labels, y_score=predictions)
         roc_values.append(roc_val)
@@ -194,7 +210,6 @@ def process_epsilon(epsilon: float) -> float:
 
 with Pool(2) as p:
     separability_values = p.map(process_epsilon, all_epsilons)
-
 
 logger.info(separability_values)
 
