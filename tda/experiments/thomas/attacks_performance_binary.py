@@ -4,6 +4,7 @@
 import argparse
 import logging
 import time
+<<<<<<< HEAD:tda/experiments/thomas/attacks_performance.py
 import typing
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,19 +12,28 @@ import matplotlib.pyplot as plt
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset, compute_adv_accuracy
 from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet, mnist_lenet
+=======
 
-from igraph import Graph as IGraph
-from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
-from networkx.algorithms.centrality.katz import katz_centrality
+import numpy as np
+from r3d3 import ExperimentDB
+>>>>>>> refs/remotes/origin/master:tda/experiments/thomas/attacks_performance_binary.py
+
+from tda.graph_dataset import compute_adv_accuracy
+from tda.models.architectures import get_architecture, svhn_lenet
+from tda.rootpath import db_path
 
 start_time = time.time()
 directory = "plots/attack_perf/"
+
+my_db = ExperimentDB(db_path=db_path)
 
 ################
 # Parsing args #
 ################
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--experiment_id', type=int, default=-1)
+parser.add_argument('--run_id', type=int, default=-1)
 parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--dataset', type=str, default="SVHN")
@@ -76,6 +86,14 @@ plt.ylim(0,1)
 plt.savefig(file_name, dpi=800)
 plt.close()
 
+my_db.update_experiment(
+    experiment_id=args.experiment_id,
+    run_id=args.run_id,
+    metrics={
+        "accuracies": accuracies
+    }
+)
 
 end_time = time.time()
+
 logging.info(f"Success in {end_time - start_time} seconds")
