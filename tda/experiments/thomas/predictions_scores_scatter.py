@@ -45,6 +45,7 @@ parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--dataset', type=str, default="MNIST")
 parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
+parser.add_argument('--train_noise', type=float, default=0.0)
 parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--successful_adv', type=int, default=1)
 parser.add_argument('--attack_type', type=str, default="FGSM")
@@ -93,7 +94,8 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
                 only_successful_adversaries=args.successful_adv > 0,
                 attack_type=args.attack_type,
                 num_iter=args.num_iter,
-                start=start
+                start=start,
+                train_noise=args.train_noise
             ):
             logger.info(f"Line = {line[:3]} and diff = {line[4]} and i sample = {line[5]}")
             stats[epsilon].append(line[4])

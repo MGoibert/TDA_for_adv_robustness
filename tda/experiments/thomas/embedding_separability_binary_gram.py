@@ -32,8 +32,8 @@ parser = argparse.ArgumentParser(
     description='Transform a dataset in pail files to tf records.')
 parser.add_argument('--experiment_id', type=int, default=-1)
 parser.add_argument('--run_id', type=int, default=-1)
-parser.add_argument('--embedding_type', type=str, default=EmbeddingType.WeisfeilerLehman)
-parser.add_argument('--kernel_type', type=str, default=KernelType.RBF)
+parser.add_argument('--embedding_type', type=str, default=EmbeddingType.PersistentDiagram)
+parser.add_argument('--kernel_type', type=str, default=KernelType.SlicedWasserstein)
 parser.add_argument('--thresholds', type=str, default='0')
 parser.add_argument('--height', type=int, default=1)
 parser.add_argument('--hash_size', type=int, default=100)
@@ -43,11 +43,12 @@ parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--dataset', type=str, default="MNIST")
 parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
+parser.add_argument('--train_noise', type=float, default=0.0)
 parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--successful_adv', type=int, default=1)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--num_iter', type=int, default=10)
-parser.add_argument('--identical_train_samples', type=int, default=0)
+parser.add_argument('--identical_train_samples', type=int, default=1)
 
 args, _ = parser.parse_known_args()
 
@@ -88,7 +89,8 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
             only_successful_adversaries=args.successful_adv > 0,
             attack_type=args.attack_type,
             num_iter=args.num_iter,
-            start=start
+            start=start,
+            train_noise=args.train_noise
     ):
         logger.info(f"Line = {line[:3]} and diff = {line[4]}")
         stats[epsilon].append(line[4])
@@ -118,7 +120,10 @@ if args.identical_train_samples < 0.5:
     start += args.dataset_size
 
 # Noisy train
-noisy_embeddings_train = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
+if args.noise > 0.0:
+    noisy_embeddings_train = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
+else:
+    noisy_embeddings_train = list()
 start += args.dataset_size
 
 if args.kernel_type == KernelType.RBF:
@@ -126,7 +131,10 @@ if args.kernel_type == KernelType.RBF:
         {'gamma': gamma}
         for gamma in np.logspace(-6, -3, 10)
     ]
-if args.kernel_type == KernelType.SlicedWasserstein:
+#logger.info(f"kernel type = {args.kernel_type} and {args.kernel_type == KernelType.SlicedWasserstein}")
+#if args.kernel_type == KernelType.SlicedWasserstein:
+else:
+    logger.info(f"Yes !")
     param_space = [
         {'M': 10, 'sigma': 5 * 10 ** (-5)}
     ]
@@ -146,11 +154,14 @@ clean_embeddings_test = get_embeddings(epsilon=0.0, noise=0.0, start=start)
 start += args.dataset_size
 
 # Noisy test
-noisy_embeddings_test = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
+if args.noise > 0.0:
+    noisy_embeddings_test = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
+else:
+    noisy_embeddings_test = list()
 start += args.dataset_size
 
 if args.attack_type in ["FGSM", "BIM"]:
-    all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.075, num=5)))
+    all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 1, num=10)))
 else:
     all_epsilons = [0.0, 1]
 
