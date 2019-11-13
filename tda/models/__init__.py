@@ -47,20 +47,24 @@ def compute_test_acc(model, test_loader):
     return acc
 
 
-def train_network(model, train_loader, val_loader, loss_func, num_epochs):
+def train_network(model, train_loader, val_loader, loss_func, num_epochs, train_noise=0.0):
     """
     Helper function to train an arbitrary model
     """
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=3, verbose=True,
+        optimizer, mode='min', patience=15, verbose=True,
         factor=0.5)
     for epoch in range(num_epochs):
         model.train()
         train_loader = tqdm(train_loader)
         for x_batch, y_batch in train_loader:
             x_batch = x_batch.double()
+            if train_noise > 0.0:
+                x_batch_noisy = torch.clamp(x_batch + train_noise * torch.randn(x_batch.size()), -0.5, 0.5).double()
+                x_batch = torch.cat((x_batch, x_batch_noisy), 0)
+                y_batch = torch.cat((y_batch, y_batch), 0)
             optimizer.zero_grad()
             y_pred = model(x_batch)
             loss = loss_func(y_pred, y_batch)
@@ -81,7 +85,8 @@ def train_network(model, train_loader, val_loader, loss_func, num_epochs):
 def get_deep_model(
         num_epochs: int,
         dataset: Dataset,
-        architecture: Architecture = mnist_mlp
+        architecture: Architecture = mnist_mlp,
+        train_noise: float = 0.0
 ) -> (nn.Module, nn.Module):
     model_filename = f"/tmp/tda/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
     logger.info(f"Filename = {model_filename} \n")
@@ -99,7 +104,8 @@ def get_deep_model(
             dataset.train_loader,
             dataset.val_loader,
             loss_func,
-            num_epochs)[0]
+            num_epochs,
+            train_noise)[0]
 
         # Compute accuracies
         logger.info(f"Validation accuracy = {compute_val_acc(architecture, dataset.val_loader)}")

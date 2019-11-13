@@ -140,7 +140,8 @@ def compute_adv_accuracy(
         architecture: Architecture = mnist_mlp,
         dataset_size: int = 100,
         attack_type: str = "FGSM",
-        num_iter: int = 50
+        num_iter: int = 50,
+        train_noise: float = 0.0
 ) -> float:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -151,7 +152,8 @@ def compute_adv_accuracy(
     model, loss_func = get_deep_model(
         num_epochs=num_epochs,
         dataset=source_dataset,
-        architecture=architecture
+        architecture=architecture,
+        train_noise=train_noise
     )
     logger.info(f"Got deep model...")
 
@@ -199,6 +201,7 @@ def get_dataset(
         attack_type: str = "FGSM",
         num_iter: int = 10,
         start: int = 0,
+        train_noise: float = 0.0
 ) -> typing.Generator:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -209,7 +212,8 @@ def get_dataset(
     model, loss_func = get_deep_model(
         num_epochs=num_epochs,
         dataset=source_dataset,
-        architecture=architecture
+        architecture=architecture,
+        train_noise=train_noise
     )
     logger.info(f"Got deep model...")
 

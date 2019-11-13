@@ -6,16 +6,18 @@ import logging
 import time
 import typing
 import numpy as np
+import matplotlib.pyplot as plt
 
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset, compute_adv_accuracy
-from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet
+from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet, mnist_lenet
 
 from igraph import Graph as IGraph
 from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
 from networkx.algorithms.centrality.katz import katz_centrality
 
 start_time = time.time()
+directory = "plots/attack_perf/"
 
 ################
 # Parsing args #
@@ -26,7 +28,8 @@ parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--dataset', type=str, default="SVHN")
 parser.add_argument('--architecture', type=str, default=svhn_lenet.name)
-parser.add_argument('--dataset_size', type=int, default=100)
+parser.add_argument('--train_noise', type=float, default=0.0)
+parser.add_argument('--dataset_size', type=int, default=50)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--num_iter', type=int, default=10)
 
@@ -35,7 +38,7 @@ args, _ = parser.parse_known_args()
 logger = logging.getLogger("GraphStats")
 
 if args.attack_type in ["FGSM", "BIM"]:
-    all_epsilons = [0.0] + list(sorted(np.linspace(0.01, 0.1, num=4)))
+    all_epsilons = list(sorted(np.linspace(0.0, 0.4, num=21)))
 else:
     all_epsilons = [0.0, 1]
 
@@ -52,7 +55,8 @@ for epsilon in all_epsilons:
         architecture=architecture,
         dataset_size=args.dataset_size,
         attack_type=args.attack_type,
-        num_iter=args.num_iter
+        num_iter=args.num_iter,
+        train_noise=args.train_noise
 
     )
 
@@ -60,7 +64,18 @@ for epsilon in all_epsilons:
     accuracies[epsilon] = adversarial_acc
 
 logging.info(accuracies)
+file_name = directory + str(args.dataset) + "_" + str(args.architecture) + str(args.epochs) + "_" + str(args.attack_type) + ".png"
+logger.info(f"file name = {file_name}")
+plt.style.use('ggplot')
+
+plt.plot(all_epsilons,list(accuracies.values()), "o-", linewidth=1.5)
+plt.title("Standard and adversarial accuracies")
+plt.xlabel("Perturbation value")
+plt.ylabel("Accuracy")
+plt.ylim(0,1)
+plt.savefig(file_name, dpi=800)
+plt.close()
+
 
 end_time = time.time()
-
 logging.info(f"Success in {end_time - start_time} seconds")

@@ -31,6 +31,7 @@ parser.add_argument('--noise', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--dataset', type=str, default="MNIST")
 parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
+parser.add_argument('--train_noise', type=float, default=0.0)
 parser.add_argument('--dataset_size', type=int, default=3)
 parser.add_argument('--successful_adv', type=int, default=1)
 parser.add_argument('--attack_type', type=str, default="FGSM")
@@ -88,7 +89,8 @@ def get_embeddings_per_class(
                 only_successful_adversaries=args.successful_adv > 0,
                 attack_type=args.attack_type,
                 num_iter=args.num_iter,
-                start=last_consumed_index
+                start=last_consumed_index,
+                train_noise=args.train_noise
         ):
 
             predicted_label = line[2]

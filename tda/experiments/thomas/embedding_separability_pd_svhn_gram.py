@@ -14,35 +14,34 @@ experiment = R3D3Experiment(
             KernelType.SlicedWasserstein
         ],
         'thresholds': [
-            "70000_1_100000_1_20000_0_0"
+            #"70000_1_100000_1_20000_0_0"
             #"70000_1_220000_1_350000_1050000_4500000"
-        ],
-        'noise': [
-            0.01
+            #"225000_1_1250000_1_0_0_0"
+            "40000_1_30000_1_8000_0_0"
         ],
         'architecture': [
             svhn_lenet.name
         ],
         'noise': [
-            0.01
+            0.0
         ],
         'dataset': [
             "SVHN"
         ],
         'epochs': [
-            100
+            3
         ],
         'dataset_size':[
-            30
+            15
         ],
         'attack_type':[
-            "DeepFool"
+            "FGSM"
         ],
         'num_iter':[
             20
         ],
-        'identical_train_samples':[
-            0, 1
+        'train_noise':[
+            0.005
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
