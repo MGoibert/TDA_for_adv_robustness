@@ -228,7 +228,7 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
         found_adv = torch.zeros(batch_size).byte()
 
         for iteration in range(num_iter):
-            x = _to_model_space(att_original + torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]) , lims=lims)
+            x = torch.clamp(_to_model_space(att_original + torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]) , lims=lims), *lims)
             y_pred = model(x)
             logits = model(x, presoft=True)
             cost = _fct_to_min(x, reconstruct_original, target, y_pred, logits, c,
@@ -239,6 +239,7 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
                 cost[t].backward(retain_graph=True)
                 optimizer_CW[t].step()
                 if logits[t].squeeze().argmax(-1, keepdim=True).item() != target[t]:
+                    #if found_adv[t] == 0: logger.info(f"!! Found adv !! at BSS = {binary_search_step} and iter = {iteration}")
                     found_adv[t] = 1
                 else:
                     found_adv[t] = 0
@@ -260,7 +261,7 @@ class CW(_BaseAttack):
     """
     Carlini-Wagner Method
     """
-    def __init__(self, model, binary_search_steps=10,
+    def __init__(self, model, binary_search_steps=3,
                  num_iter=50, lims=(-0.5, 0.5)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
@@ -272,7 +273,7 @@ class CW(_BaseAttack):
         perturbed_data = CW_attack(
             data, target, self.model, num_iter=self.num_iter,
             binary_search_steps=self.binary_search_steps, lims=self.lims, **kwargs)
-        return self.clamp(perturbed_data)
+        return perturbed_data
 
 
 
@@ -322,12 +323,11 @@ class DeepFool(_BaseAttack):
 
             eta += ri.clone() if type(ri) != type(None) else 0
             nx.grad.data.zero_()
-            out = _soft_to_logit(self.model(nx+eta))
+            out = self.model(self.clamp(nx+eta), presoft=True)
             py = out.max(1)[1].item()
             i_iter += 1
         
-        x_adv = nx + eta
-        #x_adv.clamp_(self.clip_min, self.clip_max)
+        x_adv = self.clamp(nx+eta)
         x_adv.squeeze_(0)
 
-        return self.clamp(x_adv)
+        return x_adv

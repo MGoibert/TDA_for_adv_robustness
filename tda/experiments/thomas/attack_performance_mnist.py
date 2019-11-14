@@ -7,20 +7,23 @@ experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'noise': [
-            0.0, 0.02
+            0.0#, 0.02
         ],
         'architecture': [
-            mnist_mlp.name,
+            #mnist_mlp.name,
             mnist_lenet.name
         ],
         'epochs': [
-            40
+            100
         ],
         'dataset': [
             "MNIST"
         ],
         'attack_type': [
-            "FGSM", "BIM"
+            "CW"#"FGSM", "BIM"
+        ],
+        'num_iter': [
+            25#"FGSM", "BIM"
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/attacks_performance_binary.py",
