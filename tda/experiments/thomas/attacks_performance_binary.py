@@ -4,7 +4,6 @@
 import argparse
 import logging
 import time
-<<<<<<< HEAD:tda/experiments/thomas/attacks_performance.py
 import typing
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,11 +11,9 @@ import matplotlib.pyplot as plt
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset, compute_adv_accuracy
 from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet, mnist_lenet
-=======
 
 import numpy as np
 from r3d3 import ExperimentDB
->>>>>>> refs/remotes/origin/master:tda/experiments/thomas/attacks_performance_binary.py
 
 from tda.graph_dataset import compute_adv_accuracy
 from tda.models.architectures import get_architecture, svhn_lenet

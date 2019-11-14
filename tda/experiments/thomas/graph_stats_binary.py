@@ -7,6 +7,7 @@ import time
 import typing
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset
@@ -41,9 +42,12 @@ logger = logging.getLogger("GraphStats")
 # Fetching datasets #
 #####################
 
+if not os.path.exists("stats/"):
+    os.mkdir("stats/")
+
 architecture = get_architecture(args.architecture)
 
-thresholds = [int(x) for x in args.thresholds.split("_")]
+thresholds = list(np.zeros(10))
 
 def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> typing.List:
     """
@@ -115,35 +119,42 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> typing
 
     return all_weights, adjacency_matrix
 
-weights = get_stats(epsilon=0.0, noise=0.0)
-logger.info(f"weights = {weights}")
+if __name__ == '__main__':
+    weights, _ = get_stats(epsilon=0.0, noise=0.0)
+    quants = np.linspace(0,1, 1001)
+    quants_dict = dict()
+    for i, weight_layer in enumerate(weights):
+        quants_dict[i] = dict()
+        for quant in quants:
+            quants_dict[i][quant] = np.quantile(weight_layer, quant)
+    np.save(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs_quant", quants_dict)
 
-if args.visualize_adj_mat > 0.5:
-    # FGSM part
-    a = get_stats(epsilon=0.0, noise=0.0)
-    b = get_stats(epsilon=0.02, noise=0.0, attack_type="FGSM")
-    diff_mat = a - b
-    print("Extreme values =", diff_mat.min(), diff_mat.max())
-    print("Quantile =", np.quantile(diff_mat, 0.001), np.quantile(diff_mat, 0.01), np.quantile(diff_mat, 0.05), np.quantile(diff_mat, 0.1), np.quantile(diff_mat, 0.2), np.quantile(diff_mat, 0.5), np.quantile(diff_mat, 0.8), np.quantile(diff_mat, 0.9), np.quantile(diff_mat, 0.95), np.quantile(diff_mat, 0.99), np.quantile(diff_mat, 0.999))
-    print("Quantile v2 =", np.quantile(diff_mat[np.where(diff_mat != 0)], 0.01), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.05), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.1), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.2), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.8), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.9), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.95), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.99))
-    plt.matshow(diff_mat, vmin=-50000, vmax=50000, cmap='Greys')
-    plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_FGSM_" ".png", dpi=800)
-    plt.show()
+    if args.visualize_adj_mat > 0.5:
+       # FGSM part
+        _, a = get_stats(epsilon=0.0, noise=0.0)
+        _, b = get_stats(epsilon=0.02, noise=0.0, attack_type="FGSM")
+        diff_mat = a - b
+        print("Extreme values =", diff_mat.min(), diff_mat.max())
+        print("Quantile =", np.quantile(diff_mat, 0.001), np.quantile(diff_mat, 0.01), np.quantile(diff_mat, 0.05), np.quantile(diff_mat, 0.1), np.quantile(diff_mat, 0.2), np.quantile(diff_mat, 0.5), np.quantile(diff_mat, 0.8), np.quantile(diff_mat, 0.9), np.quantile(diff_mat, 0.95), np.quantile(diff_mat, 0.99), np.quantile(diff_mat, 0.999))
+        print("Quantile v2 =", np.quantile(diff_mat[np.where(diff_mat != 0)], 0.01), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.05), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.1), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.2), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.8), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.9), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.95), np.quantile(diff_mat[np.where(diff_mat != 0)], 0.99))
+        plt.matshow(diff_mat, vmin=-50000, vmax=50000, cmap='Greys')
+        plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_FGSM_" ".png", dpi=800)
+        plt.show()
 
-    c = get_stats(epsilon=0.2, noise=0.0, attack_type="DeepFool")
-    diff_mat2 = a - c
-    print("Extreme values =", diff_mat2.min(), diff_mat2.max())
-    print("Quantile =", np.quantile(diff_mat2, 0.001), np.quantile(diff_mat2, 0.01), np.quantile(diff_mat2, 0.05), np.quantile(diff_mat2, 0.1), np.quantile(diff_mat2, 0.2), np.quantile(diff_mat2, 0.5), np.quantile(diff_mat2, 0.8), np.quantile(diff_mat2, 0.9), np.quantile(diff_mat2, 0.95), np.quantile(diff_mat2, 0.99), np.quantile(diff_mat2, 0.999))
-    print("Quantile v2 =", np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.01), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.05), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.1), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.2), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.8), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.9), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.95), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.99))
-    plt.matshow(diff_mat2, vmin=-50000, vmax=50000, cmap='Greys')
-    plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_DeepFool_" ".png", dpi=800)
-    plt.show()
+        _, c = get_stats(epsilon=0.2, noise=0.0, attack_type="DeepFool")
+        diff_mat2 = a - c
+        print("Extreme values =", diff_mat2.min(), diff_mat2.max())
+        print("Quantile =", np.quantile(diff_mat2, 0.001), np.quantile(diff_mat2, 0.01), np.quantile(diff_mat2, 0.05), np.quantile(diff_mat2, 0.1), np.quantile(diff_mat2, 0.2), np.quantile(diff_mat2, 0.5), np.quantile(diff_mat2, 0.8), np.quantile(diff_mat2, 0.9), np.quantile(diff_mat2, 0.95), np.quantile(diff_mat2, 0.99), np.quantile(diff_mat2, 0.999))
+        print("Quantile v2 =", np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.01), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.05), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.1), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.2), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.8), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.9), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.95), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.99))
+        plt.matshow(diff_mat2, vmin=-50000, vmax=50000, cmap='Greys')
+        plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_DeepFool_" ".png", dpi=800)
+        plt.show()
 
-    diff_mat_att = np.abs(b - c)
-    plt.matshow(diff_mat_att, vmin=0, vmax=0.1, cmap='Greys')
-    plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_FGSMvsDeepFool_" ".png", dpi=800)
-    plt.show()
+        diff_mat_att = np.abs(b - c)
+        plt.matshow(diff_mat_att, vmin=0, vmax=0.1, cmap='Greys')
+        plt.savefig("/Users/m.goibert/Downloads/diff_adj_matrix" + "_FGSMvsDeepFool_" ".png", dpi=800)
+        plt.show()
 
-end_time = time.time()
+    end_time = time.time()
 
-logger.info(f"Success in {end_time-start_time} seconds")
+    logger.info(f"Success in {end_time-start_time} seconds")
