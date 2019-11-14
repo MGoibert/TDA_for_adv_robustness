@@ -1,7 +1,7 @@
 import json
 from r3d3 import R3D3Experiment
 from tda.rootpath import rootpath, db_path
-from tda.embeddings import EmbeddingType
+from tda.embeddings import EmbeddingType, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.models.architectures import mnist_mlp, mnist_lenet
 
@@ -11,8 +11,11 @@ experiment = R3D3Experiment(
         'embedding_type': [
             EmbeddingType.WeisfeilerLehman
             ],
+        'kernel_type' : [
+            KernelType.Euclidean
+        ],
         'threshold': [
-            '_'.join([str(20000) for _ in range(mnist_mlp.get_nb_graph_layers())])
+            '_'.join([str(0.9) for _ in range(mnist_mlp.get_nb_graph_layers())])
         ],
         'height': [
             5
