@@ -3,9 +3,11 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pathlib
+import os
 import logging
 from tda.models.architectures import mnist_mlp, Architecture
 from tda.models.datasets import Dataset
+from tda.rootpath import rootpath
 logger = logging.getLogger()
 
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -88,7 +90,9 @@ def get_deep_model(
         architecture: Architecture = mnist_mlp,
         train_noise: float = 0.0
 ) -> (nn.Module, nn.Module):
-    model_filename = f"/tmp/tda/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
+    if not os.path.exists(f"{rootpath}/trained_models"):
+        os.mkdir(f"{rootpath}/trained_models")
+    model_filename = f"{rootpath}/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
     logger.info(f"Filename = {model_filename} \n")
     loss_func = nn.CrossEntropyLoss()
 
