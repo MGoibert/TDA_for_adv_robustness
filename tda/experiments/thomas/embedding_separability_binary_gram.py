@@ -3,11 +3,10 @@
 
 import argparse
 import logging
+import os.path
 import time
 import typing
 from multiprocessing import Pool
-from random import shuffle
-import os.path
 
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
@@ -17,10 +16,10 @@ from sklearn.svm import OneClassSVM
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
+from tda.experiments.thomas.graph_stats_binary import get_stats
 from tda.graph_dataset import get_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
-from tda.experiments.thomas.graph_stats_binary import get_stats
 
 start_time = time.time()
 
@@ -205,6 +204,10 @@ for epsilon in all_epsilons[1:]:
 
 
 def process_epsilon(epsilon: float) -> float:
+    """
+    Compute the AUC for a given epsilon and returns also the scores
+    of the best OneClass SVM
+    """
     if epsilon == 0.0:
         return 0.5
 
@@ -212,7 +215,7 @@ def process_epsilon(epsilon: float) -> float:
 
     logger.info(f"Computing performance for epsilon={epsilon}")
 
-    roc_values = list()
+    best_auc = 0.0
 
     for i, param in enumerate(param_space):
         ocs = OneClassSVM(
@@ -244,16 +247,20 @@ def process_epsilon(epsilon: float) -> float:
             )
         )
 
-        roc_val = roc_auc_score(y_true=labels, y_score=predictions)
-        roc_values.append(roc_val)
+        roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
 
-    return np.max(roc_values)
+        if roc_auc_val > best_auc:
+            best_auc = roc_auc_val
+
+    return best_auc
 
 
 with Pool(2) as p:
-    separability_values = p.map(process_epsilon, all_epsilons)
+    all_results = p.map(process_epsilon, all_epsilons)
 
-logger.info(separability_values)
+all_results = dict(zip(all_epsilons, all_results))
+
+logger.info(all_results)
 
 end_time = time.time()
 
@@ -261,7 +268,8 @@ my_db.update_experiment(
     experiment_id=args.experiment_id,
     run_id=args.run_id,
     metrics={
-        "separability_values": dict(zip(all_epsilons, separability_values)),
+        "separability_values": {eps: all_results[0] for eps in all_results},
+        "raw_scores": {eps: all_results[1] for eps in all_results},
         "running_time": end_time - start_time
     }
 )
