@@ -268,8 +268,7 @@ my_db.update_experiment(
     experiment_id=args.experiment_id,
     run_id=args.run_id,
     metrics={
-        "separability_values": {eps: all_results[0] for eps in all_results},
-        "raw_scores": {eps: all_results[1] for eps in all_results},
+        "separability_values": all_results,
         "running_time": end_time - start_time
     }
 )

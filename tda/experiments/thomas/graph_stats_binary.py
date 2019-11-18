@@ -11,11 +11,11 @@ import os
 
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset
-from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet
+from tda.models.architectures import get_architecture, svhn_lenet
 
-from igraph import Graph as IGraph
-from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
-from networkx.algorithms.centrality.katz import katz_centrality
+# from igraph import Graph as IGraph
+# from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
+# from networkx.algorithms.centrality.katz import katz_centrality
 
 start_time = time.time()
 
