@@ -25,10 +25,10 @@ experiment = R3D3Experiment(
             25
         ],
         'dataset_size': [
-          30
+          5
         ],
         'thresholds': [
-            '_'.join([str(20000) for _ in range(mnist_mlp.get_nb_graph_layers())])
+            '_'.join([str(0.8) for _ in range(mnist_mlp.get_nb_graph_layers())])
         ]
     },
     binary=f"{rootpath}/tda/experiments/predictions_scores/scatter_binary.py",
