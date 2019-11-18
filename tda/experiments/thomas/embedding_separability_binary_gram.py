@@ -20,6 +20,7 @@ from tda.experiments.thomas.graph_stats_binary import get_stats
 from tda.graph_dataset import get_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
+from tda.thresholds import process_thresholds
 
 start_time = time.time()
 
@@ -71,33 +72,13 @@ if args.embedding_type == EmbeddingType.OriginalDataPoint:
 else:
     retain_data_point = False
 
-thresholds = [float(x) for x in args.thresholds.split("_")]
+thresholds = process_thresholds(
+    raw_thresholds=args.thresholds,
+    dataset=args.dataset,
+    architecture=args.architecture,
+    epochs=args.epochs
+)
 
-
-if any([threshold <= 1 for threshold in thresholds]):
-    # In this case, we assume we have threshold as quantiles
-    quants_dict_filename = f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs.npy"
-
-    if not os.path.exists(quants_dict_filename):
-        logger.info(f"Computing weight per layer stats")
-        weights, _ = get_stats(epsilon=0.0, noise=0.0)
-        quants = np.linspace(0, 1, 1001)
-        quants_dict = dict()
-        for i, weight_layer in enumerate(weights):
-            quants_dict[i] = dict()
-            for quant in quants:
-                quants_dict[i][quant] = np.quantile(weight_layer, quant)
-        np.save(quants_dict_filename, quants_dict)
-    dict_quant = np.load(quants_dict_filename).flat[0]
-
-for i, threshold in enumerate(thresholds):
-    if 0 < threshold <= 1:
-        thresholds[i] = dict_quant[i][threshold]
-        logger.info(f"Layer {i}: threshold={thresholds[i]} (quantile {threshold})")
-    else:
-        logger.info(f"Layer {i}: threshold={threshold}")
-
-logger.info(f"Thresholds = {thresholds}")
 stats = {}
 
 
@@ -122,11 +103,10 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
             start=start,
             train_noise=args.train_noise
     ):
-        logger.info(f"Line = {line[:3]} and diff = {line[4]}")
-        stats[epsilon].append(line[4])
+        stats[epsilon].append(line.l2_norm)
         my_embeddings.append(get_embedding(
             embedding_type=args.embedding_type,
-            graph=line[0],
+            graph=line.graph,
             params={
                 "hash_size": int(args.hash_size),
                 "height": int(args.height),

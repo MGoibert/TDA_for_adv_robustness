@@ -3,13 +3,11 @@
 
 import argparse
 import logging
+import os
 import time
 import typing
-import os
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
-from random import shuffle
 
+import matplotlib.pyplot as plt
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
 from sklearn.metrics import roc_auc_score
@@ -19,8 +17,9 @@ from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
-from tda.models.architectures import mnist_mlp, svhn_lenet, get_architecture
+from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
+from tda.thresholds import process_thresholds
 
 start_time = time.time()
 
@@ -68,8 +67,13 @@ if args.embedding_type == EmbeddingType.OriginalDataPoint:
 else:
     retain_data_point = False
 
-thresholds = [int(x) for x in args.thresholds.split("_")]
-print(thresholds)
+thresholds = process_thresholds(
+    raw_thresholds=args.thresholds,
+    dataset=args.dataset,
+    architecture=args.architecture,
+    epochs=args.epochs
+)
+
 stats = {}
 
 corrects_i = list()
@@ -99,12 +103,12 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
                 start=start,
                 train_noise=args.train_noise
         ):
-            logger.info(f"Line = {line[:3]} and diff = {line[4]} and i sample = {line[5]}")
-            stats[epsilon].append(line[4])
-            corrects_i.append(line[5])
+            logger.info(f"Sample_id = {line.sample_id} ; l2_norm = {line.l2_norm}")
+            stats[epsilon].append(line.l2_norm)
+            corrects_i.append(line.sample_id)
             my_embeddings.append(get_embedding(
                 embedding_type=args.embedding_type,
-                graph=line[0],
+                graph=line.graph,
                 params={
                     "hash_size": int(args.hash_size),
                     "height": int(args.height),
@@ -130,11 +134,11 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
                     num_iter=args.num_iter,
                     start=correct_i
             ):
-                logger.info(f"Line = {line[:3]} and diff = {line[4]} and i sample = {line[5]}")
-                stats[epsilon].append(line[4])
+                logger.info(f"Sample_id = {line.sample_id} ; l2_norm = {line.l2_norm}")
+                stats[epsilon].append(line.l2_norm)
                 my_embeddings.append(get_embedding(
                     embedding_type=args.embedding_type,
-                    graph=line[0],
+                    graph=line.graph,
                     params={
                         "hash_size": int(args.hash_size),
                         "height": int(args.height),
