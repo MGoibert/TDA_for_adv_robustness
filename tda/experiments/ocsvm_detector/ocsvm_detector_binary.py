@@ -3,7 +3,6 @@
 
 import argparse
 import logging
-import os.path
 import time
 import typing
 from multiprocessing import Pool
@@ -16,7 +15,6 @@ from sklearn.svm import OneClassSVM
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.experiments.thomas.graph_stats_binary import get_stats
 from tda.graph_dataset import get_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
@@ -249,6 +247,7 @@ my_db.update_experiment(
     run_id=args.run_id,
     metrics={
         "separability_values": all_results,
+        "effective_thresholds": thresholds,
         "running_time": end_time - start_time
     }
 )

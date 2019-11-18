@@ -78,7 +78,6 @@ stats = {}
 
 corrects_i = list()
 
-
 def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     """
     Helper function to get list of embeddings
