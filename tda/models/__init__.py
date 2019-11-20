@@ -92,7 +92,17 @@ def get_deep_model(
 ) -> (nn.Module, nn.Module):
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
-    model_filename = f"{rootpath}/trained_models/{dataset.name}_{architecture.name}_{num_epochs}_epochs.model"
+
+    if train_noise > 0.0:
+        nprefix = f"{train_noise}_"
+    else:
+        nprefix = ""
+
+    model_filename = f"{rootpath}/trained_models/{dataset.name}_" \
+                     f"{architecture.name}_" \
+                     f"{nprefix}" \
+                     f"{num_epochs}_" \
+                     f"epochs.model"
     logger.info(f"Filename = {model_filename} \n")
     loss_func = nn.CrossEntropyLoss()
 

@@ -1,42 +1,48 @@
+import json
 from r3d3 import R3D3Experiment
-
+from tda.rootpath import rootpath, db_path
 from tda.embeddings import EmbeddingType, KernelType
 from tda.models.architectures import svhn_lenet
-from tda.rootpath import rootpath, db_path
-
-"""
-The goal of this experiment is to assess which part is 
-the most important between conv layers and fully connected layers
-"""
 
 experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'embedding_type': [
             EmbeddingType.PersistentDiagram
-        ],
+            ],
         'kernel_type': [
             KernelType.SlicedWasserstein
         ],
         'dataset': [
           "SVHN"
         ],
-        'dataset_size': [
-            25
+        'architecture': [
+          svhn_lenet.name
+        ],
+        'attack_type': [
+          "FGSM"
         ],
         'threshold': [
-            "70000_1_100000_1_20000_0_0",
-            "700000000_1_1000000000_1_20000_0_0",  # Skipping conv layers
-            "70000_1_100000_1_200000000_0_0"  # Skipping FC layers
+            '0.5_0_0.25_0_0.1_0_0',
+            'inf_0_0.25_0_0.1_0_0',
+            '0.5_inf_0.25_0_0.1_0_0',
+            '0.5_0_inf_0_0.1_0_0',
+            '0.5_0_0.25_inf_0.1_0_0',
+            '0.5_0_0.25_0_inf_0_0',
+            '0.5_0_0.25_0_0.1_inf_0',
+            '0.5_0_0.25_0_0.1_0_inf'
         ],
         'noise': [
             0.0
         ],
-        'architecture': [
-            svhn_lenet.name
-        ],
         'epochs': [
             100
+        ],
+        'identical_train_samples': [
+            1
+        ],
+        'dataset_size': [
+            30
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
