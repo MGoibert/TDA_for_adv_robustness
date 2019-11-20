@@ -20,7 +20,10 @@ experiment = R3D3Experiment(
           "FGSM"
         ],
         'threshold': [
-            '_'.join([str(20000) for _ in range(mnist_mlp.get_nb_graph_layers())])
+            '20000_20000_20000',
+            'inf_20000_20000',
+            '20000_inf_20000',
+            '20000_20000_inf'
         ],
         'noise': [
             0.0
@@ -29,7 +32,7 @@ experiment = R3D3Experiment(
             50
         ],
         'identical_train_samples': [
-            0, 1
+            1
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

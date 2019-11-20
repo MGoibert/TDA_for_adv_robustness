@@ -31,7 +31,13 @@ def process_thresholds(
     :param epochs:
     :return:
     """
-    thresholds = [float(x) for x in raw_thresholds.split("_")]
+
+    def process(x):
+        if x == "inf":
+            return np.inf
+        return float(x)
+
+    thresholds = [process(x) for x in raw_thresholds.split("_")]
 
     if any([threshold <= 1 for threshold in thresholds]):
         # In this case, we assume we have threshold as quantiles

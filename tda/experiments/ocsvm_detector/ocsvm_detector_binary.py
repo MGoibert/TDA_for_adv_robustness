@@ -56,8 +56,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(f"[{args.experiment_id}_{args.run_id}]")
 
 # save np.load and modify the default parameters of np.load
-np_load_old = np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+# np_load_old = np.load
+# np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
 
 #####################
 # Fetching datasets #
@@ -169,7 +169,7 @@ else:
 start += args.dataset_size
 
 if args.attack_type in ["FGSM", "BIM"]:
-    all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=7)))
+    all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=3)))
 else:
     all_epsilons = [0.0, 1]
 
