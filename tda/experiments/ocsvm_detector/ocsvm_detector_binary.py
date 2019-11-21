@@ -6,8 +6,6 @@ import logging
 import time
 import typing
 from multiprocessing import Pool
-from random import shuffle
-import os.path
 
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
@@ -20,7 +18,7 @@ from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
-from tda.experiments.thomas.graph_stats_binary import get_stats
+from tda.thresholds import process_thresholds
 
 start_time = time.time()
 
@@ -58,8 +56,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(f"[{args.experiment_id}_{args.run_id}]")
 
 # save np.load and modify the default parameters of np.load
-np_load_old = np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+# np_load_old = np.load
+# np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
 
 #####################
 # Fetching datasets #
@@ -72,6 +70,12 @@ if args.embedding_type == EmbeddingType.OriginalDataPoint:
 else:
     retain_data_point = False
 
+thresholds = process_thresholds(
+    raw_thresholds=args.thresholds,
+    dataset=args.dataset,
+    architecture=args.architecture,
+    epochs=args.epochs
+)
 
 thresholds = [float(x) for x in args.thresholds.split("_")]
 if any([threshold <= 1 for threshold in thresholds]):
@@ -114,11 +118,10 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
             start=start,
             train_noise=args.train_noise
     ):
-        logger.info(f"Line = {line[:3]} and diff = {line[4]}")
-        stats[epsilon].append(line[4])
+        stats[epsilon].append(line.l2_norm)
         my_embeddings.append(get_embedding(
             embedding_type=args.embedding_type,
-            graph=line[0],
+            graph=line.graph,
             params={
                 "hash_size": int(args.hash_size),
                 "height": int(args.height),
@@ -184,7 +187,8 @@ start += args.dataset_size
 
 if args.attack_type in ["FGSM", "BIM"]:
     #all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=7)))
-    all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=5)))
+    #all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=5)))
+    all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=3)))
 else:
     all_epsilons = [0.0, 1]
 
@@ -197,6 +201,10 @@ for epsilon in all_epsilons[1:]:
 
 
 def process_epsilon(epsilon: float) -> float:
+    """
+    Compute the AUC for a given epsilon and returns also the scores
+    of the best OneClass SVM
+    """
     if epsilon == 0.0:
         return 0.5
 
@@ -204,7 +212,7 @@ def process_epsilon(epsilon: float) -> float:
 
     logger.info(f"Computing performance for epsilon={epsilon}")
 
-    roc_values = list()
+    best_auc = 0.0
 
     for i, param in enumerate(param_space):
         ocs = OneClassSVM(
@@ -236,16 +244,20 @@ def process_epsilon(epsilon: float) -> float:
             )
         )
 
-        roc_val = roc_auc_score(y_true=labels, y_score=predictions)
-        roc_values.append(roc_val)
+        roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
 
-    return np.max(roc_values)
+        if roc_auc_val > best_auc:
+            best_auc = roc_auc_val
+
+    return best_auc
 
 
 with Pool(2) as p:
-    separability_values = p.map(process_epsilon, all_epsilons)
+    all_results = p.map(process_epsilon, all_epsilons)
 
-logger.info(separability_values)
+all_results = dict(zip(all_epsilons, all_results))
+
+logger.info(all_results)
 
 end_time = time.time()
 
@@ -253,7 +265,8 @@ my_db.update_experiment(
     experiment_id=args.experiment_id,
     run_id=args.run_id,
     metrics={
-        "separability_values": dict(zip(all_epsilons, separability_values)),
+        "separability_values": all_results,
+        "effective_thresholds": thresholds,
         "running_time": end_time - start_time
     }
 )

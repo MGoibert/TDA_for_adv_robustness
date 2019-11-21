@@ -3,13 +3,11 @@
 
 import argparse
 import logging
+import os
 import time
 import typing
-import os
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
-from random import shuffle
 
+import matplotlib.pyplot as plt
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
 from sklearn.metrics import roc_auc_score
@@ -19,8 +17,9 @@ from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_dataset
-from tda.models.architectures import mnist_mlp, svhn_lenet, get_architecture
+from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
+from tda.thresholds import process_thresholds
 
 start_time = time.time()
 
@@ -36,7 +35,7 @@ parser.add_argument('--experiment_id', type=int, default=-1)
 parser.add_argument('--run_id', type=int, default=-1)
 parser.add_argument('--embedding_type', type=str, default=EmbeddingType.PersistentDiagram)
 parser.add_argument('--kernel_type', type=str, default=KernelType.SlicedWasserstein)
-parser.add_argument('--thresholds', type=str, default='0')
+parser.add_argument('--thresholds', type=str)
 parser.add_argument('--height', type=int, default=1)
 parser.add_argument('--hash_size', type=int, default=100)
 parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
@@ -50,6 +49,7 @@ parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--successful_adv', type=int, default=1)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--num_iter', type=int, default=10)
+parser.add_argument('--do_plot', type=int, default=0)
 
 args, _ = parser.parse_known_args()
 
@@ -67,8 +67,13 @@ if args.embedding_type == EmbeddingType.OriginalDataPoint:
 else:
     retain_data_point = False
 
-thresholds = [int(x) for x in args.thresholds.split("_")]
-print(thresholds)
+thresholds = process_thresholds(
+    raw_thresholds=args.thresholds,
+    dataset=args.dataset,
+    architecture=args.architecture,
+    epochs=args.epochs
+)
+
 stats = {}
 
 corrects_i = list()
@@ -96,13 +101,13 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
                 num_iter=args.num_iter,
                 start=start,
                 train_noise=args.train_noise
-            ):
-            logger.info(f"Line = {line[:3]} and diff = {line[4]} and i sample = {line[5]}")
-            stats[epsilon].append(line[4])
-            corrects_i.append(line[5])
+        ):
+            logger.info(f"Sample_id = {line.sample_id} ; l2_norm = {line.l2_norm}")
+            stats[epsilon].append(line.l2_norm)
+            corrects_i.append(line.sample_id)
             my_embeddings.append(get_embedding(
                 embedding_type=args.embedding_type,
-                graph=line[0],
+                graph=line.graph,
                 params={
                     "hash_size": int(args.hash_size),
                     "height": int(args.height),
@@ -127,12 +132,12 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
                     attack_type=args.attack_type,
                     num_iter=args.num_iter,
                     start=correct_i
-                ):
-                logger.info(f"Line = {line[:3]} and diff = {line[4]} and i sample = {line[5]}")
-                stats[epsilon].append(line[4])
+            ):
+                logger.info(f"Sample_id = {line.sample_id} ; l2_norm = {line.l2_norm}")
+                stats[epsilon].append(line.l2_norm)
                 my_embeddings.append(get_embedding(
                     embedding_type=args.embedding_type,
-                    graph=line[0],
+                    graph=line.graph,
                     params={
                         "hash_size": int(args.hash_size),
                         "height": int(args.height),
@@ -140,7 +145,8 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
                         "steps": args.steps
                     }
                 ))
-    logger.info(f"Computed embeddings for (attack = {args.attack_type}, eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
+    logger.info(
+        f"Computed embeddings for (attack = {args.attack_type}, eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
     return my_embeddings
 
 
@@ -152,23 +158,18 @@ else:
     all_epsilons = [1]
 logger.info(f"All epsilons = {all_epsilons}")
 
-#rng_state = np.random.get_state()
 adv_embeddings = dict()
 for epsilon in all_epsilons:
     stats[epsilon] = list()
     adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0)
-    #np.random.set_state(rng_state)
-    #np.random.shuffle(adv_embeddings[epsilon])
-    logger.info(f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
+    logger.info(
+        f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
     logger.info(f"corrects_i for eps = {epsilon} = {corrects_i}")
 
 stats[0.0] = list()
 clean_embeddings = get_embeddings(epsilon=0.0, noise=0.0)
 noisy_embeddings = get_embeddings(epsilon=0.0, noise=args.noise)
-#np.random.set_state(rng_state)
-#np.random.shuffle(clean_embeddings)
-#np.random.set_state(rng_state)
-#np.random.shuffle(noisy_embeddings)
+
 
 def process_epsilon(epsilon: float) -> list:
     if epsilon == 0.0:
@@ -193,8 +194,8 @@ def process_epsilon(epsilon: float) -> list:
 
         # Datasets used for the OneClassSVM
 
-        train_data = clean_embeddings[:len(clean_embeddings) // 2] #+ clean_embeddings2[:len(clean_embeddings) // 2]
-        test_data = clean_embeddings[len(clean_embeddings) // 2:] #+ clean_embeddings2[len(clean_embeddings) // 2:]
+        train_data = clean_embeddings[:len(clean_embeddings) // 2]  # + clean_embeddings2[:len(clean_embeddings) // 2]
+        test_data = clean_embeddings[len(clean_embeddings) // 2:]  # + clean_embeddings2[len(clean_embeddings) // 2:]
 
         # Training model
         start_time = time.time()
@@ -202,11 +203,11 @@ def process_epsilon(epsilon: float) -> list:
             args.kernel_type, train_data, train_data,
             param
         )
-        logger.info(f"Computed Gram Matrix in {time.time()-start_time} secs")
+        logger.info(f"Computed Gram Matrix in {time.time() - start_time} secs")
 
         start_time = time.time()
         ocs.fit(gram_train)
-        logger.info(f"Trained model in {time.time()-start_time} secs")
+        logger.info(f"Trained model in {time.time() - start_time} secs")
 
         # Testing model
         start_time = time.time()
@@ -219,9 +220,10 @@ def process_epsilon(epsilon: float) -> list:
         predictions_train = ocs.score_samples(gram_train)
         predictions = ocs.score_samples(gram_test_and_bad)
         pred_clean = list(predictions_train) + list(predictions[:len(test_data)])
-        pred_noisy = predictions[len(test_data):len(test_data)+len(noisy_embeddings)]
-        pred_adv = predictions[len(test_data)+len(noisy_embeddings):]
-        logger.info(f"Mean pred clean = {np.mean(pred_clean)}, noisy = {np.mean(pred_noisy)} and adv = {np.mean(pred_adv)}")
+        pred_noisy = predictions[len(test_data):len(test_data) + len(noisy_embeddings)]
+        pred_adv = predictions[len(test_data) + len(noisy_embeddings):]
+        logger.info(
+            f"Mean pred clean = {np.mean(pred_clean)}, noisy = {np.mean(pred_noisy)} and adv = {np.mean(pred_adv)}")
 
         predictions2 = ocs.score_samples(gram_test_and_bad)
         labels = np.concatenate((np.ones(len(test_data)), np.zeros(len(noisy_embeddings + adv_embeddings[epsilon]))))
@@ -232,42 +234,62 @@ def process_epsilon(epsilon: float) -> list:
     return [pred_clean, pred_noisy, pred_adv]
 
 
-#with Pool(2) as p:
-#    separability_values = p.map(process_epsilon, all_epsilons)
+binary_path = os.path.dirname(os.path.realpath(__file__))
+directory = f"{binary_path}/plots"
 
-directory = "plots/scatter_plots"
 if not os.path.exists(directory):
     os.mkdir(directory)
 attack_param = all_epsilons if args.attack_type in ["FGSM", "BIM"] else args.num_iter
 
+all_results = dict()
+
 for epsilon in all_epsilons:
     pred_clean, pred_noisy, pred_adv = process_epsilon(epsilon)
-    plt.scatter(pred_adv, pred_noisy)
-    plt.plot(pred_adv, pred_adv, 'r-')
-    plt.plot(pred_noisy, pred_noisy, 'r-')
-    plt.xlabel("Adv prediction eps = " + str(epsilon))
-    plt.ylabel("Noisy prediction")
-    plt.title("Adv vs noisy score for eps = " + str(epsilon))
-    plt.savefig(directory + "/scatter_adv_noisy_" + args.dataset + "_" + args.architecture + "_" + args.attack_type + "_" + str(attack_param) + ".png", dpi=800)
-    plt.close()
 
-    plt.scatter(pred_adv, np.array(pred_clean))
-    plt.plot(pred_adv, pred_adv, 'r-')
-    plt.plot(np.array(pred_clean), np.array(pred_clean), 'r-')
-    plt.xlabel("Adv prediction eps = " + str(epsilon))
-    plt.ylabel("Clean prediction")
-    plt.title("Adv vs clean score for eps = " + str(epsilon))
-    plt.savefig(directory + "/scatter_adv_clean_" + args.dataset + "_" + args.architecture + "_" + args.attack_type + "_" + str(attack_param) + ".png", dpi=800)
-    plt.close()
+    all_results[str(epsilon).replace(".", "_")] = {
+        "pred_clean": list(pred_clean),
+        "pred_noisy": list(pred_noisy),
+        "pred_adv": list(pred_adv)
+    }
 
-    plt.scatter(pred_noisy, np.array(pred_clean))
-    plt.plot(pred_noisy, pred_noisy, 'r-')
-    plt.plot(np.array(pred_clean), np.array(pred_clean), 'r-')
-    plt.xlabel("Noisy prediction")
-    plt.ylabel("Clean prediction")
-    plt.title("Noisy vs clean score for eps = " + str(epsilon))
-    plt.savefig(directory + "/scatter_noisy_clean_" + args.dataset + "_" + args.architecture + "_" + args.attack_type + "_" + str(attack_param) + ".png", dpi=800)
-    plt.close()
+    if args.do_plot > 0:
+        plt.scatter(pred_adv, pred_noisy)
+        plt.plot(pred_adv, pred_adv, 'r-')
+        plt.plot(pred_noisy, pred_noisy, 'r-')
+        plt.xlabel("Adv prediction eps = " + str(epsilon))
+        plt.ylabel("Noisy prediction")
+        plt.title("Adv vs noisy score for eps = " + str(epsilon))
+        plt.savefig(
+            directory + "/scatter_adv_noisy_" + args.dataset + "_" + args.architecture + "_" + args.attack_type + "_" + str(
+                attack_param) + ".png", dpi=800)
+        plt.close()
 
+        plt.scatter(pred_adv, np.array(pred_clean))
+        plt.plot(pred_adv, pred_adv, 'r-')
+        plt.plot(np.array(pred_clean), np.array(pred_clean), 'r-')
+        plt.xlabel("Adv prediction eps = " + str(epsilon))
+        plt.ylabel("Clean prediction")
+        plt.title("Adv vs clean score for eps = " + str(epsilon))
+        plt.savefig(
+            directory + "/scatter_adv_clean_" + args.dataset + "_" + args.architecture + "_" + args.attack_type + "_" + str(
+                attack_param) + ".png", dpi=800)
+        plt.close()
 
+        plt.scatter(pred_noisy, np.array(pred_clean))
+        plt.plot(pred_noisy, pred_noisy, 'r-')
+        plt.plot(np.array(pred_clean), np.array(pred_clean), 'r-')
+        plt.xlabel("Noisy prediction")
+        plt.ylabel("Clean prediction")
+        plt.title("Noisy vs clean score for eps = " + str(epsilon))
+        plt.savefig(
+            directory + "/scatter_noisy_clean_" + args.dataset + "_" + args.architecture + "_" + args.attack_type + "_" + str(
+                attack_param) + ".png", dpi=800)
+        plt.close()
 
+my_db.update_experiment(
+    experiment_id=args.experiment_id,
+    run_id=args.run_id,
+    metrics={
+        "predictions": all_results
+    }
+)

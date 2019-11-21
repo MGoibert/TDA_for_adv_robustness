@@ -8,15 +8,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from dionysus import wasserstein_distance
+from r3d3 import ExperimentDB
 
 from tda.embeddings import get_embedding, EmbeddingType
 from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel
 from tda.graph_dataset import get_dataset
 from tda.models.architectures import mnist_mlp, svhn_lenet, get_architecture
+from tda.rootpath import db_path
+from tda.thresholds import process_thresholds
 
 start_time = time.time()
 
-directory = "plots/wasserstein_distance"
+my_db = ExperimentDB(db_path=db_path)
+
+start_time = time.time()
+
+binary_path = os.path.dirname(os.path.realpath(__file__))
+directory = f"{binary_path}/plots"
 if not os.path.exists(directory):
     os.mkdir(directory)
 
@@ -51,7 +59,13 @@ logger.info(f"architecture = {svhn_lenet} ")
 
 architecture = get_architecture(args.architecture)
 
-thresholds = [int(x) for x in args.thresholds.split("_")]
+thresholds = process_thresholds(
+    raw_thresholds=args.thresholds,
+    architecture=args.architecture,
+    dataset=args.dataset,
+    epochs=args.epochs
+)
+
 print(thresholds)
 stats = {}
 
@@ -93,14 +107,13 @@ def get_embeddings_per_class(
                 train_noise=args.train_noise
         ):
 
-            predicted_label = line[2]
-            perturbation_size = line[4]
+            predicted_label = line.y_pred
 
-            logger.info(f"Line = {line[:3]} and diff = {perturbation_size}")
+            logger.info(f"Sample id {line.sample_id} diff = {line.l2_norm}")
             # If we still need samples with this predicted class
             if inds_class[predicted_label] < args.dataset_size:
                 inds_class[predicted_label] += 1
-                stats[epsilon].append(perturbation_size)
+                stats[epsilon].append(line.l2_norm)
                 my_embeddings[predicted_label].append(get_embedding(
                     embedding_type=EmbeddingType.PersistentDiagram,
                     graph=line[0]
