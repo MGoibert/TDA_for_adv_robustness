@@ -24,13 +24,13 @@ experiment = R3D3Experiment(
             svhn_lenet.name
         ],
         'noise': [
-            0.0
+            0.0, 0.02
         ],
         'dataset': [
             "SVHN"
         ],
         'epochs': [
-            201
+            102
         ],
         'dataset_size':[
             10
@@ -42,7 +42,7 @@ experiment = R3D3Experiment(
             20
         ],
         'train_noise':[
-            0.0
+            0.02
         ]
     },
     binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
