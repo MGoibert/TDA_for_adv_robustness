@@ -14,6 +14,15 @@ experiment = R3D3Experiment(
         'kernel_type': [
             KernelType.Euclidean
         ],
+        'dataset': [
+          "MNIST"
+        ],
+        'attack_type': [
+          "FGSM"
+        ],
+        'architecture': [
+          mnist_mlp.name
+        ],
         'threshold': [
             '_'.join([str(20000) for _ in range(mnist_mlp.get_nb_graph_layers())])
         ],
@@ -27,7 +36,7 @@ experiment = R3D3Experiment(
             NodeLabels.LAYERS
         ],
         'noise': [
-            0.02
+            0.0
         ],
         'epochs': [
             20
@@ -36,6 +45,6 @@ experiment = R3D3Experiment(
             0, 1
         ]
     },
-    binary=f"{rootpath}/tda/experiments/thomas/embedding_separability_binary_gram.py",
+    binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
     max_nb_processes=1
 )

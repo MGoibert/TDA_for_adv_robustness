@@ -2,18 +2,16 @@
 # -*- coding: utf-8 -*-
 import logging
 import pathlib
-import os
-import pickle
-import time
-import torch
-import numpy as np
 import typing
 
-from tda.models import get_deep_model
+import numpy as np
+import torch
+
 from tda.graph import Graph
-from tda.models.datasets import Dataset
+from tda.models import get_deep_model
 from tda.models.architectures import Architecture, mnist_mlp
 from tda.models.attacks import FGSM, BIM, DeepFool, CW
+from tda.models.datasets import Dataset
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -56,24 +54,6 @@ def ce_loss(outputs, labels, num_classes=None):
                            for i in range(size)])
     return -res
 
-
-#def adversarial_generation(model, x, y,
-#                           epsilon=0.25,
-#                           loss_func=ce_loss,
-#                           num_classes=10):
-#    """
-#    Create an adversarial example (FGMS only for now)
-#    """
-#    x_clean = x.double()
-#    x_clean.requires_grad = True
-#    y_clean = torch.from_numpy(np.asarray(y)).unsqueeze(0)
-#    output = model(x_clean)
-#    loss = loss_func(output, y_clean, num_classes)
-#    model.zero_grad()
-#    loss.backward()
-#    x_adv = torch.clamp(x_clean + epsilon * x_clean.grad.data.sign(), -0.5, 0.5).double()
-#
-#    return x_adv
 
 def adversarial_generation(model, x, y,
                            epsilon=0.25,
@@ -187,6 +167,15 @@ def compute_adv_accuracy(
     return corr / dataset_size
 
 
+class DatasetLine(typing.NamedTuple):
+    graph: Graph
+    y: int
+    y_pred: int
+    y_adv: int
+    l2_norm: float
+    sample_id: int
+
+
 def get_dataset(
         num_epochs: int,
         epsilon: float,
@@ -196,13 +185,13 @@ def get_dataset(
         architecture: Architecture = mnist_mlp,
         retain_data_point: bool = False,
         dataset_size: int = 100,
-        thresholds: typing.Optional[typing.List[int]] = None,
+        thresholds: typing.Optional[typing.List[float]] = None,
         only_successful_adversaries: bool = True,
         attack_type: str = "FGSM",
         num_iter: int = 10,
         start: int = 0,
         train_noise: float = 0.0
-) -> typing.Generator:
+) -> typing.Generator[DatasetLine, None, None]:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
     source_dataset = Dataset(name=source_dataset_name)
@@ -237,32 +226,31 @@ def get_dataset(
             attack_type=attack_type,
             num_iter=num_iter
         )
-        stat = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), 2)
-        #logger.info(f"x from process sample = {x}")
+        l2_norm = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), 2)
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
 
         if adv and only_successful_adversaries and y_pred == y:
-            logger.info(f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv}) and diff = {stat}")
+            logger.info(f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv}) and diff = {l2_norm}")
             i += 1
             continue
-        #if (not adv) and y_pred != y:
-        #    logger.info(f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv})")
-        #    i += 1
-        #    continue
         else:
-
-            # st = time.time()
             x_graph = Graph.from_architecture_and_data_point(
                 model=model,
                 x=x.double(),
                 retain_data_point=retain_data_point,
                 thresholds=thresholds
             )
-            # logger.info(f"Computed graph in {time.time()-st} secs")
             nb_samples += 1
             i += 1
-            yield (x_graph, y, y_pred, y_adv, stat, i-1)
+            yield DatasetLine(
+                graph=x_graph,
+                y=y,
+                y_pred=y_pred,
+                y_adv=y_adv,
+                l2_norm=l2_norm,
+                sample_id=i-1
+            )
 
 
 if __name__ == "__main__":

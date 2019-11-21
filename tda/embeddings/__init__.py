@@ -88,10 +88,8 @@ def get_gram_matrix(
 
         for j in range(lim):
             if kernel_type == KernelType.Euclidean:
-                gram[i, j] = np.dot(
-                    embeddings_in[i],
-                    embeddings_out[j]
-                )
+                # TODO: Understand why we need to reshape now ?
+                gram[i, j] = np.transpose(embeddings_in[i])@embeddings_out[j]
             elif kernel_type == KernelType.RBF:
                 gram[i, j] = np.exp(-np.linalg.norm(
                     embeddings_in[i] - embeddings_out[j]

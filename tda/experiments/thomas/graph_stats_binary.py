@@ -13,11 +13,12 @@ import os
 
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset
-from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet, mnist_small_mlp
+from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet
+from tda.models.architectures import get_architecture, svhn_lenet
 
-from igraph import Graph as IGraph
-from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
-from networkx.algorithms.centrality.katz import katz_centrality
+# from igraph import Graph as IGraph
+# from networkx.algorithms.centrality import betweenness_centrality, eigenvector_centrality
+# from networkx.algorithms.centrality.katz import katz_centrality
 
 start_time = time.time()
 
@@ -55,7 +56,8 @@ thresholds = [float(x) for x in args.thresholds.split("_")]
 plt.style.use('seaborn-dark')
 
 
-def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> typing.List:
+
+def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typing.List, np.matrix):
     """
     Helper function to get list of embeddings
     """
@@ -79,8 +81,8 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> typing
             train_noise=args.train_noise
         ):
 
-        graph: Graph = line[0]
-        logger.info(f"The data point: y = {line[1]}, y_pred = {line[2]} and adv = {line[3]} and the attack = {attack_type}")
+        graph: Graph = line.graph
+        logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv} and the attack = {attack_type}")
         adjacency_matrix = graph.get_adjacency_matrix()
         print(np.shape(adjacency_matrix))
         #print(adjacency_matrix[0,0])
@@ -131,6 +133,7 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> typing
     print(f"All weights {q50} [{q10}; {q90} {q95} {q99}]")
 
     return all_weights, adjacency_matrix
+
 
 if __name__ == '__main__':
     weights, _ = get_stats(epsilon=0.0, noise=0.0)
