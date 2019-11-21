@@ -50,12 +50,10 @@ if not os.path.exists("stats/"):
 
 architecture = get_architecture(args.architecture)
 
-#thresholds = list(np.zeros(10))
+# thresholds = list(np.zeros(10))
 thresholds = [float(x) for x in args.thresholds.split("_")]
 
 plt.style.use('seaborn-dark')
-
-
 
 def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typing.List, np.matrix):
     """

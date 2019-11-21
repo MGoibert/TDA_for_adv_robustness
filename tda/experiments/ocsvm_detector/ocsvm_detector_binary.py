@@ -77,23 +77,6 @@ thresholds = process_thresholds(
     epochs=args.epochs
 )
 
-thresholds = [float(x) for x in args.thresholds.split("_")]
-if any([threshold <= 1 for threshold in thresholds]):
-    if not os.path.exists(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs_quant.npy"):
-        logger.info(f"Computing weight per layer stats")
-        weights, _ = get_stats(epsilon=0.0, noise=0.0)
-        quants = np.linspace(0,1, 1001)
-        quants_dict = dict()
-        for i, weight_layer in enumerate(weights):
-            quants_dict[i] = dict()
-            for quant in quants:
-                quants_dict[i][quant] = np.quantile(weight_layer, quant)
-        np.save(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs_quant", quants_dict)
-    dict_quant = np.load(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs_quant.npy").flat[0]
-for i, threshold in enumerate(thresholds):
-    if threshold <= 1 and threshold > 0:
-        thresholds[i] = dict_quant[i][threshold]
-logger.info(f"Thresholds = {thresholds}")
 stats = {}
 
 
