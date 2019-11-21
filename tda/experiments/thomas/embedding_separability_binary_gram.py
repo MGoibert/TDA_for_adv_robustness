@@ -75,7 +75,7 @@ else:
 
 thresholds = [float(x) for x in args.thresholds.split("_")]
 if any([threshold <= 1 for threshold in thresholds]):
-    if not os.path.exists(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs.npy"):
+    if not os.path.exists(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs_quant.npy"):
         logger.info(f"Computing weight per layer stats")
         weights, _ = get_stats(epsilon=0.0, noise=0.0)
         quants = np.linspace(0,1, 1001)
@@ -183,7 +183,8 @@ else:
 start += args.dataset_size
 
 if args.attack_type in ["FGSM", "BIM"]:
-    all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=7)))
+    #all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=7)))
+    all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=5)))
 else:
     all_epsilons = [0.0, 1]
 

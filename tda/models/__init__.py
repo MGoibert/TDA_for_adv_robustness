@@ -54,7 +54,7 @@ def train_network(model, train_loader, val_loader, loss_func, num_epochs, train_
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=15, verbose=True,
+        optimizer, mode='min', patience=5, verbose=True,
         factor=0.5)
     for epoch in range(num_epochs):
         model.train()
@@ -63,11 +63,15 @@ def train_network(model, train_loader, val_loader, loss_func, num_epochs, train_
             x_batch = x_batch.double()
             if train_noise > 0.0:
                 x_batch_noisy = torch.clamp(x_batch + train_noise * torch.randn(x_batch.size()), -0.5, 0.5).double()
-                x_batch = torch.cat((x_batch, x_batch_noisy), 0)
-                y_batch = torch.cat((y_batch, y_batch), 0)
+                #x_batch = torch.cat((x_batch, x_batch_noisy), 0)
+                y_batch_noisy = y_batch
             optimizer.zero_grad()
             y_pred = model(x_batch)
             loss = loss_func(y_pred, y_batch)
+            if train_noise > 0.0:
+                y_pred_noisy = model(x_batch_noisy)
+                loss_noisy = loss_func(y_pred_noisy, y_batch_noisy)
+                loss = 0.75*loss + 0.25*loss_noisy
             loss.backward()
             optimizer.step()
         model.eval()
