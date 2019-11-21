@@ -321,6 +321,16 @@ mnist_mlp = Architecture(
         SoftMaxLayer()
     ])
 
+mnist_small_mlp = Architecture(
+    name="small_mlp",
+    preprocess=mnist_preprocess,
+    layers=[
+        LinearLayer(28 * 28, 200),
+        LinearLayer(200, 50),
+        LinearLayer(50, 10),
+        SoftMaxLayer()
+    ])
+
 mnist_lenet = Architecture(
     name="mnist_lenet",
     preprocess=mnist_preprocess2,
@@ -374,7 +384,8 @@ known_architectures: List[Architecture] = [
     mnist_mlp,
     svhn_cnn_simple,
     svhn_lenet,
-    mnist_lenet
+    mnist_lenet,
+    mnist_small_mlp
 ]
 
 
