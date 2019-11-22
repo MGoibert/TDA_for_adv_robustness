@@ -173,8 +173,9 @@ class DatasetLine(typing.NamedTuple):
     y_pred: int
     y_adv: int
     l2_norm: float
+    linf_norm: float
     sample_id: int
-
+    x: torch.tensor 
 
 def get_dataset(
         num_epochs: int,
@@ -226,7 +227,9 @@ def get_dataset(
             attack_type=attack_type,
             num_iter=num_iter
         )
+        logger.info(f"x type = {type(x)}")
         l2_norm = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), 2)
+        linf_norm = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), np.inf)
         y_pred = model(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
 
@@ -249,7 +252,9 @@ def get_dataset(
                 y_pred=y_pred,
                 y_adv=y_adv,
                 l2_norm=l2_norm,
-                sample_id=i-1
+                linf_norm=linf_norm,
+                sample_id=i-1,
+                x=x
             )
 
 
