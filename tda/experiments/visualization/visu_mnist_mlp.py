@@ -23,7 +23,10 @@ experiment = R3D3Experiment(
             50
         ],
         'attack_type': [
-           "CW"
+           "FGSM"
+        ],
+        'desired_y': [
+           3
         ]
     },
     binary=f"{rootpath}/tda/experiments/visualization/visualization_binary.py",
