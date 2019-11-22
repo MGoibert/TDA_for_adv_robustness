@@ -94,6 +94,7 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", sample_id
 
         graph: Graph = line.graph
         logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv} and the attack = {attack_type}")
+        logger.info(f"Perturbation: L2 = {line.l2_norm} and Linf = {line.linf_norm}")
         adjacency_matrix = graph.get_adjacency_matrix()
         print(np.shape(adjacency_matrix))
         print(adjacency_matrix.min(), adjacency_matrix.max())
@@ -132,11 +133,11 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", sample_id
     aq99 = np.quantile(all_weights2, 0.99)
     print(f"All weights {aq50} [{aq10}; {aq90} {aq95} {aq99}]")
 
-    return all_weights, adjacency_matrix, line.y, line.y_pred, line.sample_id
+    return all_weights, adjacency_matrix, line.y, line.y_pred, line.sample_id, line.x, line.linf_norm
 
-epsilon = 0.05
-b_, b, by, by_pred, sample_id = get_stats(epsilon=epsilon, noise=0.0, attack_type=args.attack_type)
-a_, a, ay, ay_pred, _ = get_stats(epsilon=0.0, noise=0.0, sample_id=sample_id)
+epsilon = 0.08
+b_, b, by, by_pred, sample_id, bx, linf_pert = get_stats(epsilon=epsilon, noise=0.0, attack_type=args.attack_type)
+a_, a, ay, ay_pred, _, ax, _ = get_stats(epsilon=0.0, noise=0.0, sample_id=sample_id)
 qmin = np.quantile(np.concatenate(a_, axis=0), 0.1)
 qmax = np.quantile(np.concatenate(a_, axis=0), 0.9)
 
@@ -179,6 +180,14 @@ for layer in range(len(a_)):
     plt.hist(b_[layer], range=(np.quantile(b_[layer], 0.1), np.quantile(b_[layer], 0.9)), bins=50, density=False, alpha=0.4, label="Adv")
     plt.savefig(directory + "/weight_distrib_layer_y=" + str(ay) + "_adv_pred=" + str(by_pred) + "_clean_vs_" + str(args.attack_type) + "_layer" + str(layer) + ".png", dpi=800)
     plt.close()
+
+plt.subplot(1,2,1)
+plt.imshow(ax.squeeze(0).detach().numpy(), cmap="gray")
+plt.title(f"Clean {ay}")
+plt.subplot(1,2,2)
+plt.imshow(bx.squeeze(0).detach().numpy(), cmap="gray")
+plt.title(f"Adv {ay} -> {by_pred}, Linf pert = {linf_pert}")
+plt.savefig(directory + "/images_clean" + str(ay_pred) + "_vs_" + str(args.attack_type) + str(by_pred) + "eps=" + str(epsilon) + ".png", dpi=800)
 
 end_time = time.time()
 
