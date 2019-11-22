@@ -37,6 +37,7 @@ parser.add_argument('--architecture', type=str, default=svhn_lenet.name)
 parser.add_argument('--train_noise', type=float, default=0.0)
 parser.add_argument('--num_iter', type=int, default=10)
 parser.add_argument('--attack_type', type=str, default="FGSM")
+parser.add_argument('--desired_y', type=int, default=-1)
 
 args, _ = parser.parse_known_args()
 
@@ -66,7 +67,7 @@ directory = str(pathlib.Path(*binary_path_split.parts[:-3])) + "/plots/visualiza
 if not os.path.exists(directory):
     os.makedirs(directory)
 
-def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", sample_id: int = 0) -> (typing.List, np.matrix):
+def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", start: int = 0) -> (typing.List, np.matrix):
     """
     Helper function to get list of embeddings
     """
@@ -75,35 +76,44 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", sample_id
     weights_per_layer = dict()
     print("eps =", epsilon)
 
-    for line in get_dataset(
-            num_epochs=args.epochs,
-            epsilon=epsilon,
-            noise=noise,
-            adv=epsilon > 0.0,
-            retain_data_point=False,
-            architecture=architecture,
-            source_dataset_name=args.dataset,
-            dataset_size=1,
-            thresholds=thresholds,
-            only_successful_adversaries=True,
-            attack_type=attack_type,
-            num_iter=args.num_iter,
-            train_noise=args.train_noise,
-            start=sample_id
-        ):
+    wrong_ex = True
 
-        graph: Graph = line.graph
-        logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv} and the attack = {attack_type}")
-        logger.info(f"Perturbation: L2 = {line.l2_norm} and Linf = {line.linf_norm}")
-        adjacency_matrix = graph.get_adjacency_matrix()
-        print(np.shape(adjacency_matrix))
-        print(adjacency_matrix.min(), adjacency_matrix.max())
+    while wrong_ex:
+        for line in get_dataset(
+                num_epochs=args.epochs,
+                epsilon=epsilon,
+                noise=noise,
+                adv=epsilon > 0.0,
+                retain_data_point=False,
+                architecture=architecture,
+                source_dataset_name=args.dataset,
+                dataset_size=1,
+                thresholds=thresholds,
+                only_successful_adversaries=True,
+                attack_type=attack_type,
+                num_iter=args.num_iter,
+                train_noise=args.train_noise,
+                start=start
+            ):
 
-        for i, layer_matrix in enumerate(graph._edge_list):
-            if i in weights_per_layer:
-                weights_per_layer[i] = np.concatenate([weights_per_layer[i], layer_matrix])
+            graph: Graph = line.graph
+            if (line.y == args.desired_y) or args.desired_y == -1:
+                wrong_ex = False
+                logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv} and the attack = {attack_type}")
+                logger.info(f"Perturbation: L2 = {line.l2_norm} and Linf = {line.linf_norm}")
+                adjacency_matrix = graph.get_adjacency_matrix()
+                print(np.shape(adjacency_matrix))
+                print(adjacency_matrix.min(), adjacency_matrix.max())
+
+                for i, layer_matrix in enumerate(graph._edge_list):
+                    if i in weights_per_layer:
+                        weights_per_layer[i] = np.concatenate([weights_per_layer[i], layer_matrix])
+                    else:
+                        weights_per_layer[i] = layer_matrix
             else:
-                weights_per_layer[i] = layer_matrix
+                logger.info(f"not desired y ({line.y})")
+                start = start + 1
+                continue
 
     all_weights = list()
 
@@ -137,7 +147,7 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", sample_id
 
 epsilon = 0.08
 b_, b, by, by_pred, sample_id, bx, linf_pert = get_stats(epsilon=epsilon, noise=0.0, attack_type=args.attack_type)
-a_, a, ay, ay_pred, _, ax, _ = get_stats(epsilon=0.0, noise=0.0, sample_id=sample_id)
+a_, a, ay, ay_pred, _, ax, _ = get_stats(epsilon=0.0, noise=0.0, start=sample_id)
 qmin = np.quantile(np.concatenate(a_, axis=0), 0.1)
 qmax = np.quantile(np.concatenate(a_, axis=0), 0.9)
 
@@ -186,7 +196,7 @@ plt.imshow(ax.squeeze(0).detach().numpy(), cmap="gray")
 plt.title(f"Clean {ay}")
 plt.subplot(1,2,2)
 plt.imshow(bx.squeeze(0).detach().numpy(), cmap="gray")
-plt.title(f"Adv {ay} -> {by_pred}, Linf pert = {linf_pert}")
+plt.title(f"Adv {ay} -> {by_pred}, Linf pert = {np.round(linf_pert,3)}")
 plt.savefig(directory + "/images_clean" + str(ay_pred) + "_vs_" + str(args.attack_type) + str(by_pred) + "eps=" + str(epsilon) + ".png", dpi=800)
 
 end_time = time.time()
