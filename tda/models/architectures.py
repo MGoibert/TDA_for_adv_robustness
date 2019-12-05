@@ -281,6 +281,17 @@ class Architecture(nn.Module):
         else:
             return x
 
+    def get_mahalanobis_activations(self, x):
+        # List to store intermediate results if needed
+        x = self.preprocess(x)
+        ret = list()
+        # Going through all layers
+        for i, layer in enumerate(self.layers):
+            x = layer.process(x.double(), store_for_graph=False)
+            ret.append(x.detach().numpy())
+        # Returning final result except softmax
+        return ret[:-1]
+
     def get_graph_values(self, x):
         # Processing sample
         # logging.info(f"Shape of x is {x.shape}")
