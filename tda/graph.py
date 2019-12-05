@@ -15,7 +15,7 @@ except:
     logging.warning("torch_geometric wasn't found. You won't be able to use GNN algorithms."
                     "Please follow https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html"
                     " if you want to do so.")
-
+logger = logging.getLogger(f"Graph")
 
 class Graph(object):
 
@@ -27,6 +27,28 @@ class Graph(object):
         self._edge_list = edge_list
         self.original_data_point = original_data_point
         self.final_logits = final_logits
+
+    @staticmethod
+    def use_sigmoid(x, i, file=None, k="auto", median=0, quant=0.9):
+        if file:
+            dict_quant = np.load(file, allow_pickle=True).flat[0]
+            med = list()
+            qu = list()
+            for j in dict_quant.keys():
+                if dict_quant[j][0.5] != 1000000.0:
+                    med.append(dict_quant[j][0.5])
+                    qu.append(dict_quant[j][quant])
+                else:
+                    med.append(0.0)
+                    qu.append(1000000.0)
+        else:
+            med = np.repeat(median, 15)
+            qu = np.repeat(quant, 15)
+        if k == "auto":
+            k = -1/(qu[i]-med[i]) * np.log(0.01/0.99)
+
+        val = 1/(1+np.exp(-k*(np.asarray(x)-med[i])))
+        return list(val)
 
     @classmethod
     def from_architecture_and_data_point(cls,
@@ -42,6 +64,10 @@ class Graph(object):
             v = np.abs(v) * 10e5
             if thresholds:
                 v[v < thresholds[i]] = 0.0
+            if True:
+                #file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
+                file = f"stats/SVHN_svhn_lenet_200_epochs.npy"
+                np.where(v>0, cls.use_sigmoid(v, i, file=file), 0)
             edge_list.append(v)
 
         original_x = None
