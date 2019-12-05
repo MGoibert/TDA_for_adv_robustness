@@ -191,7 +191,8 @@ def get_dataset(
         attack_type: str = "FGSM",
         num_iter: int = 10,
         start: int = 0,
-        train_noise: float = 0.0
+        train_noise: float = 0.0,
+        per_class: bool = False
 ) -> typing.Generator[DatasetLine, None, None]:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -213,9 +214,11 @@ def get_dataset(
 
     nb_samples = 0
     i = start
+    per_class_nb_samples = np.repeat(0, 10)
 
     while nb_samples < dataset_size:
         sample = source_dataset.test_and_val_dataset[i]
+        logger.info(f"per class : {per_class_nb_samples} and nb samples = {nb_samples}")
 
         x, y = process_sample(
             sample=sample,
@@ -227,7 +230,9 @@ def get_dataset(
             attack_type=attack_type,
             num_iter=num_iter
         )
-        logger.info(f"x type = {type(x)}")
+        if per_class and per_class_nb_samples[y] >= dataset_size:
+            i += 1
+            continue
         l2_norm = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), 2)
         linf_norm = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), np.inf)
         y_pred = model(x).argmax(dim=-1).item()
@@ -246,6 +251,11 @@ def get_dataset(
             )
             nb_samples += 1
             i += 1
+            per_class_nb_samples[y] += 1
+            if per_class and any(np.asarray(per_class_nb_samples) < dataset_size):
+                nb_samples = 0
+            elif per_class and all(np.asarray(per_class_nb_samples) >= dataset_size):
+                nb_samples = dataset_size + 1
             yield DatasetLine(
                 graph=x_graph,
                 y=y,
