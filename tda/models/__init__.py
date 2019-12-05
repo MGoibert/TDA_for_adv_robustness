@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 import pathlib
 import os
+import typing
 import logging
 from tda.models.architectures import mnist_mlp, Architecture
 from tda.models.datasets import Dataset
@@ -49,7 +50,13 @@ def compute_test_acc(model, test_loader):
     return acc
 
 
-def train_network(model, train_loader, val_loader, loss_func, num_epochs, train_noise=0.0):
+def train_network(
+        model: Architecture,
+        train_loader,
+        val_loader,
+        loss_func,
+        num_epochs: int,
+        train_noise: float =0.0) -> Architecture:
     """
     Helper function to train an arbitrary model
     """
@@ -93,7 +100,7 @@ def get_deep_model(
         dataset: Dataset,
         architecture: Architecture = mnist_mlp,
         train_noise: float = 0.0
-) -> (nn.Module, nn.Module):
+) -> typing.Tuple[Architecture, nn.Module]:
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
 
