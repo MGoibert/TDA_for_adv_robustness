@@ -248,7 +248,7 @@ def create_dataset(start: int) -> pd.DataFrame:
                 archi.zero_grad()
                 live_score.backward()
                 assert x.grad is not None
-                xhat = x + args.preproc_epsilon * x.grad.data.sign()
+                xhat = x - args.preproc_epsilon * x.grad.data.sign()
                 xhat = torch.clamp(xhat, -0.5, 0.5)
 
                 # Computing new score
