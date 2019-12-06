@@ -41,6 +41,7 @@ parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--epsilon', type=float, default=0.02)
 parser.add_argument('--preproc_epsilon', type=float, default=0.0)
+parser.add_argument('--noise', type=float, default=0.0)
 
 args, _ = parser.parse_known_args()
 
@@ -178,9 +179,9 @@ while i < args.dataset_size:
 logger.info(f"Accuracy on test set = {corr/args.dataset_size}")
 
 
-##################################################################
-# Step 3: Evaluate performance of detector using last index only #
-##################################################################
+#############################################
+# Step 3: Evaluate performance of detector  #
+#############################################
 
 def create_dataset(start: int) -> pd.DataFrame:
     i = start
@@ -192,14 +193,16 @@ def create_dataset(start: int) -> pd.DataFrame:
         if i % 2 == 0:
             adv = True
             epsilon = args.epsilon
+            noise = 0.0
         else:
             adv = False
             epsilon = 0
+            noise = args.noise
 
         x, y = process_sample(
             sample=sample,
             adversarial=adv,
-            noise=0.0,
+            noise=noise,
             epsilon=epsilon,
             model=model,
             num_classes=10,
@@ -209,7 +212,6 @@ def create_dataset(start: int) -> pd.DataFrame:
         m_features = archi.get_all_inner_activations(x)
 
         scores = list()
-        #classes = list()
 
         for layer_idx in all_feature_indices:
 
