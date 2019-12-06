@@ -7,6 +7,7 @@ import logging
 import numpy as np
 import typing
 import os
+import torch
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
@@ -39,6 +40,7 @@ parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
 parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--epsilon', type=float, default=0.02)
+parser.add_argument('--preproc_epsilon', type=float, default=0.0)
 
 args, _ = parser.parse_known_args()
 
@@ -57,6 +59,8 @@ model, loss_func = get_deep_model(
     architecture=get_architecture(args.architecture),
     train_noise=0.0
 )
+
+archi: Architecture = model
 
 logger.info(f"Got deep model...")
 
@@ -98,7 +102,7 @@ for x, y in dataset.train_dataset:
     if nb_sample_for_classes >= max_sample_for_classes:
         break
 
-    m_features = model.get_mahalanobis_activations(x)
+    m_features = archi.get_all_inner_activations(x)
 
     for i, feat in enumerate(m_features):
         if i not in features_per_class:
@@ -111,7 +115,6 @@ all_feature_indices = sorted(list(features_per_class.keys()))
 logger.info(f"All indices for features are {all_feature_indices}")
 all_classes = sorted(list(features_per_class[all_feature_indices[0]].keys()))
 logger.info(f"All classes are {all_classes}")
-
 
 
 for layer_idx in all_feature_indices:
@@ -150,7 +153,7 @@ i = 0
 corr = 0
 while i < args.dataset_size:
     x, y = dataset.test_and_val_dataset[i]
-    m_features = model.get_mahalanobis_activations(x)[-1]
+    m_features = archi.get_all_inner_activations(x)[-1]
 
     best_score = np.inf
     best_class = -1
@@ -172,15 +175,11 @@ while i < args.dataset_size:
 
     i += 1
 
-logger.info(f"Accuracy = {corr/args.dataset_size}")
+logger.info(f"Accuracy on test set = {corr/args.dataset_size}")
 
-
-#################################################
-# Step 3: (OPT) Add perturbation to the samples #
-#################################################
 
 ##################################################################
-# Step 4: Evaluate performance of detector using last index only #
+# Step 3: Evaluate performance of detector using last index only #
 ##################################################################
 
 def create_dataset(start: int) -> pd.DataFrame:
@@ -207,30 +206,59 @@ def create_dataset(start: int) -> pd.DataFrame:
             attack_type=args.attack_type
         )
 
-        m_features = model.get_mahalanobis_activations(x)
+        m_features = archi.get_all_inner_activations(x)
 
         scores = list()
-        classes = list()
+        #classes = list()
 
         for layer_idx in all_feature_indices:
 
             best_score = np.inf
-            best_class = -1
+            sigma_l = sigma_per_class[layer_idx]
+            mu_l = None
 
             for clazz in all_classes:
                 mu_clazz = mean_per_class[layer_idx][clazz]
-                sigma_clazz = sigma_per_class[layer_idx]
-
                 gap = m_features[layer_idx]-mu_clazz
-
-                score_clazz = gap@np.linalg.pinv(sigma_clazz)@np.transpose(gap)
+                score_clazz = gap@np.linalg.pinv(sigma_l)@np.transpose(gap)
 
                 if score_clazz < best_score:
                     best_score = score_clazz[0, 0]
-                    best_class = clazz
+                    mu_l = mu_clazz
+
+            # OPT: Add perturbation on x to increase its score
+            # (mainly useful for
+            if args.preproc_epsilon > 0:
+                # Let's forget about the past (attack, clamping)
+                # and make x a leaf with require grad
+                x = x.detach()
+                x.requires_grad = True
+
+                inv_sigma_tensor = torch.from_numpy(np.linalg.pinv(sigma_l))
+                mu_tensor = torch.from_numpy(mu_l)
+
+                # Adding perturbation on x
+                f = archi.get_activations_for_layer(x, layer_idx=layer_idx)
+                live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
+
+                assert np.isclose(live_score.detach().numpy(), best_score)
+
+                archi.zero_grad()
+                live_score.backward()
+                assert x.grad is not None
+                xhat = x + args.preproc_epsilon * x.grad.data.sign()
+                xhat = torch.clamp(xhat, -0.5, 0.5)
+
+                # Computing new score
+                fhat = archi.get_activations_for_layer(xhat, layer_idx=layer_idx)
+                new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
+
+                logger.info(f"Added perturbation to x {live_score.detach().numpy()[0,0]} "
+                            f"-> {new_score.detach().numpy()[0,0]}")
+
+                best_score = new_score.detach().numpy()[0, 0]
 
             scores.append(best_score)
-            classes.append(best_class)
 
         ret.append(scores + [int(adv)])
         i += 1
