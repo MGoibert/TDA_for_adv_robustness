@@ -281,7 +281,7 @@ class Architecture(nn.Module):
         else:
             return x
 
-    def get_mahalanobis_activations(self, x):
+    def get_all_inner_activations(self, x):
         # List to store intermediate results if needed
         x = self.preprocess(x)
         ret = list()
@@ -291,6 +291,16 @@ class Architecture(nn.Module):
             ret.append(x.detach().numpy())
         # Returning final result except softmax
         return ret[:-1]
+
+    def get_activations_for_layer(self, x, layer_idx: int):
+        # List to store intermediate results if needed
+        x = self.preprocess(x)
+        ret = list()
+        # Going through all layers
+        for i in range(layer_idx+1):
+            x = self.layers[i].process(x.double(), store_for_graph=False)
+        # Returning final result except softmax
+        return x
 
     def get_graph_values(self, x):
         # Processing sample
