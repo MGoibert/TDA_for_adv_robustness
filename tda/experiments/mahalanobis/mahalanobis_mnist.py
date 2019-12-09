@@ -22,9 +22,12 @@ experiment = R3D3Experiment(
         'dataset_size': [
           25
         ],
-        'epsilon': [0.08],
+        'epsilon': np.linspace(0.02, 0.5, 5),
         'preproc_epsilon': [
-            0.0, 1e-3
+            0.0, 0.001
+        ],
+        'noise': [
+            0.0
         ]
     },
     binary=f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary.py",
