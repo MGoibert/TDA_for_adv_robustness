@@ -41,6 +41,7 @@ parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--epsilon', type=float, default=0.02)
 parser.add_argument('--preproc_epsilon', type=float, default=0.0)
+parser.add_argument('--noise', type=float, default=0.0)
 
 args, _ = parser.parse_known_args()
 
@@ -178,9 +179,9 @@ while i < args.dataset_size:
 logger.info(f"Accuracy on test set = {corr/args.dataset_size}")
 
 
-##################################################################
-# Step 3: Evaluate performance of detector using last index only #
-##################################################################
+#############################################
+# Step 3: Evaluate performance of detector  #
+#############################################
 
 def create_dataset(start: int) -> pd.DataFrame:
     i = start
@@ -192,14 +193,16 @@ def create_dataset(start: int) -> pd.DataFrame:
         if i % 2 == 0:
             adv = True
             epsilon = args.epsilon
+            noise = 0.0
         else:
             adv = False
             epsilon = 0
+            noise = args.noise
 
         x, y = process_sample(
             sample=sample,
             adversarial=adv,
-            noise=0.0,
+            noise=noise,
             epsilon=epsilon,
             model=model,
             num_classes=10,
@@ -209,7 +212,6 @@ def create_dataset(start: int) -> pd.DataFrame:
         m_features = archi.get_all_inner_activations(x)
 
         scores = list()
-        #classes = list()
 
         for layer_idx in all_feature_indices:
 
@@ -226,8 +228,8 @@ def create_dataset(start: int) -> pd.DataFrame:
                     best_score = score_clazz[0, 0]
                     mu_l = mu_clazz
 
-            # OPT: Add perturbation on x to increase its score
-            # (mainly useful for
+            # OPT: Add perturbation on x to reduce its score
+            # (mainly useful for out-of-distribution ?)
             if args.preproc_epsilon > 0:
                 # Let's forget about the past (attack, clamping)
                 # and make x a leaf with require grad
@@ -246,7 +248,7 @@ def create_dataset(start: int) -> pd.DataFrame:
                 archi.zero_grad()
                 live_score.backward()
                 assert x.grad is not None
-                xhat = x + args.preproc_epsilon * x.grad.data.sign()
+                xhat = x - args.preproc_epsilon * x.grad.data.sign()
                 xhat = torch.clamp(xhat, -0.5, 0.5)
 
                 # Computing new score
@@ -256,7 +258,17 @@ def create_dataset(start: int) -> pd.DataFrame:
                 logger.info(f"Added perturbation to x {live_score.detach().numpy()[0,0]} "
                             f"-> {new_score.detach().numpy()[0,0]}")
 
-                best_score = new_score.detach().numpy()[0, 0]
+                # Now we have to do a second pass of optimization
+                best_score = np.inf
+                fhat = fhat.detach().numpy()
+
+                for clazz in all_classes:
+                    mu_clazz = mean_per_class[layer_idx][clazz]
+                    gap = fhat - mu_clazz
+                    score_clazz = gap @ np.linalg.pinv(sigma_l) @ np.transpose(gap)
+
+                    if score_clazz < best_score:
+                        best_score = score_clazz[0, 0]
 
             scores.append(best_score)
 
