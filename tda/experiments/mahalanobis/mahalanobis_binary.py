@@ -228,8 +228,8 @@ def create_dataset(start: int) -> pd.DataFrame:
                     best_score = score_clazz[0, 0]
                     mu_l = mu_clazz
 
-            # OPT: Add perturbation on x to increase its score
-            # (mainly useful for
+            # OPT: Add perturbation on x to reduce its score
+            # (mainly useful for out-of-distribution ?)
             if args.preproc_epsilon > 0:
                 # Let's forget about the past (attack, clamping)
                 # and make x a leaf with require grad
@@ -258,7 +258,17 @@ def create_dataset(start: int) -> pd.DataFrame:
                 logger.info(f"Added perturbation to x {live_score.detach().numpy()[0,0]} "
                             f"-> {new_score.detach().numpy()[0,0]}")
 
-                best_score = new_score.detach().numpy()[0, 0]
+                # Now we have to do a second pass of optimization
+                best_score = np.inf
+                fhat = fhat.detach().numpy()
+
+                for clazz in all_classes:
+                    mu_clazz = mean_per_class[layer_idx][clazz]
+                    gap = fhat - mu_clazz
+                    score_clazz = gap @ np.linalg.pinv(sigma_l) @ np.transpose(gap)
+
+                    if score_clazz < best_score:
+                        best_score = score_clazz[0, 0]
 
             scores.append(best_score)
 
