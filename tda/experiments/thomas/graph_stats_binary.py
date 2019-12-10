@@ -50,8 +50,8 @@ if not os.path.exists("stats/"):
 
 architecture = get_architecture(args.architecture)
 
-# thresholds = list(np.zeros(10))
-thresholds = [float(x) for x in args.thresholds.split("_")]
+thresholds = list(np.zeros(10))
+#thresholds = [float(x) for x in args.thresholds.split("_")]
 
 plt.style.use('seaborn-dark')
 
@@ -59,6 +59,7 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typin
     """
     Helper function to get list of embeddings
     """
+    logger.info(f"Computing weights stats")
 
     weights_per_layer = dict()
     print("eps =", epsilon)
@@ -76,25 +77,25 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typin
             only_successful_adversaries=False,
             attack_type=attack_type,
             num_iter=args.num_iter,
-            train_noise=args.train_noise
+            train_noise=args.train_noise,
+            use_sigmoid=False
         ):
 
         graph: Graph = line.graph
         logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv} and the attack = {attack_type}")
         adjacency_matrix = graph.get_adjacency_matrix()
-        print(np.shape(adjacency_matrix))
-        #print(adjacency_matrix[0,0])
-        #print("Nan =", np.isnan(adjacency_matrix).sum())
-        print(adjacency_matrix.min(), adjacency_matrix.max())
-        plt.matshow(adjacency_matrix, 
-            #vmin=20500, vmax=30000, 
-            cmap='viridis_r',
-            norm=LogNorm(vmin=40000, vmax=70000),
-            interpolation="nearest"
-            )
-        filename = "/Users/m.goibert/Downloads/test_adj_matrix_" + str(epsilon) +  "_" + str(attack_type) + ".png"
-        plt.savefig(filename, dpi=800)
-        plt.close()
+        if args.visualize_adj_mat > 0.5:
+            print(np.shape(adjacency_matrix))
+            print(adjacency_matrix.min(), adjacency_matrix.max())
+            plt.matshow(adjacency_matrix, 
+                #vmin=20500, vmax=30000, 
+                cmap='viridis_r',
+                norm=LogNorm(vmin=40000, vmax=70000),
+                interpolation="nearest"
+                )
+            filename = "/Users/m.goibert/Downloads/test_adj_matrix_" + str(epsilon) +  "_" + str(attack_type) + ".png"
+            plt.savefig(filename, dpi=800)
+            plt.close()
 
         for i, layer_matrix in enumerate(graph._edge_list):
             if i in weights_per_layer:
