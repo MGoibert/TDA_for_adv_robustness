@@ -245,6 +245,16 @@ class SoftMaxLayer(Layer):
     def get_matrix(self):
         raise NotImplementedError()
 
+class DropOut(Layer):
+    def __init__(self):
+        super().__init__(
+            func=nn.Dropout(),
+            graph_layer=False
+        )
+
+    def get_matrix(self):
+        raise NotImplementedError()
+
 
 #################
 # Architectures #
@@ -361,6 +371,7 @@ mnist_lenet = Architecture(
         ConvLayer(10, 20, 5, activ=F.relu),  # output 6 * 28 * 28
         MaxPool2dLayer(2),
         LinearLayer(320, 50, activ=F.relu),
+        DropOut(),
         LinearLayer(50, 10),
         SoftMaxLayer()
     ])

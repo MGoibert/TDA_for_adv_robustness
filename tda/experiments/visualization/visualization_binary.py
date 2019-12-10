@@ -67,7 +67,7 @@ directory = str(pathlib.Path(*binary_path_split.parts[:-3])) + "/plots/visualiza
 if not os.path.exists(directory):
     os.makedirs(directory)
 
-def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", start: int = 0) -> (typing.List, np.matrix):
+def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", start: int = 0, desired_y: int = -1) -> (typing.List, np.matrix):
     """
     Helper function to get list of embeddings
     """
@@ -97,7 +97,7 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", start: in
             ):
 
             graph: Graph = line.graph
-            if (line.y == args.desired_y) or args.desired_y == -1:
+            if (line.y == desired_y) or desired_y == -1:
                 wrong_ex = False
                 logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv} and the attack = {attack_type}")
                 logger.info(f"Perturbation: L2 = {line.l2_norm} and Linf = {line.linf_norm}")
@@ -145,12 +145,18 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", start: in
 
     return all_weights, adjacency_matrix, line.y, line.y_pred, line.sample_id, line.x, line.linf_norm
 
-epsilon = 0.08
-b_, b, by, by_pred, sample_id, bx, linf_pert = get_stats(epsilon=epsilon, noise=0.0, attack_type=args.attack_type)
+epsilon = 0.05
+b_, b, by, by_pred, sample_id, bx, linf_pert = get_stats(epsilon=epsilon, noise=0.0, attack_type=args.attack_type, desired_y=args.desired_y)
 a_, a, ay, ay_pred, _, ax, _ = get_stats(epsilon=0.0, noise=0.0, start=sample_id)
-qmin = np.quantile(np.concatenate(a_, axis=0), 0.1)
-qmax = np.quantile(np.concatenate(a_, axis=0), 0.9)
+c_, c, cy, cy_pred, _, cx, _ = get_stats(epsilon=0.0, noise=0.0, start=sample_id, desired_y=by_pred)
+n_, n, ny, ny_pred, _, nx, nlinf_pert = get_stats(epsilon=0.0, noise=epsilon, start=sample_id)
+qmin = np.quantile(np.concatenate(a_, axis=0), 0.2)
+qmax = np.quantile(np.concatenate(a_, axis=0), 0.8)
+cqmin = np.quantile(np.concatenate(c_, axis=0), 0.2)
+cqmax = np.quantile(np.concatenate(c_, axis=0), 0.8)
+logger.info(f"qmin = {qmin} and qmax = {qmax}")
 
+# Clean adj matrix
 p1 = plt.matshow(a, 
     #vmin=20500, vmax=30000, 
     cmap='viridis_r',
@@ -161,6 +167,7 @@ filename = directory + "/adj_matrix_y=" + str(ay) + "_clean" + ".png"
 plt.savefig(filename, dpi=800)
 plt.close()
 
+# Adv adj matrix
 p2 = plt.matshow(b, 
     #vmin=20500, vmax=30000, 
     cmap='viridis_r',
@@ -171,17 +178,56 @@ filename = directory + "/adj_matrix_y=" + str(ay) + "_adv_ypred=" + str(by_pred)
 plt.savefig(filename, dpi=800)
 plt.close()
 
+# Clean adj matrix of class the one adv predicted
+p3 = plt.matshow(c, 
+    #vmin=20500, vmax=30000, 
+    cmap='viridis_r',
+    norm=LogNorm(vmin=qmin, vmax=qmax),
+    )
+plt.colorbar(p3)
+filename = directory + "/adj_matrix_y=" + str(ay) + "_clean" + ".png"
+plt.savefig(filename, dpi=800)
+plt.close()
+
+# Diff of adj matrices between clean and adv
 diff_mat2 = (a - b)
 print("Extreme values =", diff_mat2.min(), diff_mat2.max())
 print("Quantile =", np.quantile(diff_mat2, 0.001), np.quantile(diff_mat2, 0.01), np.quantile(diff_mat2, 0.05), np.quantile(diff_mat2, 0.1), np.quantile(diff_mat2, 0.2), np.quantile(diff_mat2, 0.5), np.quantile(diff_mat2, 0.8), np.quantile(diff_mat2, 0.9), np.quantile(diff_mat2, 0.95), np.quantile(diff_mat2, 0.99), np.quantile(diff_mat2, 0.999))
 print("Quantile v2 =", np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.01), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.05), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.1), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.2), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.8), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.9), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.95), np.quantile(diff_mat2[np.where(diff_mat2 != 0)], 0.99))
-p3 = plt.matshow(diff_mat2,
-    vmin=-qmin, vmax=qmin,
-    cmap='viridis_r',
+p4 = plt.matshow(diff_mat2,
+    vmin=-qmax, vmax=qmax,
+    cmap='viridis_r'
     #norm=SymLogNorm(linthresh=15000)
     )
-plt.colorbar(p3)
+plt.colorbar(p4)
 filename1 = directory + "/diff_adj_matrix_y=" + str(ay) + "_adv_pred=" + str(by_pred) + "_clean_vs_" + str(args.attack_type) + ".png"
+plt.savefig(filename1, dpi=800)
+plt.close()
+
+# Diff of adj matrices between clean and adv
+diff_mat3 = (c - b)
+print("Extreme values =", diff_mat3.min(), diff_mat3.max())
+print("Quantile =", np.quantile(diff_mat3, 0.001), np.quantile(diff_mat3, 0.01), np.quantile(diff_mat3, 0.05), np.quantile(diff_mat3, 0.1), np.quantile(diff_mat3, 0.2), np.quantile(diff_mat3, 0.5), np.quantile(diff_mat3, 0.8), np.quantile(diff_mat3, 0.9), np.quantile(diff_mat3, 0.95), np.quantile(diff_mat3, 0.99), np.quantile(diff_mat3, 0.999))
+print("Quantile v2 =", np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.01), np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.05), np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.1), np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.2), np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.8), np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.9), np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.95), np.quantile(diff_mat3[np.where(diff_mat3 != 0)], 0.99))
+p5 = plt.matshow(diff_mat3,
+    vmin=-qmax, vmax=qmax,
+    cmap='viridis_r'
+    #norm=SymLogNorm(linthresh=15000)
+    )
+plt.colorbar(p5)
+filename1 = directory + "/diff_adj_matrix_y=" + str(cy) + "_adv_pred=" + str(by_pred) + "_clean_vs_" + str(args.attack_type) + ".png"
+plt.savefig(filename1, dpi=800)
+plt.close()
+
+# Diff of adj matrices of clean and clean of predicted class
+diff_mat4 = (a - c)
+p6 = plt.matshow(diff_mat4,
+    vmin=-qmax, vmax=qmax,
+    cmap='viridis_r'
+    #norm=SymLogNorm(linthresh=15000)
+    )
+plt.colorbar(p6)
+filename1 = directory + "/diff_adj_matrix_y=" + str(ay) + "_clean_adv_pred=" + str(cy) + ".png"
 plt.savefig(filename1, dpi=800)
 plt.close()
 
@@ -191,12 +237,15 @@ for layer in range(len(a_)):
     plt.savefig(directory + "/weight_distrib_layer_y=" + str(ay) + "_adv_pred=" + str(by_pred) + "_clean_vs_" + str(args.attack_type) + "_layer" + str(layer) + ".png", dpi=800)
     plt.close()
 
-plt.subplot(1,2,1)
+plt.subplot(1,3,1)
 plt.imshow(ax.squeeze(0).detach().numpy(), cmap="gray")
 plt.title(f"Clean {ay}")
-plt.subplot(1,2,2)
+plt.subplot(1,3,2)
 plt.imshow(bx.squeeze(0).detach().numpy(), cmap="gray")
 plt.title(f"Adv {ay} -> {by_pred}, Linf pert = {np.round(linf_pert,3)}")
+plt.subplot(1,3,3)
+plt.imshow(nx.squeeze(0).detach().numpy(), cmap="gray")
+plt.title(f"Noisy {ny}, Linf pert = {np.round(nlinf_pert,3)}")
 plt.savefig(directory + "/images_clean" + str(ay_pred) + "_vs_" + str(args.attack_type) + str(by_pred) + "eps=" + str(epsilon) + ".png", dpi=800)
 
 end_time = time.time()

@@ -192,7 +192,8 @@ def get_dataset(
         num_iter: int = 10,
         start: int = 0,
         train_noise: float = 0.0,
-        per_class: bool = False
+        per_class: bool = False,
+        use_sigmoid: bool = True
 ) -> typing.Generator[DatasetLine, None, None]:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -247,7 +248,11 @@ def get_dataset(
                 model=model,
                 x=x.double(),
                 retain_data_point=retain_data_point,
-                thresholds=thresholds
+                thresholds=thresholds,
+                dataset=source_dataset_name,
+                architecture=architecture.name,
+                epochs=num_epochs,
+                use_sigmoid=use_sigmoid
             )
             nb_samples += 1
             i += 1

@@ -14,7 +14,7 @@ experiment = R3D3Experiment(
           "simple_fcn_mnist"
         ],
         'attack_type': [
-          "FGSM"
+          "CW"
         ],
         'thresholds': [
             "0.8_0.8_0.0"
@@ -22,11 +22,8 @@ experiment = R3D3Experiment(
         'epochs': [
             50
         ],
-        'attack_type': [
-           "FGSM"
-        ],
         'desired_y': [
-           3
+           -1
         ]
     },
     binary=f"{rootpath}/tda/experiments/visualization/visualization_binary.py",
