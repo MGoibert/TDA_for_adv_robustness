@@ -17,73 +17,126 @@ except:
                     " if you want to do so.")
 logger = logging.getLogger(f"Graph")
 
+
 class Graph(object):
 
     def __init__(self,
-                 edge_list: typing.List,
+                 edge_dict: typing.Dict,
+                 layer_links: typing.List,
                  final_logits: typing.List[float],
                  original_data_point: typing.Optional[np.ndarray] = None
                  ):
-        self._edge_list = edge_list
+        self._edge_dict = edge_dict
+        self._layer_links = layer_links
+
         self.original_data_point = original_data_point
         self.final_logits = final_logits
 
     @staticmethod
-    def use_sigmoid(x, i, file=None, k="auto", median=0, quant=0.9):
-        if file:
-            dict_quant = np.load(file, allow_pickle=True).flat[0]
-            med = list()
-            qu = list()
-            for j in dict_quant.keys():
-                if dict_quant[j][0.5] != 1000000.0:
-                    med.append(dict_quant[j][0.5])
-                    qu.append(dict_quant[j][quant])
-                else:
-                    med.append(0.0)
-                    qu.append(1000000.0)
-        else:
-            med = np.repeat(median, 15)
-            qu = np.repeat(quant, 15)
+    def use_sigmoid(data, layer_link, file, k="auto", quant=0.9):
+        dict_quant = np.load(file, allow_pickle=True).flat[0]
+        med = dict()
+        qu = dict()
+        for key_quant in dict_quant:
+            if dict_quant[key_quant][0.5] != 1000000.0:
+                med[key_quant] = dict_quant[key_quant][0.5]
+                qu[key_quant] = dict_quant[key_quant][quant]
+            else:
+                med[key_quant] = 0.0
+                qu[key_quant] = 1000000.0
         if k == "auto":
-            k = -1/(qu[i]-med[i]) * np.log(0.01/0.99)
+            k = -1 / (qu[layer_link] - med[layer_link]) * np.log(0.01 / 0.99)
 
-        val = 1/(1+np.exp(-k*(np.asarray(x)-med[i])))
+        val = 1/(1 + np.exp(-k * (np.asarray(data) - med[layer_link])))
         return list(val)
 
     @classmethod
     def from_architecture_and_data_point(cls,
                                          model: Architecture,
                                          x: Tensor,
-                                         thresholds: typing.Optional[typing.List[int]] = None,
+                                         thresholds: typing.Optional[typing.Dict] = None,
                                          retain_data_point: bool = False,
                                          use_sigmoid: bool = True,
                                          dataset: str = "MNIST",
                                          architecture: str = "simple_fcn_mnist",
                                          epochs: int = 50
                                          ):
-        raw_edge_list = model.get_graph_values(x)
+        raw_edge_dict = model.get_graph_values(x)
 
-        edge_list = list()
-        for i, v in enumerate(raw_edge_list):
+        edge_dict = dict()
+        for layer_link in raw_edge_dict:
+            v = raw_edge_dict[layer_link]
             v = np.abs(v) * 10e5
             if thresholds:
-                v[v < thresholds[i]] = 0.0
+                v[v < thresholds[layer_link]] = 0.0
             if use_sigmoid:
                 logger.info(f"Using sigmoid for dataset {dataset}, archi {architecture} and epochs {epochs}")
                 file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
-                #file = f"stats/SVHN_svhn_lenet_200_epochs.npy"
-                np.where(v>0, cls.use_sigmoid(v, i, file=file), 0)
-            edge_list.append(v)
+                v = np.where(v > 0, cls.use_sigmoid(
+                    data=v,
+                    layer_link=layer_link,
+                    file=file
+                ), 0)
+            edge_dict[layer_link] = v
 
         original_x = None
         if retain_data_point:
             original_x = x.detach().numpy()
 
         return cls(
-            edge_list=edge_list,
+            edge_dict=edge_dict,
+            layer_links=model.layer_links,
             final_logits=list(),
             original_data_point=original_x
         )
+
+    def _get_shapes(self):
+        """
+        Return the shape of the matrix for a given target layer
+        (one layer can receive several matrices from its parents
+        but they should all be of the same size)
+
+        Therefore it's a mapping
+
+        layer_idx -> shape
+
+        This function is used as an helper to compute the list of edges
+        and the adjacency matrix
+        """
+        shapes = {key[0]: np.shape(self._edge_dict[key])[1] for key in self._edge_dict}
+        shapes.update({key[1]: np.shape(self._edge_dict[key])[0] for key in self._edge_dict})
+        return shapes
+
+    def get_edge_list(self):
+        """
+        Generate the list of edges of the multipartite graph
+        """
+
+        ret = list()
+
+        shapes = self._get_shapes()
+        all_layer_indices = sorted(list(shapes.keys()))
+        vertex_offset = [0] + list(np.cumsum([
+            shapes[idx]
+            for idx in all_layer_indices
+        ]))
+        vertex_offset = vertex_offset[:-1]
+
+        for source_layer, target_layer in self._edge_dict:
+            offset_source = vertex_offset[source_layer+1]
+            offset_target = vertex_offset[target_layer+1]
+            mat = self._edge_dict[(source_layer, target_layer)]
+            target_idx, source_idx = np.where(mat != 0)
+            weights = [mat[x] for x in zip(target_idx, source_idx)]
+            source_idx += offset_source
+            target_idx += offset_target
+
+            for i in range(len(source_idx)):
+                source_vertex = source_idx[i]
+                target_vertex = target_idx[i]
+                weight = weights[i]
+                ret.append(([source_vertex, target_vertex], weight))
+        return ret
 
     def get_adjacency_matrix(
             self
@@ -92,28 +145,30 @@ class Graph(object):
         Get the corresponding adjacency matrix
         """
 
-        m = [np.transpose(x) for x in self._edge_list]
-
-        s = [np.shape(x)[0] for x in m]
-        n = len(self._edge_list)
-        s.append(np.shape(m[n - 1])[1])
+        shapes = self._get_shapes()
+        all_layer_indices = sorted(list(shapes.keys()))
 
         bmat_list = tuple()
-        for key_row in range(n + 1):
+        for source_layer in all_layer_indices:
             bmat_row = tuple()
-            for key_col in range(n + 1):
-                if key_col == key_row + 1:
-                    bmat_row += (m[key_row],)
-                elif key_col == key_row - 1:
-                    bmat_row += (np.transpose(m[key_col]),)
+            for target_layer in all_layer_indices:
+                if (source_layer, target_layer) in self._edge_dict:
+                    # There is a connection between these layers
+                    mat = np.transpose(self._edge_dict[(source_layer, target_layer)])
+                elif (target_layer, source_layer) in self._edge_dict:
+                    mat = self._edge_dict[(target_layer, source_layer)]
                 else:
-                    bmat_row += (np.zeros((s[key_row], s[key_col])),)
+                    # There is no connection, let's create a zero matrix
+                    # of the right shape !!
+                    mat = np.zeros((shapes[source_layer], shapes[target_layer]))
+                bmat_row += (mat,)
             bmat_list += (bmat_row,)
 
         W = np.bmat(bmat_list)
 
         return W
 
+    # TODO: Make it DAG-ready
     def get_layer_node_labels(self) -> typing.List[int]:
         """
         Return a list of label nodes equal to the layers they belong
@@ -143,6 +198,7 @@ class Graph(object):
     ) -> nx.Graph:
         return nx.from_numpy_matrix(self.get_adjacency_matrix())
 
+    # TODO: Make it DAG-ready
     def to_pytorch_geometric_data(self, threshold: int) -> Data:
         offset = 0
         edge_indices = []

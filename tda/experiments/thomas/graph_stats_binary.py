@@ -50,12 +50,18 @@ if not os.path.exists("stats/"):
 
 architecture = get_architecture(args.architecture)
 
-thresholds = list(np.zeros(10))
+thresholds = None # list(np.zeros(10))
 #thresholds = [float(x) for x in args.thresholds.split("_")]
 
 plt.style.use('seaborn-dark')
 
-def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typing.List, np.matrix):
+
+def get_stats(
+        epsilon: float,
+        noise: float,
+        attack_type: str = "FGSM",
+        dataset_size: typing.Optional[int] = None
+) -> (typing.Dict, np.matrix):
     """
     Helper function to get list of embeddings
     """
@@ -72,7 +78,7 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typin
             retain_data_point=False,
             architecture=architecture,
             source_dataset_name=args.dataset,
-            dataset_size=args.dataset_size,
+            dataset_size=dataset_size or args.dataset_size,
             thresholds=thresholds,
             only_successful_adversaries=False,
             attack_type=attack_type,
@@ -97,19 +103,20 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typin
             plt.savefig(filename, dpi=800)
             plt.close()
 
-        for i, layer_matrix in enumerate(graph._edge_list):
-            if i in weights_per_layer:
-                weights_per_layer[i] = np.concatenate([weights_per_layer[i], layer_matrix])
+        for key in graph._edge_dict:
+            layer_matrix = graph._edge_dict[key]
+            if key in weights_per_layer:
+                weights_per_layer[key] = np.concatenate([weights_per_layer[key], layer_matrix])
             else:
-                weights_per_layer[i] = layer_matrix
+                weights_per_layer[key] = layer_matrix
 
-    all_weights = list()
+    all_weights = dict()
 
-    for i in weights_per_layer:
-        m = weights_per_layer[i]
+    for key in weights_per_layer:
+        m = weights_per_layer[key]
         nonzero_m = m[np.where(m > 0)].reshape(-1, 1)
-        logger.info(f"Number of edges > 0 in layer {i}: {len(nonzero_m)}")
-        all_weights.append(nonzero_m)
+        logger.info(f"Number of edges > 0 in link {key}: {len(nonzero_m)}")
+        all_weights[key] = nonzero_m
 
         qmin = min(nonzero_m)
         q10 = np.quantile(nonzero_m, 0.1)
@@ -121,9 +128,9 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM") -> (typin
         q95 = np.quantile(nonzero_m, 0.95)
         q99 = np.quantile(nonzero_m, 0.99)
         qmax = max(nonzero_m)
-        print(f"Layer {i} weights [min = {qmin}; 0.10 = {q10}; 0.25 = {q25}; 0.5 = {q50}; 0.75 = {q75}; 0.8 = {q80}; 0.9 = {q90}; 0.95 = {q95}; 0.99 = {q99}; max = {qmax}]")
+        print(f"Link {key} weights [min = {qmin}; 0.10 = {q10}; 0.25 = {q25}; 0.5 = {q50}; 0.75 = {q75}; 0.8 = {q80}; 0.9 = {q90}; 0.95 = {q95}; 0.99 = {q99}; max = {qmax}]")
 
-    all_weights2 = np.concatenate(all_weights, axis=0)
+    all_weights2 = np.concatenate(list(all_weights.values()), axis=0)
     q10 = np.quantile(all_weights2, 0.1)
     q50 = np.quantile(all_weights2, 0.5)
     q90 = np.quantile(all_weights2, 0.9)

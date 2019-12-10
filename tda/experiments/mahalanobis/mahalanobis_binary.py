@@ -98,17 +98,23 @@ def sum_list_of_lists(
 
 
 # As proposed in the paper, we use the train samples here
-for x, y in dataset.train_dataset:
+for x, y in dataset.Dataset_.train_dataset:
 
     if nb_sample_for_classes >= max_sample_for_classes:
         break
 
-    m_features = archi.get_all_inner_activations(x)
+    m_features = archi.forward(
+        x=x,
+        store_for_graph=False,
+        output="all_inner"
+    )
 
-    for i, feat in enumerate(m_features):
-        if i not in features_per_class:
-            features_per_class[i] = dict()
-        features_per_class[i][y] = features_per_class[i].get(y, list()) + [feat]
+    for layer_idx in m_features:
+        feat = m_features[layer_idx]
+        if layer_idx not in features_per_class:
+            features_per_class[layer_idx] = dict()
+        features_per_class[layer_idx][y] = features_per_class[layer_idx].get(y, list()) \
+                                           + [feat.detach().numpy()]
 
     nb_sample_for_classes += 1
 
@@ -140,7 +146,7 @@ for layer_idx in all_feature_indices:
             sigma_per_class[layer_idx] += sigma_clazz
         counters_per_class += len(arr)
 
-    sigma_per_class[layer_idx] = sigma_per_class[layer_idx]/counters_per_class
+    sigma_per_class[layer_idx] = sigma_per_class[layer_idx] / counters_per_class
 
     plt.imshow(sigma_per_class[layer_idx])
     plt.savefig(f"{plot_path}/{layer_idx}_sigma")
@@ -153,17 +159,23 @@ for layer_idx in all_feature_indices:
 i = 0
 corr = 0
 while i < args.dataset_size:
-    x, y = dataset.test_and_val_dataset[i]
-    m_features = archi.get_all_inner_activations(x)[-1]
+    x, y = dataset.Dataset_.test_and_val_dataset[i]
+    all_inner_activations = archi.forward(
+        x=x,
+        store_for_graph=False,
+        output="all_inner"
+    )
+
+    # Assuming only one link to the softmax layer in the model
+    softmax_layer_idx = archi.get_pre_softmax_idx()
+    m_features = all_inner_activations[softmax_layer_idx].detach().numpy()
 
     best_score = np.inf
     best_class = -1
 
-    last_layer_idx = all_feature_indices[-1]
-
     for clazz in all_classes:
-        mu_clazz = mean_per_class[last_layer_idx][clazz]
-        sigma_clazz = sigma_per_class[last_layer_idx]
+        mu_clazz = mean_per_class[softmax_layer_idx][clazz]
+        sigma_clazz = sigma_per_class[softmax_layer_idx]
 
         score_clazz = (m_features-mu_clazz)@np.linalg.pinv(sigma_clazz)@np.transpose(m_features-mu_clazz)
 
@@ -188,7 +200,7 @@ def create_dataset(start: int) -> pd.DataFrame:
     ret = list()
 
     while i < start + args.dataset_size:
-        sample = dataset.test_and_val_dataset[i]
+        sample = dataset.Dataset_.test_and_val_dataset[i]
 
         if i % 2 == 0:
             adv = True
@@ -209,7 +221,11 @@ def create_dataset(start: int) -> pd.DataFrame:
             attack_type=args.attack_type
         )
 
-        m_features = archi.get_all_inner_activations(x)
+        m_features = archi.forward(
+            x=x,
+            store_for_graph=False,
+            output="all_inner"
+        )
 
         scores = list()
 
@@ -221,7 +237,7 @@ def create_dataset(start: int) -> pd.DataFrame:
 
             for clazz in all_classes:
                 mu_clazz = mean_per_class[layer_idx][clazz]
-                gap = m_features[layer_idx]-mu_clazz
+                gap = m_features[layer_idx].detach().numpy()-mu_clazz
                 score_clazz = gap@np.linalg.pinv(sigma_l)@np.transpose(gap)
 
                 if score_clazz < best_score:
@@ -240,7 +256,12 @@ def create_dataset(start: int) -> pd.DataFrame:
                 mu_tensor = torch.from_numpy(mu_l)
 
                 # Adding perturbation on x
-                f = archi.get_activations_for_layer(x, layer_idx=layer_idx)
+                f = archi.forward(
+                    x=x,
+                    store_for_graph=False,
+                    output="all_inner"
+                )[layer_idx]
+
                 live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
 
                 assert np.isclose(live_score.detach().numpy(), best_score)
@@ -252,7 +273,11 @@ def create_dataset(start: int) -> pd.DataFrame:
                 xhat = torch.clamp(xhat, -0.5, 0.5)
 
                 # Computing new score
-                fhat = archi.get_activations_for_layer(xhat, layer_idx=layer_idx)
+                fhat = archi.archi.forward(
+                    x=xhat,
+                    store_for_graph=False,
+                    output="all_inner"
+                )[layer_idx]
                 new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
 
                 logger.info(f"Added perturbation to x {live_score.detach().numpy()[0,0]} "

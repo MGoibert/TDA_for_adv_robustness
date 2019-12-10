@@ -126,15 +126,15 @@ def get_deep_model(
         # Train the NN
         net = train_network(
             architecture,
-            dataset.train_loader,
-            dataset.val_loader,
+            dataset.Dataset_.train_loader,
+            dataset.Dataset_.val_loader,
             loss_func,
             num_epochs,
             train_noise)[0]
 
         # Compute accuracies
-        logger.info(f"Validation accuracy = {compute_val_acc(architecture, dataset.val_loader)}")
-        logger.info(f"Test accuracy = {compute_test_acc(architecture, dataset.test_loader)}")
+        logger.info(f"Validation accuracy = {compute_val_acc(architecture, dataset.Dataset_.val_loader)}")
+        logger.info(f"Test accuracy = {compute_test_acc(architecture, dataset.Dataset_.test_loader)}")
 
         # Saving model
         torch.save(net, model_filename)
