@@ -3,8 +3,8 @@ import numpy as np
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
-from tda.embeddings.persistent_diagrams import compute_dgm_from_edges, \
-    sliced_wasserstein_kernel
+from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel, \
+    compute_dgm_from_graph
 
 
 class EmbeddingType(object):
@@ -41,7 +41,7 @@ def get_embedding(
             node_labels=params["node_labels"]
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
-        return compute_dgm_from_edges(graph._edge_list)
+        return compute_dgm_from_graph(graph)
     elif embedding_type == EmbeddingType.OriginalDataPoint:
         return np.reshape(graph.original_data_point, (-1))
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:

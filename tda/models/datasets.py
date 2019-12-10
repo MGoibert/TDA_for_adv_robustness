@@ -11,7 +11,6 @@ import torchvision.transforms as transforms
 import torchvision.datasets as dset
 from operator import itemgetter
 from random import shuffle, seed
-import time
 
 _root = './data'
 _trans = transforms.Compose(
@@ -19,6 +18,7 @@ _trans = transforms.Compose(
 
 torch.manual_seed(1)
 seed(1)
+
 
 class _Dataset(object):
 
@@ -100,16 +100,13 @@ class _Dataset(object):
                                                                            self.test_loader.dataset)),
                                              map(itemgetter(1), self.test_loader.dataset)))
 
+
 class Dataset(object):
     Dataset_ = None
 
     def __init__(self,
-                name: str,
-                validation_size: int = 1000
-                ):
-
+                 name: str,
+                 validation_size: int = 1000):
         self.name = name.lower()
         if Dataset.Dataset_ is None:
             Dataset.Dataset_ = _Dataset(name, validation_size)
-
-
