@@ -55,7 +55,11 @@ class Graph(object):
                                          model: Architecture,
                                          x: Tensor,
                                          thresholds: typing.Optional[typing.List[int]] = None,
-                                         retain_data_point: bool = False
+                                         retain_data_point: bool = False,
+                                         use_sigmoid: bool = True,
+                                         dataset: str = "MNIST",
+                                         architecture: str = "simple_fcn_mnist",
+                                         epochs: int = 50
                                          ):
         raw_edge_list = model.get_graph_values(x)
 
@@ -64,9 +68,10 @@ class Graph(object):
             v = np.abs(v) * 10e5
             if thresholds:
                 v[v < thresholds[i]] = 0.0
-            if True:
-                #file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
-                file = f"stats/SVHN_svhn_lenet_200_epochs.npy"
+            if use_sigmoid:
+                logger.info(f"Using sigmoid for dataset {dataset}, archi {architecture} and epochs {epochs}")
+                file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
+                #file = f"stats/SVHN_svhn_lenet_200_epochs.npy"
                 np.where(v>0, cls.use_sigmoid(v, i, file=file), 0)
             edge_list.append(v)
 
