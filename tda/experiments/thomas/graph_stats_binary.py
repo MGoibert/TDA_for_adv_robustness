@@ -142,7 +142,7 @@ if __name__ == '__main__':
         quants_dict[i] = dict()
         for quant in quants:
             quants_dict[i][quant] = np.quantile(weight_layer, quant)
-    np.save(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs_quant", quants_dict)
+    np.save(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs", quants_dict)
 
     if args.visualize_adj_mat > 0.5:
        # FGSM part
