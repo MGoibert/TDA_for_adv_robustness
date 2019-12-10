@@ -11,11 +11,13 @@ import torchvision.transforms as transforms
 import torchvision.datasets as dset
 from operator import itemgetter
 from random import shuffle
+import time
 
 _root = './data'
 _trans = transforms.Compose(
     [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
 
+torch.manual_seed(1)
 
 class Dataset(object):
 
@@ -67,9 +69,6 @@ class Dataset(object):
                 f"Unknown dataset {name}"
             )
 
-        shuffle(self.train_dataset)
-        shuffle(self.test_and_val_dataset)
-
         self.val_dataset = list()
         self.test_dataset = list()
         for i, x in enumerate(self.test_and_val_dataset):
@@ -90,6 +89,11 @@ class Dataset(object):
             dataset=self.val_dataset,
             batch_size=len(self.val_dataset),
             shuffle=True)
+
+        self.train_dataset = list(self.train_dataset)
+        self.test_and_val_dataset = list(self.test_and_val_dataset)
+        shuffle(self.train_dataset)
+        shuffle(self.test_and_val_dataset)
 
         self.test_loader.dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
                                                                            self.test_loader.dataset)),
