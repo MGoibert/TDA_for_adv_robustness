@@ -10,6 +10,7 @@ import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as dset
 from operator import itemgetter
+from random import shuffle
 
 _root = './data'
 _trans = transforms.Compose(
@@ -65,6 +66,9 @@ class Dataset(object):
             raise NotImplementedError(
                 f"Unknown dataset {name}"
             )
+
+        shuffle(self.train_dataset)
+        shuffle(self.test_and_val_dataset)
 
         self.val_dataset = list()
         self.test_dataset = list()
