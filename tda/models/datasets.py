@@ -19,7 +19,7 @@ _trans = transforms.Compose(
 
 torch.manual_seed(1)
 
-class Dataset(object):
+class _Dataset(object):
 
     def __init__(self,
                  name: str,
@@ -98,3 +98,17 @@ class Dataset(object):
         self.test_loader.dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
                                                                            self.test_loader.dataset)),
                                              map(itemgetter(1), self.test_loader.dataset)))
+
+class Dataset(object):
+    Dataset_ = None
+
+    def __init__(self,
+                name: str,
+                validation_size: int = 1000
+                ):
+    
+        self.name = name.lower()
+        if Dataset.Dataset_ is None:
+            Dataset.Dataset_ = _Dataset(name, validation_size)
+
+
