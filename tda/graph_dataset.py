@@ -125,7 +125,7 @@ def compute_adv_accuracy(
 ) -> float:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
-    source_dataset = Dataset(name=source_dataset_name)
+    source_dataset = Dataset(name=source_dataset_name).Dataset_
     logger.info(f"Got source dataset {source_dataset_name} !!")
 
     logger.info(f"Getting deep model...")
@@ -197,7 +197,7 @@ def get_dataset(
 ) -> typing.Generator[DatasetLine, None, None]:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
-    source_dataset = Dataset(name=source_dataset_name)
+    source_dataset = Dataset(name=source_dataset_name).Dataset_
     logger.info(f"Got source dataset {source_dataset_name} !!")
 
     logger.info(f"Getting deep model...")
