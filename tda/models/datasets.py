@@ -10,7 +10,7 @@ import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as dset
 from operator import itemgetter
-from random import shuffle
+from random import shuffle, seed
 import time
 
 _root = './data'
@@ -18,6 +18,7 @@ _trans = transforms.Compose(
     [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
 
 torch.manual_seed(1)
+seed(1)
 
 class _Dataset(object):
 
@@ -106,7 +107,7 @@ class Dataset(object):
                 name: str,
                 validation_size: int = 1000
                 ):
-    
+
         self.name = name.lower()
         if Dataset.Dataset_ is None:
             Dataset.Dataset_ = _Dataset(name, validation_size)
