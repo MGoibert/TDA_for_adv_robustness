@@ -35,28 +35,31 @@ def compute_dgm_from_edges(
         # Adding the edges
         row, col = np.meshgrid(np.arange(shape[layer_idx], shape[layer_idx + 1]),
                                np.arange(shape[layer_idx + 1], shape[layer_idx + 2]))
-        ind = np.where(edge_list[layer_idx].ravel() > 0.0)
+        ind = np.where(edge_list[layer_idx].ravel() != 0.0)
         if len(ind) > 1:
             ind = ind[1]
         else:
+            #logger.info(f"shape ind = {ind}")
+            #logger.info(f"shape list = {edge_list[layer_idx].ravel()}")
             ind = ind[0]
         if len(edge_list[layer_idx].ravel()[0].shape) >= 1:
             table = np.vstack((np.asarray(edge_list[layer_idx].ravel())[0][ind], row.ravel()[ind], col.ravel()[ind])).T
         else:
             table = np.vstack((np.asarray(edge_list[layer_idx].ravel())[ind], row.ravel()[ind], col.ravel()[ind])).T
-        # logger.info(f"table = {table[:5,:]}")
-        logger.debug(f"shape table = {table.shape}")
+        #logger.info(f"table = {table[:5,:]}")
         # table = np.vstack((edge_dict[layer_idx].ravel(), row.ravel(), col.ravel())).T
         # table = np.delete(table, np.where((np.asarray(list(map(itemgetter(0), table))) < threshold))[0], axis=0)
         # table = table[ np.asarray(list(map(itemgetter(0), table))) >= threshold, :]
         if layer_idx == 0:
             vec = list(zip(map(list, zip(map(lambda x: int(x), map(itemgetter(1), table)),
                                          map(lambda x: int(x), map(itemgetter(2), table)))),
-                           map(itemgetter(0), table)))
+                           map(itemgetter(0), (table+0))))
+            #logger.info(f"Vec = {vec[:3]}")
         else:
             vec = vec + list(zip(map(list, zip(map(lambda x: int(x), map(itemgetter(1), table)),
                                                map(lambda x: int(x), map(itemgetter(2), table)))),
-                                 map(itemgetter(0), table)))
+                                 map(itemgetter(0), (table+0))))
+            #logger.info(f"Vec = {vec[:3]}")
 
     # Fast implementation
     # Adding the vertices
@@ -75,7 +78,7 @@ def compute_dgm_from_edges(
             vec.append(([vertex], min(dict_vertices[vertex])))
 
     # Dionysus computations (persistent diagrams)
-    #logger.info(f"Before filtration")
+    #logger.info(f"vec pst dgm = {vec[:5]}")
     f = Filtration()
     for vertices, timing in vec:
         f.append(Simplex(vertices, timing))
