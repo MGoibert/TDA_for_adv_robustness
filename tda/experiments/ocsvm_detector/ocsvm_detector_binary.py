@@ -79,7 +79,6 @@ thresholds = process_thresholds(
 
 stats = {}
 
-
 def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     """
     Helper function to get list of embeddings
@@ -123,12 +122,15 @@ stats[0.0] = list()
 start = 0
 
 # Clean train
+logger.info(f"Clean train dataset !!")
 clean_embeddings_train = get_embeddings(epsilon=0.0, noise=0.0, start=0)
 if args.identical_train_samples < 0.5:
     start += args.dataset_size
+#clean_embeddings_train = list()
 
 # Noisy train
 if args.noise > 0.0:
+    logger.info(f"Noisy train dataset !!")
     noisy_embeddings_train = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
 else:
     noisy_embeddings_train = list()
@@ -142,9 +144,12 @@ if args.kernel_type == KernelType.RBF:
 #logger.info(f"kernel type = {args.kernel_type} and {args.kernel_type == KernelType.SlicedWasserstein}")
 #if args.kernel_type == KernelType.SlicedWasserstein:
 else:
-    logger.info(f"Yes !")
     param_space = [
-        {'M': 10, 'sigma': 5 * 10 ** (-5)}
+        #{'M': 20, 'sigma': 5 * 10 ** (-5)},
+        #{'M': 20, 'sigma': 5 * 10 ** (-4)},
+        #{'M': 20, 'sigma': 5 * 10 ** (-3)},
+        #{'M': 20, 'sigma': 5 * 10 ** (-2)},
+        {'M': 20, 'sigma': 5 * 10 ** (-1)},
     ]
 
 gram_train_matrices = {i: get_gram_matrix(
@@ -158,11 +163,14 @@ gram_train_matrices = {i: get_gram_matrix(
 logger.info(f"Computed all Gram train matrices !")
 
 # Clean test
+logger.info(f"Clean test dataset !!")
 clean_embeddings_test = get_embeddings(epsilon=0.0, noise=0.0, start=start)
 start += args.dataset_size
+#clean_embeddings_test = list()
 
 # Noisy test
 if args.noise > 0.0:
+    logger.info(f"Noisy test dataset !!")
     noisy_embeddings_test = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
 else:
     noisy_embeddings_test = list()
@@ -171,13 +179,15 @@ start += args.dataset_size
 if args.attack_type in ["FGSM", "BIM"]:
     #all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=7)))
     #all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=5)))
-    all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=3)))
+    #all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=6)))
+    all_epsilons = list([0.0, 0.02])
 else:
     all_epsilons = [0.0, 1]
 
 adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
     stats[epsilon] = list()
+    logger.info(f"Adversarial test dataset for espilon = {epsilon} !!")
     adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=start)
     logger.info(
         f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
@@ -204,6 +214,7 @@ def process_epsilon(epsilon: float) -> float:
 
         # Training model
         start_time = time.time()
+        logger.info(f"sum ram matrix train = {gram_train_matrices[i].sum()}")
         ocs.fit(gram_train_matrices[i])
         logger.info(f"Trained model in {time.time() - start_time} secs")
 
@@ -228,6 +239,7 @@ def process_epsilon(epsilon: float) -> float:
         )
 
         roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
+        logger.info(f"AUC score for param = {param} : {roc_auc_val}")
 
         if roc_auc_val > best_auc:
             best_auc = roc_auc_val
