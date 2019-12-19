@@ -141,15 +141,21 @@ class MaxPool2dLayer(Layer):
 
 class ConvLayer(Layer):
 
-    def __init__(self, in_channels, out_channels, kernel_size, activ=None):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 activ=None):
 
         super().__init__(
             func=nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 kernel_size=kernel_size,
-                stride=1,
-                padding=0,
+                stride=stride,
+                padding=padding,
                 bias=False
             ),
             graph_layer=True
@@ -158,6 +164,8 @@ class ConvLayer(Layer):
         self._in_channels = in_channels
         self._out_channels = out_channels
         self._activ = activ
+        self._stride = stride
+        self._padding = padding
 
     @staticmethod
     def _get_nb_elements(t):
@@ -168,13 +176,14 @@ class ConvLayer(Layer):
 
     def get_matrix(self):
 
-        m = {
-            parentidx: np.bmat(tuple(
+        m = dict()
+
+        for parentidx in self._activations:
+            m[parentidx] = np.bmat(tuple(
             tuple(self.get_matrix_for_channel(in_c, out_c)[parentidx] for in_c in range(self._in_channels))
             for out_c in range(self._out_channels)
-        ))
-            for parentidx in self._activations
-        }
+            ))
+            print(parentidx, np.shape(m[parentidx]))
 
         return m
 
@@ -208,62 +217,63 @@ class ConvLayer(Layer):
         activations = self._activations[parentidx][:, in_channel, :, :]
         # logging.info(f"My activations for in={in_channel} and out={out_channel} has shape {activations.shape}")
 
-        nbcols = ConvLayer._get_nb_elements(activations)
-        # logging.info(f"NbCols={nbcols}")
+        # Number of columns in the input image
+        nbcols_input = list(activations.shape)[-1]
 
+        # Number of columns of the output matrix
+        # (equal nbcols_input * nbrows_input)
+        nbcols = ConvLayer._get_nb_elements(activations)
+
+        # logging.info(f"NbCols={nbcols}")
+        # (nb_lines - kernel_size + 2 * padding) // stride + 1
         #############################
         # Compute Toeplitz matrices #
         #############################
 
-        nbrows_t = list(activations.shape)[-1] - list(kernel.shape)[-1] + 1
-        nbcols_t = list(activations.shape)[-1]
-        # logging.info(f"The Toeplitz matrices are {nbrows_t}x{nbcols_t}")
-
-        zero_toeplitz = np.zeros((nbrows_t, nbcols_t))
-
-        if kernel.is_cuda:
-            kernel = kernel.cpu()
-        kernel = kernel.detach().numpy()
-
-        toeplitz_matrices = list()
-        for i in range(list(kernel.shape)[-2]):
+        toeplitz_row = list()
+        for i in range(kernel.shape[-2]):
             row = kernel[i, :]
-            row_toeplitz = np.zeros((1, nbcols_t))
-            row_toeplitz[0, :row.shape[0]] = row
-            col_toeplitz = np.zeros((1, nbrows_t))
-            col_toeplitz[0, 0] = row_toeplitz[0, 0]
-            topl = toeplitz(col_toeplitz, row_toeplitz)
-            toeplitz_matrices.append(topl)
+            exts = list()
+            for offset in range(0, nbcols_input - kernel.shape[-2] + 1 + 2 * self._padding, self._stride):
+                t_row = torch.unsqueeze(
+                    F.pad(
+                        input=row,
+                        pad=[offset, nbcols_input - offset - len(row) + 2 * self._padding],
+                        value=0),
+                    dim=0)
+                if self._padding > 0:
+                    t_row = t_row[:, self._padding:-self._padding]
+                exts.append(t_row)
+            exts = torch.cat(exts, axis=0)
+            toeplitz_row.append(exts)
+        toeplitz_row = torch.cat(toeplitz_row, axis=1)
+
+        final_matrix = list()
+        for offset in range(0, int(nbcols / nbcols_input) - kernel.shape[-1] + 1 + 2 * self._padding, self._stride):
+            final_row = F.pad(
+                input=toeplitz_row,
+                pad=[nbcols_input * offset, nbcols - toeplitz_row.shape[1] + 2 * self._padding * nbcols_input - nbcols_input * offset],
+                value=0)
+            final_matrix.append(final_row)
+        final_matrix = torch.cat(final_matrix, axis=0)
+        if self._padding > 0:
+            final_matrix = final_matrix[:, self._padding * nbcols_input:-self._padding * nbcols_input]
+
+        print(toeplitz_row.shape)
+        print(in_channel, out_channel, final_matrix.shape)
+
 
         ##############################
         # Stacking Toeplitz matrices #
         ##############################
 
-        nb_blocks_col = int(nbcols / nbcols_t)
-        nb_blocks_zero = nb_blocks_col - len(toeplitz_matrices)
-        nb_blocks_zero_left = 0
-
-        all_zero_block_repartitions = list()
-        while nb_blocks_zero >= 0:
-            all_zero_block_repartitions.append((nb_blocks_zero_left, nb_blocks_zero))
-            nb_blocks_zero -= 1
-            nb_blocks_zero_left += 1
-
-        my_central_row = np.concatenate(
-            [toeplitz_matrix for toeplitz_matrix in toeplitz_matrices],
-            axis=1)
-
-        m = np.bmat(tuple(
-            tuple(zero_toeplitz for _ in range(rep[0])) + (my_central_row,) + tuple(zero_toeplitz for _ in range(rep[1]))
-            for rep in all_zero_block_repartitions
-        ))
-
         ret = dict()
         for parentidx in self._activations:
             activ = self._activations[parentidx][:, in_channel, :, :]
-            if activ.is_cuda:
-                activ = activ.cpu()
-            ret[parentidx] = np.abs(activ.detach().numpy().reshape(-1) * np.array(m))
+            weight = activ.reshape(-1) * final_matrix
+            if weight.is_cuda:
+                weight = weight.cpu()
+            ret[parentidx] = np.abs(weight.detach().numpy())
 
         return ret
 

@@ -146,6 +146,8 @@ class Graph(object):
         """
 
         shapes = self._get_shapes()
+
+        print(shapes)
         all_layer_indices = sorted(list(shapes.keys()))
 
         bmat_list = tuple()
@@ -157,6 +159,8 @@ class Graph(object):
                     mat = np.transpose(self._edge_dict[(source_layer, target_layer)])
                 elif (target_layer, source_layer) in self._edge_dict:
                     mat = self._edge_dict[(target_layer, source_layer)]
+                    print(target_layer, source_layer)
+                    print(np.shape(mat))
                 else:
                     # There is no connection, let's create a zero matrix
                     # of the right shape !!
