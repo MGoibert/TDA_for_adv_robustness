@@ -12,11 +12,12 @@ from functools import reduce
 from typing import List, Callable, Tuple, Dict
 
 import numpy as np
-from cached_property import cached_property
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.linalg import toeplitz
+
+from tda.devices import device
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 logging.basicConfig(level=logging.INFO)
@@ -65,10 +66,16 @@ class LinearLayer(Layer):
         Return the weight of the linear layer, ignore biases
         """
         m = list(self.func.parameters())[0]
-        return {
-            parentidx: np.abs((self._activations[parentidx] * m).detach().numpy())
-            for parentidx in self._activations
-        }
+
+        ret = dict()
+
+        for parentidx in self._activations:
+            weight = self._activations[parentidx] * m
+            if weight.is_cuda:
+                weight = weight.cpu()
+            ret[parentidx] = np.abs(weight.detach().numpy())
+
+        return ret
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
@@ -97,7 +104,10 @@ class MaxPool2dLayer(Layer):
         """
         Return the weight of the linear layer, ignore biases
         """
-        idx = self._indx.numpy().flatten()
+        idx = self._indx
+        if idx.is_cuda:
+            idx = idx.cpu()
+        idx = idx.numpy().flatten()
         dim = 1
         dim_out = 1
         for d in self._activations_shape:
@@ -211,9 +221,13 @@ class ConvLayer(Layer):
 
         zero_toeplitz = np.zeros((nbrows_t, nbcols_t))
 
+        if kernel.is_cuda:
+            kernel = kernel.cpu()
+        kernel = kernel.detach().numpy()
+
         toeplitz_matrices = list()
         for i in range(list(kernel.shape)[-2]):
-            row = kernel.detach().numpy()[i, :]
+            row = kernel[i, :]
             row_toeplitz = np.zeros((1, nbcols_t))
             row_toeplitz[0, :row.shape[0]] = row
             col_toeplitz = np.zeros((1, nbrows_t))
@@ -244,10 +258,14 @@ class ConvLayer(Layer):
             for rep in all_zero_block_repartitions
         ))
 
-        return {
-            parentidx: np.abs(self._activations[parentidx][:, in_channel, :, :].detach().numpy().reshape(-1) * np.array(m))
-            for parentidx in self._activations
-            }
+        ret = dict()
+        for parentidx in self._activations:
+            activ = self._activations[parentidx][:, in_channel, :, :]
+            if activ.is_cuda:
+                activ = activ.cpu()
+            ret[parentidx] = np.abs(activ.detach().numpy().reshape(-1) * np.array(m))
+
+        return ret
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
@@ -364,6 +382,8 @@ class Architecture(nn.Module):
 
     def forward(self, x, store_for_graph=False, output="final"):
         # List to store intermediate results if needed
+        if device.type == "cuda":
+            x = x.to(device)
         x = self.preprocess(x)
 
         outputs = {-1: x.double()}
