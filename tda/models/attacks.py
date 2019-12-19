@@ -230,7 +230,7 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
         for iteration in range(num_iter):
             x = torch.clamp(_to_model_space(att_original + torch.cat([perturb_.unsqueeze(0) for perturb_ in perturb]) , lims=lims), *lims)
             y_pred = model(x)
-            logits = model(x, presoft=True)
+            logits = model(x, output="presoft")
             cost = _fct_to_min(x, reconstruct_original, target, y_pred, logits, c,
                                confidence, lims=lims)
 
@@ -293,7 +293,7 @@ class DeepFool(_BaseAttack):
         nx.requires_grad = True
         eta = torch.zeros(nx.shape)
 
-        out = self.model(nx+eta, presoft=True)
+        out = self.model(nx+eta, output="presoft")
         py = out.max(1)[1].item()
         ny = out.max(1)[1].item()
 
@@ -323,7 +323,7 @@ class DeepFool(_BaseAttack):
 
             eta += ri.clone() if type(ri) != type(None) else 0
             nx.grad.data.zero_()
-            out = self.model(self.clamp(nx+eta), presoft=True)
+            out = self.model(self.clamp(nx+eta), output="presoft")
             py = out.max(1)[1].item()
             i_iter += 1
         
