@@ -19,4 +19,3 @@ def test_get_svhn_model():
         num_epochs=2,
         architecture=svhn_cnn_simple
     )
-
