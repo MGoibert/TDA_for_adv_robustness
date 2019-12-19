@@ -1,7 +1,7 @@
 from torch import nn, optim, no_grad
 import torch
 import numpy as np
-from tqdm import tqdm
+from time import time
 import pathlib
 import os
 import typing
@@ -9,6 +9,7 @@ import logging
 from tda.models.architectures import mnist_mlp, Architecture
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
+from tda.devices import device
 logger = logging.getLogger()
 
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -25,6 +26,9 @@ def compute_val_acc(model, val_loader):
     with no_grad():
         for data, target in val_loader:
             data = data.double()
+            if device.type == "cuda":
+                data = data.to(device)
+                target = target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -42,6 +46,9 @@ def compute_test_acc(model, test_loader):
     with no_grad():
         for data, target in test_loader:
             data = data.double()
+            if device.type == "cuda":
+                data = data.to(device)
+                target = target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -60,15 +67,27 @@ def train_network(
     """
     Helper function to train an arbitrary model
     """
+
+    if device.type == "cuda":
+        logger.info(f"Learning on GPU {device}")
+        model.cuda(device)
+    else:
+        logger.info("Learning on CPU")
+
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', patience=5, verbose=True,
         factor=0.5)
+    t = time()
     for epoch in range(num_epochs):
+        logger.info(f"Starting epoch {epoch} ({time()-t} secs)")
+        t = time()
         model.train()
-        train_loader = tqdm(train_loader)
         for x_batch, y_batch in train_loader:
+            if device.type == "cuda":
+                x_batch = x_batch.to(device)
+                y_batch = y_batch.to(device)
             x_batch = x_batch.double()
             if train_noise > 0.0:
                 x_batch_noisy = torch.clamp(x_batch + train_noise * torch.randn(x_batch.size()), -0.5, 0.5).double()
@@ -86,6 +105,9 @@ def train_network(
         model.eval()
         for x_val, y_val in val_loader:
             x_val = x_val.double()
+            if device.type == "cuda":
+                x_val = x_val.to(device)
+                y_val = y_val.to(device)
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
             print("Validation loss = ", np.around(val_loss.item(), decimals=4))
@@ -138,5 +160,8 @@ def get_deep_model(
 
         # Saving model
         torch.save(net, model_filename)
+
+    if device.type == "cuda":
+        net.cuda(device)
 
     return net, loss_func
