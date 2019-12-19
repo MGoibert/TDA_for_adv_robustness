@@ -74,7 +74,8 @@ thresholds = process_thresholds(
     raw_thresholds=args.thresholds,
     dataset=args.dataset,
     architecture=args.architecture,
-    epochs=args.epochs
+    epochs=args.epochs,
+    dataset_size=5
 )
 
 stats = {}
@@ -261,7 +262,10 @@ my_db.update_experiment(
     run_id=args.run_id,
     metrics={
         "separability_values": all_results,
-        "effective_thresholds": thresholds,
+        "effective_thresholds": {
+            "_".join([str(v) for v in key]): thresholds[key]
+            for key in thresholds
+        },
         "running_time": end_time - start_time
     }
 )

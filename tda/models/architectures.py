@@ -7,16 +7,16 @@ Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
 
+import logging
 from functools import reduce
-from typing import List, Callable
+from typing import List, Callable, Tuple, Dict
 
 import numpy as np
-import logging
+from cached_property import cached_property
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.linalg import toeplitz
-import logging
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 logging.basicConfig(level=logging.INFO)
@@ -42,9 +42,10 @@ class Layer(object):
         raise NotImplementedError()
 
     def process(self, x, store_for_graph):
+        assert isinstance(x, dict)
         if store_for_graph:
             self._activations = x
-        return self.func(x)
+        return self.func(sum(x.values()))
 
 
 class LinearLayer(Layer):
@@ -64,12 +65,17 @@ class LinearLayer(Layer):
         Return the weight of the linear layer, ignore biases
         """
         m = list(self.func.parameters())[0]
-        return np.abs((self._activations * m).detach().numpy())
+        return {
+            parentidx: np.abs((self._activations[parentidx] * m).detach().numpy())
+            for parentidx in self._activations
+        }
 
     def process(self, x, store_for_graph):
-        _x = x.reshape(-1, self._in_width)
+        assert isinstance(x, dict)
+        _x = {key: x[key].reshape(-1, self._in_width) for key in x}
         if store_for_graph:
             self._activations = _x
+        _x = sum(_x.values())
         if self._activ:
             return self._activ(self.func(_x))
         else:
@@ -102,11 +108,18 @@ class MaxPool2dLayer(Layer):
         m = np.zeros((dim, dim_out))
         for i in range(dim_out):
             m[:, i][idx[i]] = 1
-        return np.matrix(m.transpose())
+        return {
+            parentidx: np.matrix(m.transpose())
+            for parentidx in self._parent_indices
+        }
 
     def process(self, x, store_for_graph):
+        assert isinstance(x, dict)
+        parent_indices = list(x.keys())
+        x = sum(x.values()).double()
         out, indx = self.func(x)
         if store_for_graph:
+            self._parent_indices = parent_indices
             self._activations_shape = x.shape
             self._indx = indx
             self._out_shape = out.shape
@@ -145,10 +158,13 @@ class ConvLayer(Layer):
 
     def get_matrix(self):
 
-        m = np.bmat(tuple(
-            tuple(self.get_matrix_for_channel(in_c, out_c) for in_c in range(self._in_channels))
+        m = {
+            parentidx: np.bmat(tuple(
+            tuple(self.get_matrix_for_channel(in_c, out_c)[parentidx] for in_c in range(self._in_channels))
             for out_c in range(self._out_channels)
         ))
+            for parentidx in self._activations
+        }
 
         return m
 
@@ -175,7 +191,11 @@ class ConvLayer(Layer):
         # Compute the size of the matrix #
         ##################################
 
-        activations = self._activations[:, in_channel, :, :]
+        # all shapes should be the same in the activations
+        # let's choose one parent layer
+        parentidx = list(self._activations.keys())[0]
+
+        activations = self._activations[parentidx][:, in_channel, :, :]
         # logging.info(f"My activations for in={in_channel} and out={out_channel} has shape {activations.shape}")
 
         nbcols = ConvLayer._get_nb_elements(activations)
@@ -224,11 +244,16 @@ class ConvLayer(Layer):
             for rep in all_zero_block_repartitions
         ))
 
-        return np.abs(activations.detach().numpy().reshape(-1) * np.array(m))
+        return {
+            parentidx: np.abs(self._activations[parentidx][:, in_channel, :, :].detach().numpy().reshape(-1) * np.array(m))
+            for parentidx in self._activations
+            }
 
     def process(self, x, store_for_graph):
+        assert isinstance(x, dict)
         if store_for_graph:
             self._activations = x
+        x = sum(x.values())
         if self._activ:
             return self._activ(self.func(x))
         else:
@@ -244,6 +269,7 @@ class SoftMaxLayer(Layer):
 
     def get_matrix(self):
         raise NotImplementedError()
+
 
 class DropOut(Layer):
     def __init__(self):
@@ -266,63 +292,113 @@ class Architecture(nn.Module):
     def __init__(self,
                  layers: List[Layer],
                  preprocess: Callable,
+                 layer_links: List[Tuple[int, int]] = None,
                  name: str = ""):
+        """
+        Instatiating architecture with a list of layers and edges.
+        The graph on the layers should be a DAG (we won't check for cycles)
+        """
         super().__init__()
         self.name = name
         self.layers = layers
+        self.layer_links = layer_links or [(-1, 0)] + [(i, i + 1) for i in range(len(layers) - 1)]
+
         self.preprocess = preprocess
+
+        self.layer_visit_order = Architecture.walk_through_dag(self.layer_links)
+        self.parent_dict = Architecture.get_parent_dict(self.layer_links)
 
         for i, layer in enumerate(layers):
             for j, param in enumerate(layer.func.parameters()):
                 self.register_parameter(f"{i}_{j}", param)
 
-    def forward(self, x, store_for_graph=False, presoft=False):
+    def get_pre_softmax_idx(self):
+        softmax_layer_idx = None
+        for layer_idx, layer in enumerate(self.layers):
+            if isinstance(layer, SoftMaxLayer):
+                softmax_layer_idx = layer_idx
+                break
+        if softmax_layer_idx is None:
+            raise RuntimeError(f"Didn't find any SoftMax in {self.layers}")
+
+        return [link for link in self.layer_links if link[1] == softmax_layer_idx][0][0]
+
+
+    @staticmethod
+    def walk_through_dag(
+        edges: List[Tuple[int, int]]
+    ) -> List[int]:
+        """
+        Helper function to build an ordered walkthrough in the DAG
+        """
+
+        all_nodes = set([edge[0] for edge in edges]).union(set([edge[1] for edge in edges]))
+
+        # Step 1: find the roots and add them to the stack
+        stack = [node for node in all_nodes if not any([node == edge[1] for edge in edges])]
+
+        order = list()
+
+        while len(stack) > 0:
+            current_node = stack.pop()
+            order.append(current_node)
+
+            for child in [edge[1] for edge in edges if edge[0] == current_node]:
+                all_parents = [edge[0] for edge in edges if edge[1] == child]
+                if all([parent in order for parent in all_parents]):
+                    stack.append(child)
+
+        return order
+
+    @staticmethod
+    def get_parent_dict(
+            edges: List[Tuple[int, int]]
+    ):
+        ret = dict()
+
+        for node in [edge[1] for edge in edges]:
+            parents = [edge[0] for edge in edges if edge[1] == node]
+            ret[node] = sorted(parents)
+
+        return ret
+
+    def forward(self, x, store_for_graph=False, output="final"):
         # List to store intermediate results if needed
         x = self.preprocess(x)
-        nb_layer = sum([ 1 for layer in self.layers if layer.graph_layer ])
+
+        outputs = {-1: x.double()}
+
         # Going through all layers
-        for i, layer in enumerate(self.layers):
-            x = layer.process(x.double(), store_for_graph=store_for_graph)
-            if (i == nb_layer - 1) and presoft:
-                x_presoft = x
+        for layer_idx in self.layer_visit_order:
+            if layer_idx != -1:
+                layer = self.layers[layer_idx]
+                input = {
+                    parent_idx: outputs[parent_idx].double()
+                    for parent_idx in self.parent_dict[layer_idx]
+                }
+                outputs[layer_idx] = layer.process(input, store_for_graph=store_for_graph)
+
         # Returning final result
-        if presoft:
-            return x_presoft
+        if output == "presoft":
+            return outputs[self.layer_visit_order[-2]]
+        elif output == "all_inner":
+            return outputs
+        elif output == "final":
+            return outputs[self.layer_visit_order[-1]]
         else:
-            return x
+            raise RuntimeError(f"Unknown output type {output}")
 
-    def get_all_inner_activations(self, x):
-        # List to store intermediate results if needed
-        x = self.preprocess(x)
-        ret = list()
-        # Going through all layers
-        for i, layer in enumerate(self.layers):
-            x = layer.process(x.double(), store_for_graph=False)
-            ret.append(x.detach().numpy())
-        # Returning final result except softmax
-        return ret[:-1]
-
-    def get_activations_for_layer(self, x, layer_idx: int):
-        # List to store intermediate results if needed
-        x = self.preprocess(x)
-        ret = list()
-        # Going through all layers
-        for i in range(layer_idx+1):
-            x = self.layers[i].process(x.double(), store_for_graph=False)
-        # Returning final result except softmax
-        return x
-
-    def get_graph_values(self, x):
+    def get_graph_values(self, x) -> Dict:
         # Processing sample
         # logging.info(f"Shape of x is {x.shape}")
         self.forward(x, store_for_graph=True)
         # Getting matrix for each layer
-        ret = list()
-        for layer in self.layers:
+        ret = dict()
+        for layer_idx, layer in enumerate(self.layers):
             if layer.graph_layer:
-                # logging.info(f"Processing layer {layer}")
                 m = layer.get_matrix()
-                ret.append(m)
+                for parentidx in m:
+                    ret[(parentidx, layer_idx)] = m[parentidx]
         return ret
 
     def get_nb_graph_layers(self) -> int:
