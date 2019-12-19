@@ -68,11 +68,15 @@ class Graph(object):
             v = np.abs(v) * 10e5
             if thresholds:
                 v[v < thresholds[i]] = 0.0
-            if use_sigmoid:
-                logger.info(f"Using sigmoid for dataset {dataset}, archi {architecture} and epochs {epochs}")
+            #logger.info(f"before v = {v[:5]}")
+            if False: #use_sigmoid:
                 file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
                 #file = f"stats/SVHN_svhn_lenet_200_epochs.npy"
-                np.where(v>0, cls.use_sigmoid(v, i, file=file), 0)
+                v = np.where(v>0, cls.use_sigmoid(v, i, file=file), 0)
+                #if i == 0:
+                    #logger.info(f"value of v = {v[:5]}")
+                #v = np.where(v>0, -v, 0.0)
+            #logger.info(f"after v = {v[:5]}")
             edge_list.append(v)
 
         original_x = None
