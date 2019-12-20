@@ -85,7 +85,7 @@ class LinearLayer(Layer):
         _x = sum(_x.values())
         if self._activ:
             out = self.func(_x)
-            if type(a) == list:
+            if type(self._activ) == list:
                 for act in self._activ:
                     out = act(out)
                 return out
