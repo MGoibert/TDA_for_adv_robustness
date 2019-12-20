@@ -84,7 +84,13 @@ class LinearLayer(Layer):
             self._activations = _x
         _x = sum(_x.values())
         if self._activ:
-            return self._activ(self.func(_x))
+            out = self.func(_x)
+            if type(a) == list:
+                for act in self._activ:
+                    out = act(out)
+                return out
+            else:
+                return self._activ(out)
         else:
             return self.func(_x)
 
@@ -134,7 +140,60 @@ class MaxPool2dLayer(Layer):
             self._indx = indx
             self._out_shape = out.shape
         if self._activ:
-            return self._activ(out)
+            if type(self._activ) == list:
+                for act in self._activ:
+                    out = act(out)
+                return out
+            else:
+                return self._activ(out)
+        else:
+            return out
+
+class AvgPool2dLayer(Layer):
+
+    def __init__(self, kernel_size, activ=None):
+
+        self._activ = activ
+        self._k = kernel_size
+
+        super().__init__(
+            func=nn.AvgPool2d(kernel_size=kernel_size),
+            graph_layer=True
+        )
+
+    def get_matrix(self):
+        """
+        Return the weight of the linear layer, ignore biases
+        """
+        dim_out = 1
+        for d in self._out_shape:
+            dim_out *= d
+        m = np.zeros((dim, dim_out))
+        for idx_out in range(dim_out):
+            idx = [self._k*idx_out+i+j*self._activations_shape[-1] for j in range(self._k) for i in range(self._k)]
+            m[:, idx_out][idx] = 1.0/(2*self._k) * self._activation_values.flatten()[idx]
+        return {
+            parentidx: np.matrix(m.transpose())
+            for parentidx in self._parent_indices
+        }
+
+    def process(self, x, store_for_graph):
+        assert isinstance(x, dict)
+        parent_indices = list(x.keys())
+        x = sum(x.values()).double()
+        out = self.func(x)
+        if store_for_graph:
+            self._parent_indices = parent_indices
+            self._activation_values = x
+            self._activations_shape = x.shape
+            self._out_shape = out.shape
+        if self._activ:
+            if type(self._activ) == list:
+                for act in self._activ:
+                    out = act(out)
+                return out
+            else:
+                return self._activ(out)
         else:
             return out
 
@@ -283,7 +342,13 @@ class ConvLayer(Layer):
             self._activations = x
         x = sum(x.values())
         if self._activ:
-            return self._activ(self.func(x))
+            out = self.func(x)
+            if type(self._activ) == list:
+                for act in self._activ:
+                    out = act(out)
+                return out
+            else:
+                return self._activ(out)
         else:
             return self.func(x)
 
@@ -303,6 +368,16 @@ class DropOut(Layer):
     def __init__(self):
         super().__init__(
             func=nn.Dropout(),
+            graph_layer=False
+        )
+
+    def get_matrix(self):
+        raise NotImplementedError()
+
+class BatchNorm2d(Layer):
+    def __init__(self, channels):
+        super().__init__(
+            func=nn.BatchNorm2d(num_features=channels),
             graph_layer=False
         )
 
@@ -447,6 +522,19 @@ def mnist_preprocess(x):
 def mnist_preprocess2(x):
     return x.view(-1, 1, 28, 28)
 
+mnist_res = Architecture(
+    name="mnist_res",
+    preprocess=mnist_preprocess,
+    layers=[
+        LinearLayer(28 * 28, 500),
+        LinearLayer(500, 600),
+        LinearLayer(600, 10),
+        SoftMaxLayer()
+    ],
+    layer_links=[
+    (-1,0), (0,1), (1,2), (0,2), (2,3)
+    ])
+
 
 mnist_mlp = Architecture(
     name="simple_fcn_mnist",
@@ -479,6 +567,18 @@ mnist_lenet = Architecture(
         LinearLayer(320, 50, activ=F.relu),
         DropOut(),
         LinearLayer(50, 10),
+        SoftMaxLayer()
+    ])
+
+mnist_test = Architecture(
+    name="mnist_test",
+    preprocess=mnist_preprocess2,
+    layers=[
+        ConvLayer(1, 10, 5, activ=F.relu),  # output 10 * 28 * 28
+        BatchNorm2d(10),
+        ConvLayer(10, 20, 5, activ=F.relu),  # output 6 * 28 * 28
+        AvgPool2dLayer(2),
+        LinearLayer(20*20*5, 10),
         SoftMaxLayer()
     ])
 
@@ -519,6 +619,8 @@ svhn_lenet = Architecture(
     ])
 
 known_architectures: List[Architecture] = [
+    mnist_res,
+    mnist_test,
     mnist_mlp,
     svhn_cnn_simple,
     svhn_lenet,
