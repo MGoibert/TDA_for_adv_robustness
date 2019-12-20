@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 
 from tda.graph import Graph
@@ -88,11 +89,25 @@ def test_mnist_graph():
     print(graph.get_edge_list())
 
 
-def test_simple_cnn_one_channel():
+@pytest.mark.parametrize("stride,padding", [
+    [1, 0],
+    [2, 0],
+    [1, 1]
+])
+def test_simple_cnn_one_channel(stride, padding):
+
+    kernel_size = 2
+
     simple_archi = Architecture(
         preprocess=lambda x: x,
         layers=[
-            ConvLayer(1, 1, 2)
+            ConvLayer(
+                in_channels=1,
+                out_channels=1,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding
+            )
         ])
 
     simple_example = torch.tensor([[[
@@ -100,6 +115,9 @@ def test_simple_cnn_one_channel():
         [5, 6, 7, 8],
         [9, 10, 11, 12]
     ]]])
+
+    nb_lines = 3
+    nb_cols = 4
 
     for param in simple_archi.parameters():
         param.data = torch.tensor([[[
@@ -109,13 +127,15 @@ def test_simple_cnn_one_channel():
         print(f"Kernel size is {list(param.shape)}")
 
     out = simple_archi(simple_example)
-    print(out)
+    expected_nb_lines = (nb_lines - kernel_size + 2 * padding) // stride + 1
+    expected_nb_cols = (nb_cols - kernel_size + 2 * padding) // stride + 1
+    assert np.shape(out) == (1, 1, expected_nb_lines, expected_nb_cols)
 
     m = simple_archi.get_graph_values(simple_example)
 
-    print(m)
+    print(m[(-1, 0)])
 
-    assert np.shape(m[(-1,0)]) == (6, 12)
+    assert np.shape(m[(-1, 0)]) == (expected_nb_lines*expected_nb_cols, 12)
 
 
 def test_simple_cnn_multi_channels():
@@ -156,7 +176,7 @@ def test_simple_cnn_multi_channels():
     assert np.shape(adjacency_matrix) == (18+24+1, 18+24+1)
 
 
-def test_svhn_graph(benchmark):
+def test_svhn_graph():
 
     def foo():
         simple_example = torch.randn((3, 32, 32))
