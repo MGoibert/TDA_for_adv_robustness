@@ -377,12 +377,33 @@ class DropOut(Layer):
     def get_matrix(self):
         raise NotImplementedError()
 
+class ReluLayer(Layer):
+    def __init__(self):
+        super().__init__(
+            func=nn.ReLU(),
+            graph_layer=False
+        )
+
+    def get_matrix(self):
+        raise NotImplementedError()
+
 class BatchNorm2d(Layer):
-    def __init__(self, channels):
+    def __init__(self, channels, activ=None):
         super().__init__(
             func=nn.BatchNorm2d(num_features=channels),
             graph_layer=False
         )
+
+    def process(self, x):
+        x = sum(x.values())
+        if self._activ:
+            out = self.func(x)
+            if type(self._activ) == list:
+                for act in self._activ:
+                    out = act(out)
+                return out
+            else:
+                return self._activ(out)
 
     def get_matrix(self):
         raise NotImplementedError()
@@ -525,20 +546,6 @@ def mnist_preprocess(x):
 def mnist_preprocess2(x):
     return x.view(-1, 1, 28, 28)
 
-mnist_res = Architecture(
-    name="mnist_res",
-    preprocess=mnist_preprocess,
-    layers=[
-        LinearLayer(28 * 28, 500),
-        LinearLayer(500, 600),
-        LinearLayer(600, 10),
-        SoftMaxLayer()
-    ],
-    layer_links=[
-    (-1,0), (0,1), (1,2), (0,2), (2,3)
-    ])
-
-
 mnist_mlp = Architecture(
     name="simple_fcn_mnist",
     preprocess=mnist_preprocess,
@@ -572,19 +579,6 @@ mnist_lenet = Architecture(
         LinearLayer(50, 10),
         SoftMaxLayer()
     ])
-
-mnist_test = Architecture(
-    name="mnist_test",
-    preprocess=mnist_preprocess2,
-    layers=[
-        ConvLayer(1, 10, 5, activ=F.relu),  # output 10 * 28 * 28
-        BatchNorm2d(10),
-        ConvLayer(10, 20, 5, activ=F.relu),  # output 6 * 28 * 28
-        AvgPool2dLayer(2),
-        LinearLayer(20*20*5, 10),
-        SoftMaxLayer()
-    ])
-
 
 ######################
 # SVHN Architectures #
@@ -621,12 +615,84 @@ svhn_lenet = Architecture(
         SoftMaxLayer()
     ])
 
+svhn_resnet = Architecture(
+    name="svhn_resnet",
+    preprocess=svhn_preprocess,
+    layers=[
+        # 1st layer / no stack or block
+        ConvLayer(in_channels=3, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+
+        #  Stack 1
+            # Block a
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=64),
+        ReluLayer(),
+            # Block b
+        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=64),
+        ReluLayer(),
+
+        # Stack 2
+            # Block a
+        ConvLayer(in_channels=64, out_channels=128,kernel_size=3, stride=2, padding=1, bias=False),
+        BatchNorm2d(channels=128, activ=F.relu),
+        ConvLayer(in_channels=128, out_channels=128,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=128),
+        ReluLayer(),
+            # Block b
+        ConvLayer(in_channels=64, out_channels=128,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=128, activ=F.relu),
+        ConvLayer(in_channels=128, out_channels=128,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=128),
+        ReluLayer(),
+
+        # Stack 3
+            # Block a
+        ConvLayer(in_channels=128, out_channels=256,kernel_size=3, stride=2, padding=1, bias=False),
+        BatchNorm2d(channels=256, activ=F.relu),
+        ConvLayer(in_channels=256, out_channels=256,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=256),
+        ReluLayer(),
+            # Block b
+        ConvLayer(in_channels=256, out_channels=256,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=256, activ=F.relu),
+        ConvLayer(in_channels=256, out_channels=256,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=256),
+        ReluLayer(),
+
+        # Stack 4
+            # Block a
+        ConvLayer(in_channels=256, out_channels=512,kernel_size=3, stride=2, padding=1, bias=False),
+        BatchNorm2d(channels=512, activ=F.relu),
+        ConvLayer(in_channels=512, out_channels=512,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=512),
+        ReluLayer(),
+            # Block b
+        ConvLayer(in_channels=512, out_channels=512,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=512, activ=F.relu),
+        ConvLayer(in_channels=512, out_channels=512,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=512),
+        ReluLayer(),
+
+        # End part
+        AvgPool2dLayer(kernel_size=4),
+        LinearLayer(512,10),
+        SoftMaxLayer()
+    ],
+    layer_links=[(i-1,i) for i in range(45)]+[
+        (1,6), (6,11), (11,16), (16,21), (21,26), (26,31), (31,36), (36,41)
+    ])
+
 known_architectures: List[Architecture] = [
-    mnist_res,
-    mnist_test,
     mnist_mlp,
     svhn_cnn_simple,
     svhn_lenet,
+    svhn_resnet,
     mnist_lenet,
     mnist_small_mlp
 ]
