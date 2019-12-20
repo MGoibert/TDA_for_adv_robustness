@@ -166,6 +166,9 @@ class AvgPool2dLayer(Layer):
         Return the weight of the linear layer, ignore biases
         """
         dim_out = 1
+        dim = 1
+        for d in self._activations_shape:
+            dim *= d
         for d in self._out_shape:
             dim_out *= d
         m = np.zeros((dim, dim_out))
