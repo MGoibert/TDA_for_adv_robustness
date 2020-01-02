@@ -246,7 +246,6 @@ class ConvLayer(Layer):
             tuple(self.get_matrix_for_channel(in_c, out_c)[parentidx] for in_c in range(self._in_channels))
             for out_c in range(self._out_channels)
             ))
-            print(parentidx, np.shape(m[parentidx]))
 
         return m
 
@@ -322,8 +321,8 @@ class ConvLayer(Layer):
         if self._padding > 0:
             final_matrix = final_matrix[:, self._padding * nbcols_input:-self._padding * nbcols_input]
 
-        print(toeplitz_row.shape)
-        print(in_channel, out_channel, final_matrix.shape)
+        # print(toeplitz_row.shape)
+        # print(in_channel, out_channel, final_matrix.shape)
 
 
         ##############################
