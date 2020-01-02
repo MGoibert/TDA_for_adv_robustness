@@ -6,22 +6,22 @@ Created on Wed May 29 13:24:22 2019
 Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
-
 import logging
 from functools import reduce
 from typing import List, Callable, Tuple, Dict
 
 import numpy as np
+from scipy.sparse import coo_matrix, bmat as sparse_bmat
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.linalg import toeplitz
+from numba import njit
 
 from tda.devices import device
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
+logger = logging.getLogger("Architecture")
 
 
 ##########
@@ -73,7 +73,7 @@ class LinearLayer(Layer):
             weight = self._activations[parentidx] * m
             if weight.is_cuda:
                 weight = weight.cpu()
-            ret[parentidx] = np.abs(weight.detach().numpy())
+            ret[parentidx] = coo_matrix(np.abs(weight.detach().numpy()))
 
         return ret
 
@@ -125,7 +125,7 @@ class MaxPool2dLayer(Layer):
         for i in range(dim_out):
             m[:, i][idx[i]] = 1
         return {
-            parentidx: np.matrix(m.transpose())
+            parentidx: coo_matrix(np.matrix(m.transpose()))
             for parentidx in self._parent_indices
         }
 
@@ -148,6 +148,7 @@ class MaxPool2dLayer(Layer):
                 return self._activ(out)
         else:
             return out
+
 
 class AvgPool2dLayer(Layer):
 
@@ -173,10 +174,11 @@ class AvgPool2dLayer(Layer):
             dim_out *= d
         m = np.zeros((dim, dim_out))
         for idx_out in range(dim_out):
-            idx = [self._k*idx_out+i+j*self._activations_shape[-1] for j in range(self._k) for i in range(self._k)]
-            m[:, idx_out][idx] = 1.0/(2*self._k) * self._activation_values.flatten()[idx]
+            idx = [self._k * idx_out + i + j * self._activations_shape[-1] for j in range(self._k) for i in
+                   range(self._k)]
+            m[:, idx_out][idx] = 1.0 / (2 * self._k) * self._activation_values.flatten()[idx]
         return {
-            parentidx: np.matrix(m.transpose())
+            parentidx: coo_matrix(np.matrix(m.transpose()))
             for parentidx in self._parent_indices
         }
 
@@ -237,15 +239,81 @@ class ConvLayer(Layer):
         """
         return reduce(lambda a, b: a * b, list(t.shape))
 
+    @staticmethod
+    @njit
+    def _generate_cnn_edges(
+            kernel: np.ndarray,
+            nbcols_input: int,
+            nbrows_input: int,
+            nbcols: int,
+            stride: int,
+            padding: int
+
+    ):
+
+        nbrows_kernel = kernel.shape[-2]
+        nbcols_kernel = kernel.shape[-1]
+
+        nbcols_input_with_padding = nbcols_input + 2 * padding
+        nbrows_input_with_padding = nbrows_input + 2 * padding
+        nbcols_with_padding = nbrows_input_with_padding * nbcols_input_with_padding
+
+        offsets_i = range(
+            0,
+            nbcols_input - nbrows_kernel + 1 + 2 * padding,
+            stride)
+
+        offsets_j = range(
+            0,
+            int(nbcols / nbcols_input) - nbcols_kernel + 1 + 2 * padding,
+            stride
+        )
+
+        nb_offset_i = len(offsets_i)
+        nb_offset_j = len(offsets_j)
+
+        data = list()
+        row_ind = list()
+        col_ind = list()
+        for i in range(nbrows_kernel):
+            for j in range(nbcols_kernel):
+                for offset_i in offsets_i:
+                    for offset_j in offsets_j:
+                        row = offset_i // stride + (offset_j // stride) * nb_offset_i
+                        col = offset_i + j + offset_j * (
+                                    nb_offset_i + nbrows_kernel - 1) + i * nbcols_input_with_padding
+                        edge = (1, 2, 3)
+
+                        if padding > 0:
+                            if col < nbcols_input_with_padding \
+                                    or col % nbcols_input_with_padding in (0, nbcols_input_with_padding - 1) \
+                                    or col >= nbcols_with_padding - nbcols_input_with_padding:
+                                continue
+                            else:
+                                col = col \
+                                      - nbcols_input_with_padding \
+                                      - padding \
+                                      - (col // nbcols_input_with_padding - 1) * 2 * padding
+                        col_ind.append(col)
+                        row_ind.append(row)
+                        data.append(kernel[i, j])
+
+                        if not 0 <= row_ind[-1] <= nb_offset_i * nb_offset_j - 1 \
+                                or not 0 <= col_ind[-1] <= nbcols - 1:
+                            raise RuntimeError(edge)
+        return data, col_ind, row_ind, nb_offset_i * nb_offset_j
+
     def get_matrix(self):
 
         m = dict()
 
         for parentidx in self._activations:
-            m[parentidx] = np.bmat(tuple(
-            tuple(self.get_matrix_for_channel(in_c, out_c)[parentidx] for in_c in range(self._in_channels))
-            for out_c in range(self._out_channels)
-            ))
+            matrix_grid = [
+                [self.get_matrix_for_channel(in_c, out_c)[parentidx] for in_c in range(self._in_channels)]
+                for out_c in range(self._out_channels)
+            ]
+
+            m[parentidx] = sparse_bmat(blocks=matrix_grid, format="coo")
 
         return m
 
@@ -281,9 +349,7 @@ class ConvLayer(Layer):
 
         # Number of columns in the input image
         nbcols_input = list(activations.shape)[-1]
-
-        # Number of columns of the output matrix
-        # (equal nbcols_input * nbrows_input)
+        nbrows_input = list(activations.shape)[-2]
         nbcols = ConvLayer._get_nb_elements(activations)
 
         # logging.info(f"NbCols={nbcols}")
@@ -292,50 +358,35 @@ class ConvLayer(Layer):
         # Compute Toeplitz matrices #
         #############################
 
-        toeplitz_row = list()
-        for i in range(kernel.shape[-2]):
-            row = kernel[i, :]
-            exts = list()
-            for offset in range(0, nbcols_input - kernel.shape[-2] + 1 + 2 * self._padding, self._stride):
-                t_row = torch.unsqueeze(
-                    F.pad(
-                        input=row,
-                        pad=[offset, nbcols_input - offset - len(row) + 2 * self._padding],
-                        value=0),
-                    dim=0)
-                if self._padding > 0:
-                    t_row = t_row[:, self._padding:-self._padding]
-                exts.append(t_row)
-            exts = torch.cat(exts, axis=0)
-            toeplitz_row.append(exts)
-        toeplitz_row = torch.cat(toeplitz_row, axis=1)
+        # logger.info((self._stride, nb_offset_i, nb_offset_j))
 
-        final_matrix = list()
-        for offset in range(0, int(nbcols / nbcols_input) - kernel.shape[-1] + 1 + 2 * self._padding, self._stride):
-            final_row = F.pad(
-                input=toeplitz_row,
-                pad=[nbcols_input * offset, nbcols - toeplitz_row.shape[1] + 2 * self._padding * nbcols_input - nbcols_input * offset],
-                value=0)
-            final_matrix.append(final_row)
-        final_matrix = torch.cat(final_matrix, axis=0)
-        if self._padding > 0:
-            final_matrix = final_matrix[:, self._padding * nbcols_input:-self._padding * nbcols_input]
+        (data, col_ind, row_ind, nbrows) = ConvLayer._generate_cnn_edges(
+            nbcols=nbcols,
+            nbcols_input=nbcols_input,
+            nbrows_input=nbrows_input,
+            kernel=kernel.detach().numpy(),
+            padding=self._padding,
+            stride=self._stride
+        )
+        # logger.info("---")
 
-        # print(toeplitz_row.shape)
-        # print(in_channel, out_channel, final_matrix.shape)
+        # logger.info((data, (row_ind, col_ind)))
+        # logger.info((nb_offset_i * nb_offset_j, nbcols))
 
-
-        ##############################
-        # Stacking Toeplitz matrices #
-        ##############################
+        # logger.info(f"{(in_channel, out_channel)} Shape is {m.todense().shape}")
 
         ret = dict()
         for parentidx in self._activations:
-            activ = self._activations[parentidx][:, in_channel, :, :]
-            weight = activ.reshape(-1) * final_matrix
-            if weight.is_cuda:
-                weight = weight.cpu()
-            ret[parentidx] = np.abs(weight.detach().numpy())
+            activ = self._activations[parentidx][:, in_channel, :, :].reshape(-1)
+
+            data_for_parent = [
+                data[i] * float(activ[col_idx])
+                for i, col_idx in enumerate(col_ind)
+            ]
+
+            ret[parentidx] = coo_matrix(
+                (data_for_parent, (row_ind, col_ind)), shape=(nbrows, nbcols)
+            )
 
         return ret
 
@@ -377,6 +428,7 @@ class DropOut(Layer):
     def get_matrix(self):
         raise NotImplementedError()
 
+
 class ReluLayer(Layer):
     def __init__(self):
         super().__init__(
@@ -386,6 +438,7 @@ class ReluLayer(Layer):
 
     def get_matrix(self):
         raise NotImplementedError()
+
 
 class BatchNorm2d(Layer):
     def __init__(self, channels, activ=None):
@@ -453,10 +506,9 @@ class Architecture(nn.Module):
 
         return [link for link in self.layer_links if link[1] == softmax_layer_idx][0][0]
 
-
     @staticmethod
     def walk_through_dag(
-        edges: List[Tuple[int, int]]
+            edges: List[Tuple[int, int]]
     ) -> List[int]:
         """
         Helper function to build an ordered walkthrough in the DAG
@@ -504,7 +556,7 @@ class Architecture(nn.Module):
         for layer_idx in self.layer_visit_order:
             if layer_idx != -1:
                 layer = self.layers[layer_idx]
-                logger.info(layer_idx)
+                # logger.info(layer_idx)
                 input = {
                     parent_idx: outputs[parent_idx].double()
                     for parent_idx in self.parent_dict[layer_idx]
@@ -528,7 +580,7 @@ class Architecture(nn.Module):
         # Getting matrix for each layer
         ret = dict()
         for layer_idx, layer in enumerate(self.layers):
-            logger.info(f"Processing layer {layer_idx}")
+            # (f"Processing layer {layer_idx}")
             if layer.graph_layer:
                 m = layer.get_matrix()
                 for parentidx in m:
@@ -548,8 +600,10 @@ class Architecture(nn.Module):
 def mnist_preprocess(x):
     return x.view(-1, 28 * 28)
 
+
 def mnist_preprocess2(x):
     return x.view(-1, 1, 28, 28)
+
 
 mnist_mlp = Architecture(
     name="simple_fcn_mnist",
@@ -584,6 +638,7 @@ mnist_lenet = Architecture(
         LinearLayer(50, 10),
         SoftMaxLayer()
     ])
+
 
 ######################
 # SVHN Architectures #
@@ -625,74 +680,74 @@ svhn_resnet = Architecture(
     preprocess=svhn_preprocess,
     layers=[
         # 1st layer / no stack or block
-        ConvLayer(in_channels=3, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False),
 
         #  Stack 1
-            # Block a
+        # Block a
         BatchNorm2d(channels=64, activ=F.relu),
-        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=64, activ=F.relu),
-        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=64),
         ReluLayer(),
-            # Block b
-        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        # Block b
+        ConvLayer(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=64, activ=F.relu),
-        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=64),
         ReluLayer(),
 
         # Stack 2
-            # Block a
-        ConvLayer(in_channels=64, out_channels=128,kernel_size=3, stride=2, padding=1, bias=False),
+        # Block a
+        ConvLayer(in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1, bias=False),
         BatchNorm2d(channels=128, activ=F.relu),
-        ConvLayer(in_channels=128, out_channels=128,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=128),
         ReluLayer(),
-            # Block b
-        ConvLayer(in_channels=128, out_channels=128,kernel_size=3, stride=1, padding=1, bias=False),
+        # Block b
+        ConvLayer(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=128, activ=F.relu),
-        ConvLayer(in_channels=128, out_channels=128,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=128),
         ReluLayer(),
 
         # Stack 3
-            # Block a
-        ConvLayer(in_channels=128, out_channels=256,kernel_size=3, stride=2, padding=1, bias=False),
+        # Block a
+        ConvLayer(in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1, bias=False),
         BatchNorm2d(channels=256, activ=F.relu),
-        ConvLayer(in_channels=256, out_channels=256,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=256),
         ReluLayer(),
-            # Block b
-        ConvLayer(in_channels=256, out_channels=256,kernel_size=3, stride=1, padding=1, bias=False),
+        # Block b
+        ConvLayer(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=256, activ=F.relu),
-        ConvLayer(in_channels=256, out_channels=256,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=256),
         ReluLayer(),
 
         # Stack 4
-            # Block a
-        ConvLayer(in_channels=256, out_channels=512,kernel_size=3, stride=2, padding=1, bias=False),
+        # Block a
+        ConvLayer(in_channels=256, out_channels=512, kernel_size=3, stride=2, padding=1, bias=False),
         BatchNorm2d(channels=512, activ=F.relu),
-        ConvLayer(in_channels=512, out_channels=512,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=512),
         ReluLayer(),
-            # Block b
-        ConvLayer(in_channels=512, out_channels=512,kernel_size=3, stride=1, padding=1, bias=False),
+        # Block b
+        ConvLayer(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=512, activ=F.relu),
-        ConvLayer(in_channels=512, out_channels=512,kernel_size=3, stride=1, padding=1, bias=False),
+        ConvLayer(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1, bias=False),
         BatchNorm2d(channels=512),
         ReluLayer(),
 
         # End part
         AvgPool2dLayer(kernel_size=4),
-        LinearLayer(512,10),
+        LinearLayer(512, 10),
         SoftMaxLayer(),
 
         # Layer to reduce dimension in residual blocks
-        ConvLayer(in_channels=64, out_channels=128,kernel_size=1, stride=2, padding=0, bias=False),
-        ConvLayer(in_channels=128, out_channels=256,kernel_size=1, stride=2, padding=0, bias=False),
-        ConvLayer(in_channels=256, out_channels=512,kernel_size=1, stride=2, padding=0, bias=False)
+        ConvLayer(in_channels=64, out_channels=128, kernel_size=1, stride=2, padding=0, bias=False),
+        ConvLayer(in_channels=128, out_channels=256, kernel_size=1, stride=2, padding=0, bias=False),
+        ConvLayer(in_channels=256, out_channels=512, kernel_size=1, stride=2, padding=0, bias=False)
     ],
     layer_links=[(i - 1, i) for i in range(45)] + [
         (1, 6), (6, 11), (16, 21), (26, 31), (36, 41),

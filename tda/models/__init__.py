@@ -140,7 +140,7 @@ def get_deep_model(
     loss_func = nn.CrossEntropyLoss()
 
     try:
-        net = torch.load(model_filename)
+        net = torch.load(model_filename, map_location=device)
         print(f"Loaded successfully model from {model_filename}")
     except FileNotFoundError:
         print(f"Unable to find model in {model_filename}... Retraining it...")

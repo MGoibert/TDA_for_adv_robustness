@@ -20,7 +20,7 @@ def test_simple_graph():
     simple_example = torch.ones(4)
 
     graph = Graph.from_architecture_and_data_point(simple_archi, simple_example, use_sigmoid=False)
-    adjacency_matrix = graph.get_adjacency_matrix()
+    adjacency_matrix = graph.get_adjacency_matrix().todense()
 
     from matplotlib import pyplot as plt
     plt.imshow(adjacency_matrix)
@@ -58,7 +58,7 @@ def test_simple_resnet_graph():
     simple_example = torch.ones(4)
 
     graph = Graph.from_architecture_and_data_point(simple_archi, simple_example, use_sigmoid=False)
-    adjacency_matrix = graph.get_adjacency_matrix()
+    adjacency_matrix = graph.get_adjacency_matrix().todense()
 
     from matplotlib import pyplot as plt
     plt.imshow(adjacency_matrix)
@@ -79,7 +79,7 @@ def test_mnist_graph():
 
     graph = Graph.from_architecture_and_data_point(mnist_mlp, simple_example, use_sigmoid=False)
 
-    adjacency_matrix = graph.get_adjacency_matrix()
+    adjacency_matrix = graph.get_adjacency_matrix().todense()
 
     assert np.shape(adjacency_matrix) == (1550, 1550)
 
@@ -92,7 +92,9 @@ def test_mnist_graph():
 @pytest.mark.parametrize("stride,padding", [
     [1, 0],
     [2, 0],
-    [1, 1]
+    [1, 1],
+    [2, 1],
+    [3, 1]
 ])
 def test_simple_cnn_one_channel(stride, padding):
 
@@ -133,7 +135,7 @@ def test_simple_cnn_one_channel(stride, padding):
 
     m = simple_archi.get_graph_values(simple_example)
 
-    print(m[(-1, 0)])
+    print(m[(-1, 0)].todense())
 
     assert np.shape(m[(-1, 0)]) == (expected_nb_lines*expected_nb_cols, 12)
 
@@ -185,19 +187,19 @@ def test_svhn_graph():
     graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example, use_sigmoid=False)
     adjacency_matrix = graph.get_adjacency_matrix()
 
-    assert np.linalg.norm(adjacency_matrix) == 5798210602234079.0
     assert np.shape(adjacency_matrix) == (11838, 11838)
+    assert np.linalg.norm(adjacency_matrix.todense()) == 5798210602234079.0
 
 
-def test_svhn_resnet_graph():
-    simple_example = torch.randn((3, 32, 32))
-    out = svhn_resnet.forward(simple_example)
-    print(out)
-    print(out.shape)
+#def test_svhn_resnet_graph():
+#    simple_example = torch.randn((3, 32, 32))
+#    out = svhn_resnet.forward(simple_example)
+#    print(out)
+#    print(out.shape)
 
-    graph = Graph.from_architecture_and_data_point(svhn_resnet, simple_example, use_sigmoid=False)
-    edge_list = graph.get_edge_list()
-    print(len(edge_list))
+#    graph = Graph.from_architecture_and_data_point(svhn_resnet, simple_example, use_sigmoid=False)
+#    edge_list = graph.get_edge_list()
+#    print(len(edge_list))
 
 
 def test_svhn_lenet_graph():
