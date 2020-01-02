@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 import torch
 from torch import Tensor
+from scipy.sparse import coo_matrix, bmat as sparse_bmat
 
 from tda.models.architectures import Architecture
 
@@ -68,12 +69,13 @@ class Graph(object):
             v = raw_edge_dict[layer_link]
             v = np.abs(v) * 10e5
             if thresholds:
-                v[v < thresholds[layer_link]] = 0.0
+                loc = v.data < thresholds[layer_link]
+                v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
             if use_sigmoid:
                 logger.info(f"Using sigmoid for dataset {dataset}, archi {architecture} and epochs {epochs}")
                 file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
-                v = np.where(v > 0, cls.use_sigmoid(
-                    data=v,
+                v.data = np.where(v.data > 0, cls.use_sigmoid(
+                    data=v.data,
                     layer_link=layer_link,
                     file=file
                 ), 0)
@@ -126,8 +128,8 @@ class Graph(object):
             offset_source = vertex_offset[source_layer+1]
             offset_target = vertex_offset[target_layer+1]
             mat = self._edge_dict[(source_layer, target_layer)]
-            target_idx, source_idx = np.where(mat != 0)
-            weights = [mat[x] for x in zip(target_idx, source_idx)]
+            target_idx, source_idx = mat.row, mat.col
+            weights = mat.data
             source_idx += offset_source
             target_idx += offset_target
 
@@ -164,11 +166,11 @@ class Graph(object):
                 else:
                     # There is no connection, let's create a zero matrix
                     # of the right shape !!
-                    mat = np.zeros((shapes[source_layer], shapes[target_layer]))
+                    mat = coo_matrix((shapes[source_layer], shapes[target_layer]))
                 bmat_row += (mat,)
             bmat_list += (bmat_row,)
 
-        W = np.bmat(bmat_list)
+        W = sparse_bmat(bmat_list, format="coo")
 
         return W
 
