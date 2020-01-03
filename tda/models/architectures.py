@@ -209,6 +209,7 @@ class ConvLayer(Layer):
                  kernel_size,
                  stride=1,
                  padding=0,
+                 bias=False,
                  activ=None):
 
         super().__init__(
@@ -245,7 +246,7 @@ class ConvLayer(Layer):
             tuple(self.get_matrix_for_channel(in_c, out_c)[parentidx] for in_c in range(self._in_channels))
             for out_c in range(self._out_channels)
             ))
-            print(parentidx, np.shape(m[parentidx]))
+            #print(parentidx, np.shape(m[parentidx]))
 
         return m
 
@@ -321,8 +322,8 @@ class ConvLayer(Layer):
         if self._padding > 0:
             final_matrix = final_matrix[:, self._padding * nbcols_input:-self._padding * nbcols_input]
 
-        print(toeplitz_row.shape)
-        print(in_channel, out_channel, final_matrix.shape)
+        #print(toeplitz_row.shape)
+        #print(in_channel, out_channel, final_matrix.shape)
 
 
         ##############################
@@ -384,26 +385,34 @@ class ReluLayer(Layer):
             graph_layer=False
         )
 
+    def process(self, x, store_for_graph):
+        x = sum(x.values())
+        out = self.func(x)
+        return out
+
     def get_matrix(self):
         raise NotImplementedError()
 
 class BatchNorm2d(Layer):
     def __init__(self, channels, activ=None):
+        self._activ = activ
         super().__init__(
             func=nn.BatchNorm2d(num_features=channels),
             graph_layer=False
         )
 
-    def process(self, x):
+    def process(self, x, store_for_graph):
         x = sum(x.values())
+        out = self.func(x)
         if self._activ:
-            out = self.func(x)
             if type(self._activ) == list:
                 for act in self._activ:
                     out = act(out)
                 return out
             else:
                 return self._activ(out)
+        else:
+            return out
 
     def get_matrix(self):
         raise NotImplementedError()
@@ -499,8 +508,10 @@ class Architecture(nn.Module):
 
         # Going through all layers
         for layer_idx in self.layer_visit_order:
+            #logger.info(f"Layer nb {layer_idx}")
             if layer_idx != -1:
                 layer = self.layers[layer_idx]
+                #logger.info(f"{[parent_idx for parent_idx in self.parent_dict[layer_idx]]} and {[outputs[parent_idx] for parent_idx in self.parent_dict[layer_idx]]}")
                 input = {
                     parent_idx: outputs[parent_idx].double()
                     for parent_idx in self.parent_dict[layer_idx]
@@ -726,7 +737,8 @@ known_architectures: List[Architecture] = [
     svhn_lenet,
     svhn_resnet,
     mnist_lenet,
-    mnist_small_mlp
+    mnist_small_mlp,
+    svhn_resnet_test
 ]
 
 
