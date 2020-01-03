@@ -10,22 +10,22 @@ experiment = R3D3Experiment(
             0.0#, 0.02
         ],
         'architecture': [
-            mnist_mlp.name,
-            #mnist_lenet.name
+            #mnist_mlp.name,
+            mnist_lenet.name
         ],
         'epochs': [
-            20
+            25
         ],
         'dataset': [
-            "MNIST"
+            "SVHN"
         ],
         'attack_type': [
-            "CW", "DeepFool", "FGSM", "BIM"
+            "FGSM"#"CW", "DeepFool", "FGSM", "BIM"
         ],
         'num_iter': [
             25
         ]
     },
-    binary=f"{rootpath}/tda/experiments/thomas/attacks_performance_binary.py",
+    binary=f"{rootpath}/tda/experiments/attack_performance/attacks_performance_binary.py",
     max_nb_processes=1
 )

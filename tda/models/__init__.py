@@ -80,12 +80,16 @@ def train_network(
     if prune_percentile != 0.0:
         init_weight_dict = copy.deepcopy(model.state_dict())
 
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
+    optimizer = optim.SGD(model.parameters(), lr=0.025)
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=12, verbose=True,
+        optimizer, mode='min', patience=6, verbose=True,
         factor=0.5)
     t = time()
+
+    mod = torch.load("/Users/m.goibert/Downloads/svhn_svhn_lenet_200_epochs.model")
+    model.load_state_dict(mod.state_dict())
+
     for epoch in range(num_epochs):
         logger.info(f"Starting epoch {epoch} ({time()-t} secs)")
         t = time()
