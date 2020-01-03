@@ -240,7 +240,7 @@ class ConvLayer(Layer):
         return reduce(lambda a, b: a * b, list(t.shape))
 
     @staticmethod
-    @njit
+    @njit(parallel=True)
     def _generate_cnn_edges(
             kernel: np.ndarray,
             nbcols_input: int,
@@ -282,7 +282,6 @@ class ConvLayer(Layer):
                         row = offset_i // stride + (offset_j // stride) * nb_offset_i
                         col = offset_i + j + offset_j * (
                                     nb_offset_i + nbrows_kernel - 1) + i * nbcols_input_with_padding
-                        edge = (1, 2, 3)
 
                         if padding > 0:
                             if col < nbcols_input_with_padding \
@@ -300,7 +299,7 @@ class ConvLayer(Layer):
 
                         if not 0 <= row_ind[-1] <= nb_offset_i * nb_offset_j - 1 \
                                 or not 0 <= col_ind[-1] <= nbcols - 1:
-                            raise RuntimeError(edge)
+                            raise RuntimeError("Invalid edge")
         return data, col_ind, row_ind, nb_offset_i * nb_offset_j
 
     def get_matrix(self):
@@ -334,31 +333,21 @@ class ConvLayer(Layer):
         for param in self.func.parameters():
             # TODO: why this order out / in ???
             kernel = param.data[out_channel, in_channel, :, :]
-        # logging.info(f"My kernel for in={in_channel} and out={out_channel} has shape {kernel.shape}")
 
         ##################################
         # Compute the size of the matrix #
         ##################################
 
-        # all shapes should be the same in the activations
-        # let's choose one parent layer
         parentidx = list(self._activations.keys())[0]
-
         activations = self._activations[parentidx][:, in_channel, :, :]
-        # logging.info(f"My activations for in={in_channel} and out={out_channel} has shape {activations.shape}")
 
-        # Number of columns in the input image
         nbcols_input = list(activations.shape)[-1]
         nbrows_input = list(activations.shape)[-2]
         nbcols = ConvLayer._get_nb_elements(activations)
 
-        # logging.info(f"NbCols={nbcols}")
-        # (nb_lines - kernel_size + 2 * padding) // stride + 1
         #############################
         # Compute Toeplitz matrices #
         #############################
-
-        # logger.info((self._stride, nb_offset_i, nb_offset_j))
 
         (data, col_ind, row_ind, nbrows) = ConvLayer._generate_cnn_edges(
             nbcols=nbcols,
