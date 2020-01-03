@@ -219,7 +219,7 @@ class ConvLayer(Layer):
                 kernel_size=kernel_size,
                 stride=stride,
                 padding=padding,
-                bias=False
+                bias=bias
             ),
             graph_layer=True
         )
@@ -246,7 +246,6 @@ class ConvLayer(Layer):
             tuple(self.get_matrix_for_channel(in_c, out_c)[parentidx] for in_c in range(self._in_channels))
             for out_c in range(self._out_channels)
             ))
-            #print(parentidx, np.shape(m[parentidx]))
 
         return m
 
@@ -321,9 +320,6 @@ class ConvLayer(Layer):
         final_matrix = torch.cat(final_matrix, axis=0)
         if self._padding > 0:
             final_matrix = final_matrix[:, self._padding * nbcols_input:-self._padding * nbcols_input]
-
-        #print(toeplitz_row.shape)
-        #print(in_channel, out_channel, final_matrix.shape)
 
 
         ##############################
@@ -400,6 +396,7 @@ class BatchNorm2d(Layer):
             func=nn.BatchNorm2d(num_features=channels),
             graph_layer=False
         )
+        self._activ = activ
 
     def process(self, x, store_for_graph):
         x = sum(x.values())
@@ -511,7 +508,6 @@ class Architecture(nn.Module):
             #logger.info(f"Layer nb {layer_idx}")
             if layer_idx != -1:
                 layer = self.layers[layer_idx]
-                #logger.info(f"{[parent_idx for parent_idx in self.parent_dict[layer_idx]]} and {[outputs[parent_idx] for parent_idx in self.parent_dict[layer_idx]]}")
                 input = {
                     parent_idx: outputs[parent_idx].double()
                     for parent_idx in self.parent_dict[layer_idx]
@@ -535,6 +531,7 @@ class Architecture(nn.Module):
         # Getting matrix for each layer
         ret = dict()
         for layer_idx, layer in enumerate(self.layers):
+            logger.info(f"Processing layer {layer_idx}")
             if layer.graph_layer:
                 m = layer.get_matrix()
                 for parentidx in m:

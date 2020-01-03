@@ -4,7 +4,7 @@ import torch
 
 from tda.graph import Graph
 from tda.models.architectures import Architecture, LinearLayer, \
-    ConvLayer, mnist_mlp, svhn_cnn_simple, svhn_lenet, SoftMaxLayer
+    ConvLayer, mnist_mlp, svhn_cnn_simple, svhn_lenet, SoftMaxLayer, svhn_resnet
 
 
 def test_simple_graph():
@@ -177,15 +177,27 @@ def test_simple_cnn_multi_channels():
 
 
 def test_svhn_graph():
+    simple_example = torch.ones((3, 32, 32))*0.2
 
-    def foo():
-        simple_example = torch.randn((3, 32, 32))
-        graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example, use_sigmoid=False)
-        adjacency_matrix = graph.get_adjacency_matrix()
-        return np.shape(adjacency_matrix)
+    for param in svhn_cnn_simple.parameters():
+        param.data = torch.ones_like(param.data)*0.5
 
-    foo()
-    # assert benchmark(foo) == (11838, 11838)
+    graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example, use_sigmoid=False)
+    adjacency_matrix = graph.get_adjacency_matrix()
+
+    assert np.linalg.norm(adjacency_matrix) == 5798210602234079.0
+    assert np.shape(adjacency_matrix) == (11838, 11838)
+
+
+def test_svhn_resnet_graph():
+    simple_example = torch.randn((3, 32, 32))
+    out = svhn_resnet.forward(simple_example)
+    print(out)
+    print(out.shape)
+
+    graph = Graph.from_architecture_and_data_point(svhn_resnet, simple_example, use_sigmoid=False)
+    edge_list = graph.get_edge_list()
+    print(len(edge_list))
 
 
 def test_svhn_lenet_graph():
@@ -197,4 +209,11 @@ def test_svhn_lenet_graph():
 
 
 if __name__ == "__main__":
-    test_simple_graph()
+    simple_example = torch.randn((3, 32, 32))
+    out = svhn_resnet.forward(simple_example)
+    print(out)
+    print(out.shape)
+
+    graph = Graph.from_architecture_and_data_point(svhn_resnet, simple_example, use_sigmoid=False)
+    edge_list = graph.get_edge_list()
+    print(len(edge_list))
