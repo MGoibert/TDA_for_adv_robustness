@@ -56,8 +56,9 @@ class FGSM(_BaseAttack):
         loss = self.loss_func(pred, target, num_classes)
         self.model.zero_grad()
         loss.backward(retain_graph=retain_graph)
-        logger.info(f"L-inf difference between x and x_adv = {torch.abs(self.clamp(data + epsilon * data.grad.data.sign()) - data).max()}")
-        return self.clamp(data + epsilon * data.grad.data.sign())
+        x_adv = self.clamp(data + epsilon * data.grad.data.sign())
+        #logger.info(f"L-inf difference between x and x_adv = {torch.abs(x_adv - data).max()}")
+        return x_adv
 
 # BIM
 class BIM(_BaseAttack):
@@ -72,7 +73,7 @@ class BIM(_BaseAttack):
         target = target.detach()
         if epsilon_iter is None:
             epsilon_iter = 5 * epsilon / self.num_iter
-        logger.info(f"BIM num iter = {self.num_iter} and epsilon iter = {epsilon_iter}")
+        #logger.info(f"BIM num iter = {self.num_iter} and epsilon iter = {epsilon_iter}")
 
         x_ori = data.data
         for _ in range(self.num_iter):
@@ -269,7 +270,7 @@ class CW(_BaseAttack):
         self.lims = lims
 
     def run(self, data, target, **kwargs):
-        logger.info(f"CW binary search steps = {self.binary_search_steps} and number iterations = {self.num_iter}")
+        #logger.info(f"CW binary search steps = {self.binary_search_steps} and number iterations = {self.num_iter}")
         perturbed_data = CW_attack(
             data, target, self.model, num_iter=self.num_iter,
             binary_search_steps=self.binary_search_steps, lims=self.lims, **kwargs)
@@ -285,7 +286,7 @@ class DeepFool(_BaseAttack):
         self.model = model
 
     def run(self, image, true_label, epsilon=None):
-        logger.info(f"DeepFool number of iteration = {self.num_iter}")
+        #logger.info(f"DeepFool number of iteration = {self.num_iter}")
         self.model.eval()
 
         nx = torch.unsqueeze(image, 0).detach().cpu().numpy().copy()

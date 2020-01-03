@@ -368,12 +368,6 @@ class ConvLayer(Layer):
             padding=self._padding,
             stride=self._stride
         )
-        # logger.info("---")
-
-        # logger.info((data, (row_ind, col_ind)))
-        # logger.info((nb_offset_i * nb_offset_j, nbcols))
-
-        # logger.info(f"{(in_channel, out_channel)} Shape is {m.todense().shape}")
 
         ret = dict()
         for parentidx in self._activations:
@@ -436,12 +430,18 @@ class ReluLayer(Layer):
             graph_layer=False
         )
 
+    def process(self, x, store_for_graph):
+        x = sum(x.values())
+        out = self.func(x)
+        return out
+
     def get_matrix(self):
         raise NotImplementedError()
 
 
 class BatchNorm2d(Layer):
     def __init__(self, channels, activ=None):
+        self._activ = activ
         super().__init__(
             func=nn.BatchNorm2d(num_features=channels),
             graph_layer=False
@@ -554,9 +554,9 @@ class Architecture(nn.Module):
 
         # Going through all layers
         for layer_idx in self.layer_visit_order:
+            #logger.info(f"Layer nb {layer_idx}")
             if layer_idx != -1:
                 layer = self.layers[layer_idx]
-                # logger.info(layer_idx)
                 input = {
                     parent_idx: outputs[parent_idx].double()
                     for parent_idx in self.parent_dict[layer_idx]
@@ -749,9 +749,35 @@ svhn_resnet = Architecture(
         ConvLayer(in_channels=128, out_channels=256, kernel_size=1, stride=2, padding=0, bias=False),
         ConvLayer(in_channels=256, out_channels=512, kernel_size=1, stride=2, padding=0, bias=False)
     ],
-    layer_links=[(i - 1, i) for i in range(45)] + [
-        (1, 6), (6, 11), (16, 21), (26, 31), (36, 41),
-        (11, 45), (45, 16), (21, 46), (46, 26), (31, 47), (47, 36)
+    layer_links=[(i-1,i) for i in range(45)]+[
+        (1,6), (6,11), (16,21), (26,31), (36,41),
+        (11,45), (45,16), (21,46), (46,26), (31,47), (47,36)
+    ])
+
+svhn_resnet_test = Architecture(
+    name="svhn_resnet_test",
+    preprocess=svhn_preprocess,
+    layers=[
+        # 1st layer / no stack or block
+        ConvLayer(in_channels=3, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+
+        #  Stack 1
+            # Block a
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(in_channels=64, out_channels=64,kernel_size=3, stride=1, padding=1, bias=False),
+        BatchNorm2d(channels=64),
+        ReluLayer(),
+
+        # End part
+        AvgPool2dLayer(kernel_size=32),
+        LinearLayer(64,10),
+        SoftMaxLayer(),
+
+        ],
+    layer_links=[(i-1,i) for i in range(10)]+[
+        (1,6)
     ])
 
 known_architectures: List[Architecture] = [
@@ -760,7 +786,8 @@ known_architectures: List[Architecture] = [
     svhn_lenet,
     svhn_resnet,
     mnist_lenet,
-    mnist_small_mlp
+    mnist_small_mlp,
+    svhn_resnet_test
 ]
 
 

@@ -45,7 +45,7 @@ args, _ = parser.parse_known_args()
 logger = logging.getLogger("GraphStats")
 
 if args.attack_type in ["FGSM", "BIM"]:
-    all_epsilons = list(sorted(np.linspace(0.0, 0.4, num=21)))
+    all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=21)))
 else:
     all_epsilons = [0.0, 1]
 
