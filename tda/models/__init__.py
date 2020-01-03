@@ -4,6 +4,7 @@ import numpy as np
 from time import time
 import pathlib
 import os
+import copy
 import typing
 import logging
 from tda.models.architectures import mnist_mlp, Architecture
@@ -63,7 +64,9 @@ def train_network(
         val_loader,
         loss_func,
         num_epochs: int,
-        train_noise: float =0.0) -> Architecture:
+        train_noise: float = 0.0,
+        prune_percentile: float = 0.0,
+        first_pruned_iter: int = 1) -> Architecture:
     """
     Helper function to train an arbitrary model
     """
@@ -74,16 +77,20 @@ def train_network(
     else:
         logger.info("Learning on CPU")
 
+    if prune_percentile != 0.0:
+        init_weight_dict = copy.deepcopy(model.state_dict())
+
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=5, verbose=True,
+        optimizer, mode='min', patience=12, verbose=True,
         factor=0.5)
     t = time()
     for epoch in range(num_epochs):
         logger.info(f"Starting epoch {epoch} ({time()-t} secs)")
         t = time()
         model.train()
+
         for x_batch, y_batch in train_loader:
             if device.type == "cuda":
                 x_batch = x_batch.to(device)
@@ -101,6 +108,15 @@ def train_network(
                 loss_noisy = loss_func(y_pred_noisy, y_batch_noisy)
                 loss = 0.75*loss + 0.25*loss_noisy
             loss.backward()
+
+            c = 0
+            for i, (name, param) in enumerate(model.named_parameters()):
+                if len(param.data.size()) > 1 and epoch > first_pruned_iter and prune_percentile != 0.0:
+                    param.data = param.data * mask_[i]
+                    param.grad.data = param.grad.data * mask_[i]
+                c += np.count_nonzero(param.grad.data)
+            #logger.info(f"epoch {epoch} nonzero grad = {c}")
+            
             optimizer.step()
         model.eval()
         for x_val, y_val in val_loader:
@@ -112,7 +128,18 @@ def train_network(
             val_loss = loss_func(y_val_pred, y_val)
             print("Validation loss = ", np.around(val_loss.item(), decimals=4))
             loss_history.append(val_loss.item())
-        scheduler.step(val_loss)
+        if True:#epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
+            scheduler.step(val_loss)
+
+        if epoch % first_pruned_iter == 0 and epoch != 0 and prune_percentile != 0.0 and epoch < 0.9*(num_epochs-first_pruned_iter):
+            logger.info(f"Pruned net epoch {epoch}")
+            model, mask_ = prune_model(model,
+                        percentile=prune_percentile,
+                        init_weight=init_weight_dict)
+        c = 0
+        for i, p in enumerate(model.parameters()):
+            c += np.count_nonzero(p.data)
+        logger.info(f"percentage non zero parameters = {c/sum(p.numel() for p in model.parameters())}")
 
     return model, loss_history
 
@@ -165,3 +192,27 @@ def get_deep_model(
         net.cuda(device)
 
     return net, loss_func
+
+def prune_model(model, percentile=10, init_weight=None):
+    count_nonzero = 0
+    count_tot = 0
+    mask_dict = dict()
+    num_param = len(list(model.parameters()))
+    for i, (name, param) in enumerate(model.named_parameters()):
+        # We only prune weight parameters (not bias)
+        if len(param.data.size()) > 1:
+            if i < num_param - 1:
+                perc = np.percentile(abs(param.data[param.data != 0.0]), percentile)
+            else:
+                perc = np.percentile(abs(param.data[param.data != 0.0]), percentile/2.0)
+            mask = torch.tensor(np.where(abs(param.data) < perc, 0, 1)).double()
+            mask_dict[i] = mask
+            param.data = mask * param.data
+            param.grad.data = mask * param.grad.data
+            if init_weight: # In case of reinitialization of weights
+                param.data = mask * init_weight[str(name)]
+            count_tot += np.prod(param.data.size())
+            count_nonzero += np.count_nonzero(param.data)
+    logger.info(f"Percentage pruned = {1 - count_nonzero/count_tot}")
+
+    return model, mask_dict
