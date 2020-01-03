@@ -6,6 +6,8 @@ import logging
 import time
 import typing
 from multiprocessing import Pool
+import os
+import pathlib
 
 import numpy as np
 import seaborn as sns
@@ -139,7 +141,9 @@ if args.identical_train_samples < 0.5:
 # Noisy dataset
 if args.noise > 0.0:
     logger.info(f"Noisy train dataset !!")
-    noisy_embeddings = get_embeddings(epsilon=0.0, noise=args.noise, start=start)
+    noisy_embeddings = list()
+    for noise in [0.005, 0.05, 0.1]:
+        noisy_embeddings += get_embeddings(epsilon=0.0, noise=noise, start=start)
 else:
     noisy_embeddings = list()
 if args.identical_train_samples < 0.5:
@@ -158,7 +162,7 @@ else:
     ]
 
 if args.attack_type in ["FGSM", "BIM", "All"]:
-    all_epsilons = list([0.005, 0.01, 0.02])
+    all_epsilons = list([0.005, 0.05, 0.1])
 elif args.attack_type in ["DeepFool", "CW"]:
     all_epsilons = [1]
 
@@ -221,7 +225,9 @@ def process(embedding, fit=True, kpca0=None, embedding_init=None):
 
 plt.style.use('seaborn-dark')
 
-labels = len(clean_embeddings)*list(["Clean"]) + len(noisy_embeddings)*list(["Noisy"])
+labels = len(clean_embeddings)*list(["Clean"]) #+ len(noisy_embeddings)*list(["Noisy"])
+for noise in [0.005, 0.05, 0.1]:
+    labels += (len(noisy_embeddings)//3)*list([f"Noisy {noise}"])
 if args.attack_type != "All":
     for epsilon in all_epsilons:
          labels += len(adv_embeddings[epsilon])*list([f"Adv {args.attack_type} {epsilon}"])
@@ -240,7 +246,7 @@ filename = directory + f"/{args.attack_type}.png"
 
 le = len(all_epsilons)
 if args.attack_type == "FGSM":
-    pal = sns.color_palette(["#0F0F0F", "#A0A0A0"] + sns.color_palette("Blues", le))
+    pal = sns.color_palette(["#0F0F0F", "#757575", "#A0A0A0", "#C9C9C9"] + sns.color_palette("Blues", le))
 elif args.attack_type == "BIM":
     pal = sns.color_palette(["#0F0F0F", "#A0A0A0"] + sns.color_palette("Greens", le))
 elif args.attack_type == "DeepFool":
