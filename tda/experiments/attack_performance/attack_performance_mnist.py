@@ -14,16 +14,19 @@ experiment = R3D3Experiment(
             mnist_lenet.name
         ],
         'epochs': [
-            25
+            50
         ],
         'dataset': [
-            "SVHN"
+            "MNIST"
         ],
         'attack_type': [
             "FGSM"#"CW", "DeepFool", "FGSM", "BIM"
         ],
         'num_iter': [
             25
+        ],
+        'dataset_size': [
+            1500
         ]
     },
     binary=f"{rootpath}/tda/experiments/attack_performance/attacks_performance_binary.py",
