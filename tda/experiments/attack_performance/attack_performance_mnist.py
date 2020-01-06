@@ -7,24 +7,24 @@ experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'noise': [
-            0.0#, 0.02
+            0.0
         ],
         'architecture': [
-            #mnist_mlp.name,
             mnist_lenet.name
         ],
         'epochs': [
-            25
+            50
         ],
         'dataset': [
-            "SVHN"
+            "MNIST"
         ],
         'attack_type': [
-            "FGSM"#"CW", "DeepFool", "FGSM", "BIM"
+            "FGSM"
         ],
         'num_iter': [
-            25
-        ]
+            -1
+        ],
+        'dataset_size': [500]
     },
     binary=f"{rootpath}/tda/experiments/attack_performance/attacks_performance_binary.py",
     max_nb_processes=1

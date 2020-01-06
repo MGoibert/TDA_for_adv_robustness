@@ -7,7 +7,7 @@ import os
 import copy
 import typing
 import logging
-from tda.models.architectures import mnist_mlp, Architecture
+from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 from tda.devices import device
@@ -80,20 +80,27 @@ def train_network(
     if prune_percentile != 0.0:
         init_weight_dict = copy.deepcopy(model.state_dict())
 
-    optimizer = optim.SGD(model.parameters(), lr=0.025)
+    if model.name == mnist_lenet.name:
+        lr = 0.1
+        patience = 5
+    elif model.name == svhn_lenet.name:
+        lr = 0.05
+        patience = 8
+
+    optimizer = optim.SGD(model.parameters(), lr=lr)
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=6, verbose=True,
+        optimizer, mode='min', patience=patience, verbose=True,
         factor=0.5)
     t = time()
 
-    mod = torch.load("/Users/m.goibert/Downloads/svhn_svhn_lenet_200_epochs.model")
-    model.load_state_dict(mod.state_dict())
+    #mod = torch.load("/Users/m.goibert/Downloads/svhn_svhn_lenet_200_epochs.model")
+    #model.load_state_dict(mod.state_dict())
 
     for epoch in range(num_epochs):
         logger.info(f"Starting epoch {epoch} ({time()-t} secs)")
         t = time()
-        model.train()
+        model.set_train_mode()
 
         for x_batch, y_batch in train_loader:
             if device.type == "cuda":
@@ -118,11 +125,12 @@ def train_network(
                 if len(param.data.size()) > 1 and epoch > first_pruned_iter and prune_percentile != 0.0:
                     param.data = param.data * mask_[i]
                     param.grad.data = param.grad.data * mask_[i]
-                c += np.count_nonzero(param.grad.data)
+
+                c += np.count_nonzero(param.grad.data.cpu())
             #logger.info(f"epoch {epoch} nonzero grad = {c}")
             
             optimizer.step()
-        model.eval()
+        model.set_eval_mode()
         for x_val, y_val in val_loader:
             x_val = x_val.double()
             if device.type == "cuda":
@@ -142,7 +150,7 @@ def train_network(
                         init_weight=init_weight_dict)
         c = 0
         for i, p in enumerate(model.parameters()):
-            c += np.count_nonzero(p.data)
+            c += np.count_nonzero(p.data.cpu())
         logger.info(f"percentage non zero parameters = {c/sum(p.numel() for p in model.parameters())}")
 
     return model, loss_history
@@ -152,7 +160,9 @@ def get_deep_model(
         num_epochs: int,
         dataset: Dataset,
         architecture: Architecture = mnist_mlp,
-        train_noise: float = 0.0
+        train_noise: float = 0.0,
+        with_details: bool = False,
+        force_retrain: bool = False
 ) -> typing.Tuple[Architecture, nn.Module]:
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
@@ -171,13 +181,16 @@ def get_deep_model(
     loss_func = nn.CrossEntropyLoss()
 
     try:
+        if force_retrain:
+            raise FileNotFoundError("Force retrain")
+
         net = torch.load(model_filename, map_location=device)
         print(f"Loaded successfully model from {model_filename}")
     except FileNotFoundError:
         print(f"Unable to find model in {model_filename}... Retraining it...")
 
         # Train the NN
-        net = train_network(
+        net: Architecture = train_network(
             architecture,
             dataset.train_loader,
             dataset.val_loader,
@@ -186,8 +199,10 @@ def get_deep_model(
             train_noise)[0]
 
         # Compute accuracies
-        logger.info(f"Validation accuracy = {compute_val_acc(architecture, dataset.val_loader)}")
-        logger.info(f"Test accuracy = {compute_test_acc(architecture, dataset.test_loader)}")
+        val_accuracy = compute_val_acc(architecture, dataset.val_loader)
+        logger.info(f"Validation accuracy = {val_accuracy}")
+        test_accuracy = compute_test_acc(architecture, dataset.test_loader)
+        logger.info(f"Test accuracy = {test_accuracy}")
 
         # Saving model
         torch.save(net, model_filename)
@@ -195,7 +210,12 @@ def get_deep_model(
     if device.type == "cuda":
         net.cuda(device)
 
+    if with_details:
+        return net, val_accuracy, test_accuracy
+    # Forcing eval mode just in case it was not done before
+    net.set_eval_mode()
     return net, loss_func
+
 
 def prune_model(model, percentile=10, init_weight=None):
     count_nonzero = 0
@@ -216,7 +236,7 @@ def prune_model(model, percentile=10, init_weight=None):
             if init_weight: # In case of reinitialization of weights
                 param.data = mask * init_weight[str(name)]
             count_tot += np.prod(param.data.size())
-            count_nonzero += np.count_nonzero(param.data)
+            count_nonzero += np.count_nonzero(param.data.cpu())
     logger.info(f"Percentage pruned = {1 - count_nonzero/count_tot}")
 
     return model, mask_dict
