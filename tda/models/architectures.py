@@ -484,6 +484,14 @@ class Architecture(nn.Module):
             for j, param in enumerate(layer.func.parameters()):
                 self.register_parameter(f"{i}_{j}", param)
 
+    def set_train_mode(self):
+        for layer in self.layers:
+            layer.func.train()
+
+    def set_eval_mode(self):
+        for layer in self.layers:
+            layer.func.eval()
+
     def get_pre_softmax_idx(self):
         softmax_layer_idx = None
         for layer_idx, layer in enumerate(self.layers):
