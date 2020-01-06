@@ -82,7 +82,7 @@ def train_network(
 
     if model.name == mnist_lenet.name:
         lr = 0.1
-        patience = 5
+        patience = 12
     elif model.name == svhn_lenet.name:
         lr = 0.05
         patience = 8
@@ -143,11 +143,14 @@ def train_network(
         if True:#epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
             scheduler.step(val_loss)
 
-        if epoch % first_pruned_iter == 0 and epoch != 0 and prune_percentile != 0.0 and epoch < 0.9*(num_epochs-first_pruned_iter):
+        if epoch % first_pruned_iter == 0 \
+                and epoch != 0 \
+                and prune_percentile != 0.0 \
+                and epoch < 0.9*(num_epochs-first_pruned_iter):
             logger.info(f"Pruned net epoch {epoch}")
             model, mask_ = prune_model(model,
-                        percentile=prune_percentile,
-                        init_weight=init_weight_dict)
+                                       percentile=prune_percentile,
+                                       init_weight=init_weight_dict)
         c = 0
         for i, p in enumerate(model.parameters()):
             c += np.count_nonzero(p.data.cpu())
