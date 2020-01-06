@@ -120,14 +120,14 @@ def train_network(
                 loss = 0.75*loss + 0.25*loss_noisy
             loss.backward()
 
-            c = 0
+            # c = 0
             for i, (name, param) in enumerate(model.named_parameters()):
                 if len(param.data.size()) > 1 and epoch > first_pruned_iter and prune_percentile != 0.0:
                     param.data = param.data * mask_[i]
                     param.grad.data = param.grad.data * mask_[i]
 
-                c += np.count_nonzero(param.grad.data.cpu())
-            #logger.info(f"epoch {epoch} nonzero grad = {c}")
+                # c += np.count_nonzero(param.grad.data.cpu())
+            # logger.info(f"epoch {epoch} nonzero grad = {c}")
             
             optimizer.step()
         model.set_eval_mode()
