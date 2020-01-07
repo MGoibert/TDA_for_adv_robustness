@@ -8,7 +8,7 @@ Author: Morgane Goibert <morgane.goibert@gmail.com>
 
 import logging
 from functools import reduce
-from typing import List, Callable, Tuple, Dict
+from typing import List, Callable, Tuple, Dict, Optional
 
 import numpy as np
 from scipy.sparse import coo_matrix, bmat as sparse_bmat
@@ -33,11 +33,13 @@ class Layer(object):
 
     def __init__(self,
                  func: nn.Module,
-                 graph_layer: bool
+                 graph_layer: bool,
+                 name: Optional[str] = None
                  ):
         self.func = func
         self.graph_layer = graph_layer
         self._activations = None
+        self.name = name
 
     def get_matrix(self):
         raise NotImplementedError()
@@ -51,11 +53,12 @@ class Layer(object):
 
 class LinearLayer(Layer):
 
-    def __init__(self, in_width, out_width, activ=None):
+    def __init__(self, in_width, out_width, activ=None, name=None):
 
         super().__init__(
             func=nn.Linear(in_width, out_width),
-            graph_layer=True
+            graph_layer=True,
+            name=name
         )
 
         self._in_width = in_width
@@ -212,7 +215,8 @@ class ConvLayer(Layer):
                  stride=1,
                  padding=0,
                  bias=False,
-                 activ=None):
+                 activ=None,
+                 name=None):
 
         super().__init__(
             func=nn.Conv2d(
@@ -223,7 +227,8 @@ class ConvLayer(Layer):
                 padding=padding,
                 bias=bias
             ),
-            graph_layer=True
+            graph_layer=True,
+            name=name
         )
 
         self._in_channels = in_channels
@@ -481,8 +486,10 @@ class Architecture(nn.Module):
         self.parent_dict = Architecture.get_parent_dict(self.layer_links)
 
         for i, layer in enumerate(layers):
-            for j, param in enumerate(layer.func.parameters()):
-                self.register_parameter(f"{i}_{j}", param)
+            layer_params = dict(layer.func.named_parameters())
+            layer_name = layer.name or f"layer{i}"
+            for name in layer_params:
+                self.register_parameter(f"{layer_name}_{name}", layer_params[name])
 
     def set_train_mode(self):
         for layer in self.layers:
@@ -626,13 +633,13 @@ mnist_lenet = Architecture(
     name="mnist_lenet",
     preprocess=mnist_preprocess2,
     layers=[
-        ConvLayer(1, 10, 5, activ=F.relu),  # output 6 * 28 * 28
+        ConvLayer(1, 10, 5, activ=F.relu, bias=True, name="conv1"),  # output 6 * 28 * 28
         MaxPool2dLayer(2),
-        ConvLayer(10, 20, 5, activ=F.relu),  # output 6 * 28 * 28
+        ConvLayer(10, 20, 5, activ=F.relu, bias=True, name="conv2"),  # output 6 * 28 * 28
         MaxPool2dLayer(2),
-        LinearLayer(320, 50, activ=F.relu),
+        LinearLayer(320, 50, activ=F.relu, name="fc1"),
         DropOut(),
-        LinearLayer(50, 10),
+        LinearLayer(50, 10, name="fc2"),
         SoftMaxLayer()
     ])
 

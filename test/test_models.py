@@ -4,7 +4,7 @@ import random
 
 from tda.models import get_deep_model
 from tda.models.datasets import Dataset
-from tda.models.architectures import mnist_mlp, svhn_cnn_simple, Architecture
+from tda.models.architectures import mnist_mlp, svhn_cnn_simple, Architecture, mnist_lenet
 
 
 def test_get_mnist_model():
@@ -16,7 +16,7 @@ def test_get_mnist_model():
     _, val_acc, test_acc = get_deep_model(
         dataset=source_dataset.Dataset_,
         num_epochs=1,
-        architecture=mnist_mlp,
+        architecture=mnist_lenet,
         with_details=True,
         force_retrain=True
     )

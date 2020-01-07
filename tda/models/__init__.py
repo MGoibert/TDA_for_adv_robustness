@@ -94,9 +94,6 @@ def train_network(
         factor=0.5)
     t = time()
 
-    #mod = torch.load("/Users/m.goibert/Downloads/svhn_svhn_lenet_200_epochs.model")
-    #model.load_state_dict(mod.state_dict())
-
     for epoch in range(num_epochs):
         logger.info(f"Starting epoch {epoch} ({time()-t} secs)")
         t = time()
@@ -165,8 +162,22 @@ def get_deep_model(
         architecture: Architecture = mnist_mlp,
         train_noise: float = 0.0,
         with_details: bool = False,
-        force_retrain: bool = False
+        force_retrain: bool = False,
+        pretrained_pth: str = ""
 ) -> typing.Tuple[Architecture, nn.Module]:
+    loss_func = nn.CrossEntropyLoss()
+
+    if len(pretrained_pth) > 0:
+        state_dict = torch.load(
+            f"{rootpath}/tda/models/pretrained/{pretrained_pth}",
+            map_location=device
+        )
+        state_dict = {key.replace(".", "_"): state_dict[key] for key in state_dict}
+        architecture.load_state_dict(state_dict)
+        if device.type == "cuda":
+            architecture.cuda(device)
+        return architecture, loss_func
+
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
 
@@ -181,7 +192,7 @@ def get_deep_model(
                      f"{num_epochs}_" \
                      f"epochs.model"
     logger.info(f"Filename = {model_filename} \n")
-    loss_func = nn.CrossEntropyLoss()
+
 
     try:
         if force_retrain:
