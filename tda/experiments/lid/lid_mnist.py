@@ -8,10 +8,10 @@ experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'architecture': [
-            mnist_mlp.name
+            mnist_lenet.name
         ],
         'epochs': [
-            20
+            50
         ],
         'dataset': [
             "MNIST"
@@ -23,12 +23,18 @@ experiment = R3D3Experiment(
           25
         ],
         'epsilon': [
-            0.4
+            0.02, 0.1, 0.2, 0.4
         ],
         'noise': [
-            0.0
+            0.1
+        ],
+        "batch_size": [
+            500
+        ],
+        "number_of_nn": [
+            100
         ]
     },
-    binary=f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary.py",
+    binary=f"{rootpath}/tda/experiments/lid/lid_binary.py",
     max_nb_processes=1
 )
