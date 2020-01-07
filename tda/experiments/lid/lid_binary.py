@@ -30,7 +30,6 @@ parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
 parser.add_argument('--dataset_size', type=int, default=100)
 parser.add_argument('--attack_type', type=str, default="FGSM")
 parser.add_argument('--epsilon', type=float, default=0.02)
-parser.add_argument('--preproc_epsilon', type=float, default=0.0)
 parser.add_argument('--noise', type=float, default=0.0)
 
 args, _ = parser.parse_known_args()
