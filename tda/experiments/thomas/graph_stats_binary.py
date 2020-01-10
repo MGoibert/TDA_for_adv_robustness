@@ -105,7 +105,11 @@ def get_stats(
 
         for key in graph._edge_dict:
             layer_matrix = graph._edge_dict[key]
+            if not isinstance(layer_matrix, np.matrix):
+                layer_matrix = layer_matrix.todense()
             if key in weights_per_layer:
+                if not isinstance(weights_per_layer[key], np.matrix):
+                    weights_per_layer[key] = weights_per_layer[key].todense()
                 weights_per_layer[key] = np.concatenate([weights_per_layer[key], layer_matrix])
             else:
                 weights_per_layer[key] = layer_matrix

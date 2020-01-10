@@ -79,6 +79,7 @@ thresholds = process_thresholds(
 )
 
 stats = {}
+stats_inf = {}
 
 def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     """
@@ -102,6 +103,7 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
             train_noise=args.train_noise
     ):
         stats[epsilon].append(line.l2_norm)
+        stats_inf[epsilon].append(line.linf_norm)
         my_embeddings.append(get_embedding(
             embedding_type=args.embedding_type,
             graph=line.graph,
@@ -119,6 +121,7 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
 
 # Clean embeddings
 stats[0.0] = list()
+stats_inf[0.0] = list()
 
 start = 0
 
@@ -181,13 +184,14 @@ if args.attack_type in ["FGSM", "BIM"]:
     #all_epsilons = list(sorted(np.linspace(0.0, 0.03, num=7)))
     #all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=5)))
     #all_epsilons = list(sorted(np.linspace(0.0, 0.1, num=6)))
-    all_epsilons = list([0.0, 0.02])
+    all_epsilons = list([0.0, 0.025, 0.05, 0.075, 0.1])
 else:
     all_epsilons = [0.0, 1]
 
 adv_embeddings = dict()
 for epsilon in all_epsilons[1:]:
     stats[epsilon] = list()
+    stats_inf[epsilon] = list()
     logger.info(f"Adversarial test dataset for espilon = {epsilon} !!")
     adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=start)
     logger.info(
@@ -266,6 +270,8 @@ my_db.update_experiment(
             "_".join([str(v) for v in key]): thresholds[key]
             for key in thresholds
         },
-        "running_time": end_time - start_time
+        "running_time": end_time - start_time,
+        "l2_diff": stats,
+        "linf_diff": stats_inf
     }
 )
