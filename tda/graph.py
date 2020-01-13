@@ -69,16 +69,17 @@ class Graph(object):
             v = raw_edge_dict[layer_link]
             v = np.abs(v) * 10e5
             if thresholds:
-                loc = v.data < thresholds[layer_link]
+                loc = v.data > thresholds[layer_link]
                 v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
             if use_sigmoid:
-                logger.info(f"Using sigmoid for dataset {dataset}, archi {architecture} and epochs {epochs}")
-                file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
-                v.data = np.where(v.data > 0, cls.use_sigmoid(
-                    data=v.data,
-                    layer_link=layer_link,
-                    file=file
-                ), 0)
+                #logger.info(f"Using sigmoid for dataset {dataset}, archi {architecture} and epochs {epochs}")
+                #file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
+                #v.data = np.where(v.data > 0, cls.use_sigmoid(
+                #    data=v.data,
+                #    layer_link=layer_link,
+                #    file=file
+                #), 0)
+                v = -v
             edge_dict[layer_link] = v
 
         original_x = None
