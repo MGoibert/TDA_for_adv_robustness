@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import logging
 import pathlib
 import typing
 
@@ -13,12 +12,9 @@ from tda.models.architectures import Architecture, mnist_mlp
 from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
 from tda.devices import device
+from tda.logging import get_logger
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-handler.setLevel(logging.INFO)
-logger.addHandler(handler)
+logger = get_logger("GraphDataset")
 
 pathlib.Path("/tmp/tda/graph_datasets").mkdir(parents=True, exist_ok=True)
 
@@ -222,7 +218,7 @@ def get_dataset(
 
     while nb_samples < dataset_size:
         sample = source_dataset.test_and_val_dataset[i]
-        logger.info(f"per class : {per_class_nb_samples} and nb samples = {nb_samples}")
+        logger.debug(f"per class : {per_class_nb_samples} and nb samples = {nb_samples}")
 
         x, y = process_sample(
             sample=sample,
@@ -243,7 +239,7 @@ def get_dataset(
         y_adv = 0 if not adv else 1  # is it adversarial
 
         if adv and only_successful_adversaries and y_pred == y:
-            logger.info(f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv}) and diff = {l2_norm}")
+            logger.debug(f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv}) and diff = {l2_norm}")
             i += 1
             continue
         else:
@@ -251,11 +247,7 @@ def get_dataset(
                 model=model,
                 x=x.double(),
                 retain_data_point=retain_data_point,
-                thresholds=thresholds,
-                dataset=source_dataset_name,
-                architecture=architecture.name,
-                epochs=num_epochs,
-                use_sigmoid=use_sigmoid
+                thresholds=thresholds
             )
             nb_samples += 1
             i += 1

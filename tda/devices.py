@@ -1,8 +1,8 @@
-import logging
 import torch
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from tda.logging import get_logger
+
+logger = get_logger("Devices")
 
 nb_cuda_devices = torch.cuda.device_count()
 

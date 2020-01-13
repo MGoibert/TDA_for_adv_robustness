@@ -16,6 +16,7 @@ from tda.graph_dataset import get_dataset
 from tda.models.architectures import get_architecture
 from tda.models.architectures import mnist_lenet, Architecture
 from tda.rootpath import rootpath
+from tda.logging import get_logger
 
 ################
 # Parsing args #
@@ -34,11 +35,12 @@ parser.add_argument('--visualize_adj_mat', type=float, default=0)
 
 args, _ = parser.parse_known_args()
 
-logger = logging.getLogger("GraphStats")
+logger = get_logger("GraphStats")
 
 #####################
 # Fetching datasets #
 #####################
+
 
 def get_stats(
         epochs: int,
