@@ -13,7 +13,7 @@ import os
 
 from tda.graph import Graph
 from tda.graph_dataset import get_dataset
-from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet
+from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet, Architecture
 from tda.models.architectures import get_architecture, svhn_lenet
 
 # from igraph import Graph as IGraph
@@ -48,7 +48,6 @@ logger = logging.getLogger("GraphStats")
 if not os.path.exists("stats/"):
     os.mkdir("stats/")
 
-architecture = get_architecture(args.architecture)
 
 thresholds = None # list(np.zeros(10))
 #thresholds = [float(x) for x in args.thresholds.split("_")]
@@ -59,31 +58,45 @@ plt.style.use('seaborn-dark')
 def get_stats(
         epsilon: float,
         noise: float,
+        epochs: int,
+        architecture: Architecture,
+        dataset: str,
+        dataset_size: int,
         attack_type: str = "FGSM",
-        dataset_size: typing.Optional[int] = None
+        train_noise: float = 0.0,
+        num_iter: int = 10
 ) -> (typing.Dict, np.matrix):
     """
     Helper function to get list of embeddings
     """
+    my_args = "/".join(sorted([f"{k}={str(v)}" for (k, v) in locals().items()]))
+    my_args = f"{my_args}/stats.txt"
+    print(my_args)
+
+    quants_dict_filename = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
+
+    if not os.path.exists(quants_dict_filename):
+        logging.info(f"Computing weight per layer stats")
+
     logger.info(f"Computing weights stats")
 
     weights_per_layer = dict()
     print("eps =", epsilon)
 
     for line in get_dataset(
-            num_epochs=args.epochs,
+            num_epochs=epochs,
             epsilon=epsilon,
             noise=noise,
             adv=epsilon > 0.0,
             retain_data_point=False,
             architecture=architecture,
-            source_dataset_name=args.dataset,
-            dataset_size=dataset_size or args.dataset_size,
+            source_dataset_name=dataset,
+            dataset_size=dataset_size,
             thresholds=thresholds,
             only_successful_adversaries=False,
             attack_type=attack_type,
-            num_iter=args.num_iter,
-            train_noise=args.train_noise,
+            num_iter=num_iter,
+            train_noise=train_noise,
             use_sigmoid=False
         ):
 
@@ -146,7 +159,16 @@ def get_stats(
 
 
 if __name__ == '__main__':
-    weights, _ = get_stats(epsilon=0.0, noise=0.0, dataset_size=args.dataset_size)
+    weights, _ = get_stats(
+        epsilon=0.0,
+        noise=0.0,
+        dataset_size=args.dataset_size,
+        architecture=get_architecture(args.architecture),
+        dataset=args.dataset,
+        epochs=args.epochs,
+        train_noise=args.train_noise,
+        num_iter=args.num_iter
+    )
     quants = np.linspace(0, 1, 1001)
     quants_dict = dict()
     for key in weights:
