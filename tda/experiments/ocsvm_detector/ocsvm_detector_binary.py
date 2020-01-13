@@ -73,13 +73,14 @@ else:
 thresholds = process_thresholds(
     raw_thresholds=args.thresholds,
     dataset=args.dataset,
-    architecture=args.architecture,
+    architecture=architecture,
     epochs=args.epochs,
     dataset_size=5
 )
 
 stats = {}
 stats_inf = {}
+
 
 def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     """

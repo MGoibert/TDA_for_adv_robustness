@@ -245,7 +245,7 @@ class ConvLayer(Layer):
         return reduce(lambda a, b: a * b, list(t.shape))
 
     @staticmethod
-    @njit(parallel=True)
+    @njit
     def _generate_cnn_edges(
             kernel: np.ndarray,
             nbcols_input: int,
@@ -490,6 +490,12 @@ class Architecture(nn.Module):
             layer_name = layer.name or f"layer{i}"
             for name in layer_params:
                 self.register_parameter(f"{layer_name}_{name}", layer_params[name])
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
 
     def set_train_mode(self):
         for layer in self.layers:
