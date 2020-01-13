@@ -10,8 +10,9 @@ import copy
 import numpy as np
 import torch
 from torch.autograd import Variable
-import logging
-logger = logging.getLogger()
+from tda.logging import get_logger
+
+logger = get_logger("Attacks")
 
 
 def where(cond, x, y):

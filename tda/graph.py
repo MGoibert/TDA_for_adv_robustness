@@ -1,22 +1,14 @@
-import logging
 import typing
 
 import networkx as nx
 import numpy as np
-import torch
 from torch import Tensor
 from scipy.sparse import coo_matrix, bmat as sparse_bmat
 
 from tda.models.architectures import Architecture
+from tda.logging import get_logger
 
-try:
-    from torch_geometric.data import Data
-except:
-    Data = None
-    logging.warning("torch_geometric wasn't found. You won't be able to use GNN algorithms."
-                    "Please follow https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html"
-                    " if you want to do so.")
-logger = logging.getLogger(f"Graph")
+logger =  get_logger("Graph")
 
 
 class Graph(object):
@@ -56,11 +48,7 @@ class Graph(object):
                                          model: Architecture,
                                          x: Tensor,
                                          thresholds: typing.Optional[typing.Dict] = None,
-                                         retain_data_point: bool = False,
-                                         use_sigmoid: bool = True,
-                                         dataset: str = "MNIST",
-                                         architecture: str = "simple_fcn_mnist",
-                                         epochs: int = 50
+                                         retain_data_point: bool = False
                                          ):
         raw_edge_dict = model.get_graph_values(x)
 
@@ -74,15 +62,6 @@ class Graph(object):
                 v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
                 # Changing the sign for the persistent diagram
                 v = -v
-            if use_sigmoid:
-                pass
-                #logger.info(f"Using sigmoid for dataset {dataset}, archi {architecture} and epochs {epochs}")
-                #file = f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
-                #v.data = np.where(v.data > 0, cls.use_sigmoid(
-                #    data=v.data,
-                #    layer_link=layer_link,
-                #    file=file
-                #), 0)
 
             edge_dict[layer_link] = v
 
@@ -208,31 +187,3 @@ class Graph(object):
             self
     ) -> nx.Graph:
         return nx.from_numpy_matrix(self.get_adjacency_matrix())
-
-    # TODO: Make it DAG-ready
-    def to_pytorch_geometric_data(self, threshold: int) -> Data:
-        offset = 0
-        edge_indices = []
-        edge_weights = []
-        for key, _ in enumerate(self._edge_list):
-            rows, cols = np.where(self._edge_list[key] >= threshold)
-            edge_weights.append(torch.tensor(self._edge_list[key][rows, cols]))
-            cols = torch.tensor(cols, dtype=torch.long).unsqueeze(1) + offset
-            offset += np.shape(self._edge_list[key])[1]
-            rows = torch.tensor(rows, dtype=torch.long).unsqueeze(1) + offset
-            edge_indices.append(torch.cat((cols, rows), 1))
-
-        edge_index = torch.transpose(torch.cat(edge_indices, 0), 0, 1)
-        edge_weight = torch.cat(edge_weights, 0).unsqueeze(1)
-
-        # Node labels as one-hot encoded version of the layer index
-        x = torch.tensor(self.get_layer_node_labels(), dtype=torch.long).unsqueeze(1)
-        x_onehot = torch.FloatTensor(len(x), len(self._edge_list) + 1)
-        x_onehot.zero_()
-        x_onehot.scatter_(1, x, 1)
-
-        data = Data(
-            x=x_onehot.type(torch.double),
-            edge_index=edge_index,
-            edge_attr=edge_weight)
-        return data
