@@ -146,7 +146,7 @@ def get_stats(
 
 
 if __name__ == '__main__':
-    weights, _ = get_stats(epsilon=0.0, noise=0.0, dataset_size=dataset_size)
+    weights, _ = get_stats(epsilon=0.0, noise=0.0, dataset_size=args.dataset_size)
     quants = np.linspace(0, 1, 1001)
     quants_dict = dict()
     for key in weights:

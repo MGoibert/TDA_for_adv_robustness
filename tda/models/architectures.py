@@ -358,7 +358,7 @@ class ConvLayer(Layer):
             nbcols=nbcols,
             nbcols_input=nbcols_input,
             nbrows_input=nbrows_input,
-            kernel=kernel.detach().numpy(),
+            kernel=kernel.detach().cpu().numpy(),
             padding=self._padding,
             stride=self._stride
         )
