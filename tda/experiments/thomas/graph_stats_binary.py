@@ -146,13 +146,14 @@ def get_stats(
 
 
 if __name__ == '__main__':
-    weights, _ = get_stats(epsilon=0.0, noise=0.0)
-    quants = np.linspace(0,1, 1001)
+    weights, _ = get_stats(epsilon=0.0, noise=0.0, dataset_size=dataset_size)
+    quants = np.linspace(0, 1, 1001)
     quants_dict = dict()
-    for i, weight_layer in enumerate(weights):
-        quants_dict[i] = dict()
+    for key in weights:
+        weight_layer = weights[key]
+        quants_dict[key] = dict()
         for quant in quants:
-            quants_dict[i][quant] = np.quantile(weight_layer, quant)
+            quants_dict[key][quant] = np.quantile(weight_layer, quant)
     np.save(f"stats/{args.dataset}_{args.architecture}_{args.epochs}_epochs", quants_dict)
 
     if args.visualize_adj_mat > 0.5:
