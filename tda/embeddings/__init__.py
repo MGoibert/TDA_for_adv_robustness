@@ -87,7 +87,6 @@ def get_gram_matrix(
 
         for j in range(lim):
             if kernel_type == KernelType.Euclidean:
-                # TODO: Understand why we need to reshape now ?
                 gram[i, j] = np.transpose(embeddings_in[i])@embeddings_out[j]
             elif kernel_type == KernelType.RBF:
                 gram[i, j] = np.exp(-np.linalg.norm(
@@ -101,7 +100,7 @@ def get_gram_matrix(
                 gram[i, j] = np.exp(-sw / (2 * params['sigma'] ** 2))
             else:
                 raise NotImplementedError(
-                    f"Unknown kenerl {kernel_type}"
+                    f"Unknown kernel {kernel_type}"
                 )
             if sym:
                 gram[j, i] = gram[i, j]
