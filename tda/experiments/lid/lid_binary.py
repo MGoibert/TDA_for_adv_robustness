@@ -19,6 +19,7 @@ from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
 from tda.rootpath import db_path
 from tda.logging import get_logger
+import typing
 
 logger = get_logger("LID")
 
@@ -239,7 +240,10 @@ def evaluate_epsilon(
     return auc, coefs
 
 
-def run_experiment(config: Config):
+def run_experiment(config: Config, epsilons: typing.List=None,
+                   n_jobs: int=1):
+    if epsilons is None:
+        epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
 
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id}")
 
@@ -256,13 +260,13 @@ def run_experiment(config: Config):
     all_aucs = dict()
     all_coefs = dict()
 
-    for epsilon in [0.01, 0.025, 0.05, 0.1, 0.4]:
-        auc, coefs = evaluate_epsilon(
+    from joblib import Parallel, delayed
+    artifacts = Parallel(n_jobs=n_jobs)(delayed(evaluate_epsilon)(
             config=config,
             epsilon=epsilon,
             dataset=dataset,
-            archi=archi
-        )
+        archi=archi) for epsilon in epsilons)
+    for epsilon, (auc, coefs) in zip(epsilons, artifacts):
         all_aucs[epsilon] = auc
         all_coefs[epsilon] = coefs
 
