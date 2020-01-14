@@ -16,7 +16,7 @@ from sklearn.svm import OneClassSVM
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.graph_dataset import get_dataset
+from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
@@ -86,7 +86,7 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     my_embeddings = list()
 
     if epsilon != 0.0:
-        for line in get_dataset(
+        for line in get_graph_dataset(
                 num_epochs=args.epochs,
                 epsilon=epsilon,
                 noise=noise,
@@ -118,7 +118,7 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     else:
         for correct_i in corrects_i:
             logger.info(f"correct_i = {correct_i}")
-            for line in get_dataset(
+            for line in get_graph_dataset(
                     num_epochs=args.epochs,
                     epsilon=epsilon,
                     noise=noise,

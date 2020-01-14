@@ -12,7 +12,7 @@ import seaborn as sns
 import os
 
 from tda.graph import Graph
-from tda.graph_dataset import get_dataset
+from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet, Architecture
 from tda.models.architectures import get_architecture, svhn_lenet
 
@@ -83,7 +83,7 @@ def get_stats(
     weights_per_layer = dict()
     print("eps =", epsilon)
 
-    for line in get_dataset(
+    for line in get_graph_dataset(
             num_epochs=epochs,
             epsilon=epsilon,
             noise=noise,

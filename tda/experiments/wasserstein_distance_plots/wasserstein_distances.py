@@ -12,7 +12,7 @@ from r3d3 import ExperimentDB
 
 from tda.embeddings import get_embedding, EmbeddingType
 from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel
-from tda.graph_dataset import get_dataset
+from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, svhn_lenet, get_architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
@@ -90,7 +90,7 @@ def get_embeddings_per_class(
     last_consumed_index = start_index
     inds_class = [0 for _ in all_classes]
     while True:
-        for line in get_dataset(
+        for line in get_graph_dataset(
                 num_epochs=args.epochs,
                 epsilon=epsilon,
                 noise=noise,

@@ -16,9 +16,6 @@ from tda.logging import get_logger
 
 logger = get_logger("GraphDataset")
 
-pathlib.Path("/tmp/tda/graph_datasets").mkdir(parents=True, exist_ok=True)
-
-
 # One-hot vector based on scalar
 def one_hot(y, num_classes=None):
     if num_classes is None:
@@ -111,61 +108,6 @@ def process_sample(
     return x, y
 
 
-def compute_adv_accuracy(
-        num_epochs: int,
-        epsilon: float,
-        noise: float,
-        source_dataset_name: str = "MNIST",
-        architecture: Architecture = mnist_mlp,
-        dataset_size: int = 100,
-        attack_type: str = "FGSM",
-        num_iter: int = 50,
-        train_noise: float = 0.0
-) -> float:
-    # Else we have to compute the dataset first
-    logger.info(f"Getting source dataset {source_dataset_name}")
-    source_dataset = Dataset(name=source_dataset_name).Dataset_
-    logger.info(f"Got source dataset {source_dataset_name} !!")
-
-    logger.info(f"Getting deep model...")
-    model, loss_func = get_deep_model(
-        num_epochs=num_epochs,
-        dataset=source_dataset,
-        architecture=architecture,
-        train_noise=train_noise
-    )
-    logger.info(f"Got deep model...")
-
-    logger.info(f"I am going to generate a dataset of {dataset_size} points...")
-
-    nb_samples = 0
-    i = 0
-    corr = 0
-
-    while nb_samples < dataset_size:
-        sample = source_dataset.test_and_val_dataset[nb_samples]
-
-        x, y = process_sample(
-            sample=sample,
-            adversarial=epsilon > 0,
-            noise=noise,
-            epsilon=epsilon,
-            model=model,
-            num_classes=10,
-            attack_type=attack_type,
-            num_iter=num_iter
-        )
-
-        y_pred = model(x).argmax(dim=-1).item()
-
-        if y == y_pred:
-            corr += 1
-
-        nb_samples += 1
-
-    return corr / dataset_size
-
-
 class DatasetLine(typing.NamedTuple):
     graph: Graph
     y: int
@@ -176,14 +118,14 @@ class DatasetLine(typing.NamedTuple):
     sample_id: int
     x: torch.tensor 
 
-def get_dataset(
+
+def get_graph_dataset(
         num_epochs: int,
         epsilon: float,
         noise: float,
         adv: bool,
         source_dataset_name: str = "MNIST",
         architecture: Architecture = mnist_mlp,
-        retain_data_point: bool = False,
         dataset_size: int = 100,
         thresholds: typing.Optional[typing.List[float]] = None,
         only_successful_adversaries: bool = True,
@@ -192,7 +134,6 @@ def get_dataset(
         start: int = 0,
         train_noise: float = 0.0,
         per_class: bool = False,
-        use_sigmoid: bool = True
 ) -> typing.Generator[DatasetLine, None, None]:
     # Else we have to compute the dataset first
     logger.info(f"Getting source dataset {source_dataset_name}")
@@ -200,7 +141,7 @@ def get_dataset(
     logger.info(f"Got source dataset {source_dataset_name} !!")
 
     logger.info(f"Getting deep model...")
-    model, loss_func = get_deep_model(
+    architecture = get_deep_model(
         num_epochs=num_epochs,
         dataset=source_dataset,
         architecture=architecture,
@@ -225,7 +166,7 @@ def get_dataset(
             adversarial=adv,
             noise=noise,
             epsilon=epsilon,
-            model=model,
+            model=architecture,
             num_classes=10,
             attack_type=attack_type,
             num_iter=num_iter
@@ -235,7 +176,7 @@ def get_dataset(
             continue
         l2_norm = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), 2)
         linf_norm = np.linalg.norm(torch.abs((sample[0].double() - x.double()).flatten()).detach().numpy(), np.inf)
-        y_pred = model(x).argmax(dim=-1).item()
+        y_pred = architecture(x).argmax(dim=-1).item()
         y_adv = 0 if not adv else 1  # is it adversarial
 
         if adv and only_successful_adversaries and y_pred == y:
@@ -244,9 +185,8 @@ def get_dataset(
             continue
         else:
             x_graph = Graph.from_architecture_and_data_point(
-                model=model,
+                architecture=architecture,
                 x=x.double(),
-                retain_data_point=retain_data_point,
                 thresholds=thresholds
             )
             nb_samples += 1
@@ -271,7 +211,7 @@ def get_dataset(
 if __name__ == "__main__":
 
     for adv in [True, False]:
-        dataset = get_dataset(
+        dataset = get_graph_dataset(
             num_epochs=20,
             epsilon=0.02,
             noise=0.0,

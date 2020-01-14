@@ -14,7 +14,7 @@ from sklearn.svm import OneClassSVM
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.graph_dataset import get_dataset
+from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
@@ -64,7 +64,6 @@ class Config(typing.NamedTuple):
 
 
 def get_config() -> Config:
-
     parser = argparse.ArgumentParser(
         description='Transform a dataset in pail files to tf records.')
     parser.add_argument('--experiment_id', type=int, default=-1)
@@ -108,11 +107,6 @@ def run_experiment(config: Config):
 
     architecture = get_architecture(config.architecture)
 
-    if config.embedding_type == EmbeddingType.OriginalDataPoint:
-        retain_data_point = True
-    else:
-        retain_data_point = False
-
     thresholds = process_thresholds(
         raw_thresholds=config.thresholds,
         dataset=config.dataset,
@@ -129,12 +123,11 @@ def run_experiment(config: Config):
         Helper function to get list of embeddings
         """
         my_embeddings = list()
-        for line in get_dataset(
+        for line in get_graph_dataset(
                 num_epochs=config.epochs,
                 epsilon=epsilon,
                 noise=noise,
                 adv=epsilon > 0.0,
-                retain_data_point=retain_data_point,
                 architecture=architecture,
                 source_dataset_name=config.dataset,
                 dataset_size=config.dataset_size,
@@ -158,9 +151,10 @@ def run_experiment(config: Config):
                 }
             ))
         logger.info(
-            f"Computed embeddings for (attack = {config.attack_type}, eps={epsilon}, noise={noise}), number of sample = {len(my_embeddings)}")
+            f"Computed embeddings for (attack = {config.attack_type}, "
+            f"eps={epsilon}, noise={noise}), "
+            f"number of sample = {len(my_embeddings)}")
         return my_embeddings
-
 
     # Clean embeddings
     stats[0.0] = list()
@@ -173,7 +167,6 @@ def run_experiment(config: Config):
     clean_embeddings_train = get_embeddings(epsilon=0.0, noise=0.0, start=0)
     if config.identical_train_samples < 0.5:
         start += config.dataset_size
-    #clean_embeddings_train = list()
 
     # Noisy train
     if config.noise > 0.0:
@@ -188,16 +181,16 @@ def run_experiment(config: Config):
             {'gamma': gamma}
             for gamma in np.logspace(-6, -3, 10)
         ]
-    #logger.info(f"kernel type = {args.kernel_type} and {args.kernel_type == KernelType.SlicedWasserstein}")
-    #if args.kernel_type == KernelType.SlicedWasserstein:
-    else:
+    elif config.kernel_type == KernelType.SlicedWasserstein:
         param_space = [
-            #{'M': 20, 'sigma': 5 * 10 ** (-5)},
-            #{'M': 20, 'sigma': 5 * 10 ** (-4)},
-            #{'M': 20, 'sigma': 5 * 10 ** (-3)},
-            #{'M': 20, 'sigma': 5 * 10 ** (-2)},
+            # {'M': 20, 'sigma': 5 * 10 ** (-5)},
+            # {'M': 20, 'sigma': 5 * 10 ** (-4)},
+            # {'M': 20, 'sigma': 5 * 10 ** (-3)},
+            # {'M': 20, 'sigma': 5 * 10 ** (-2)},
             {'M': 20, 'sigma': 5 * 10 ** (-1)},
         ]
+    else:
+        raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
     gram_train_matrices = {i: get_gram_matrix(
         kernel_type=config.kernel_type,
@@ -213,7 +206,6 @@ def run_experiment(config: Config):
     logger.info(f"Clean test dataset !!")
     clean_embeddings_test = get_embeddings(epsilon=0.0, noise=0.0, start=start)
     start += config.dataset_size
-    #clean_embeddings_test = list()
 
     # Noisy test
     if config.noise > 0.0:
@@ -236,8 +228,6 @@ def run_experiment(config: Config):
         adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=start)
         logger.debug(
             f"Stats for diff btw clean and adv: {np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
-
-
 
     def process_epsilon(epsilon: float) -> float:
         """
@@ -292,7 +282,7 @@ def run_experiment(config: Config):
 
         return best_auc
 
-    #with Pool(2) as p:
+    # with Pool(2) as p:
     #    all_results = p.map(process_epsilon, all_epsilons)
 
     all_results = [process_epsilon(epsilon) for epsilon in all_epsilons]
