@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import pathlib
 import typing
 
 import numpy as np
 import torch
 
 from tda.graph import Graph
-from tda.models import get_deep_model
 from tda.models.architectures import Architecture, mnist_mlp
 from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
@@ -15,6 +13,7 @@ from tda.devices import device
 from tda.logging import get_logger
 
 logger = get_logger("GraphDataset")
+
 
 # One-hot vector based on scalar
 def one_hot(y, num_classes=None):
@@ -57,7 +56,7 @@ def adversarial_generation(model, x, y,
                            num_classes=10,
                            attack_type='FGSM',
                            num_iter=10,
-                           lims = (-0.5, 0.5)):
+                           lims=(-0.5, 0.5)):
     """
     Create an adversarial example (FGMS only for now)
     """
@@ -101,7 +100,8 @@ def process_sample(
     # If we use adversarial or noisy example!
 
     if adversarial:
-        x = adversarial_generation(model, x, y, epsilon, num_classes=num_classes, attack_type=attack_type, num_iter=num_iter)
+        x = adversarial_generation(model, x, y, epsilon, num_classes=num_classes, attack_type=attack_type,
+                                   num_iter=num_iter)
     if noise > 0:
         x = torch.clamp(x + noise * torch.randn(x.size()), -0.5, 0.5).double()
 
@@ -116,15 +116,14 @@ class DatasetLine(typing.NamedTuple):
     l2_norm: float
     linf_norm: float
     sample_id: int
-    x: torch.tensor 
+    x: torch.tensor
 
 
 def get_graph_dataset(
-        num_epochs: int,
         epsilon: float,
         noise: float,
         adv: bool,
-        source_dataset_name: str = "MNIST",
+        dataset: Dataset,
         architecture: Architecture = mnist_mlp,
         dataset_size: int = 100,
         thresholds: typing.Optional[typing.List[float]] = None,
@@ -132,22 +131,14 @@ def get_graph_dataset(
         attack_type: str = "FGSM",
         num_iter: int = 10,
         start: int = 0,
-        train_noise: float = 0.0,
         per_class: bool = False,
 ) -> typing.Generator[DatasetLine, None, None]:
     # Else we have to compute the dataset first
-    logger.info(f"Getting source dataset {source_dataset_name}")
-    source_dataset = Dataset(name=source_dataset_name).Dataset_
-    logger.info(f"Got source dataset {source_dataset_name} !!")
+    logger.info(f"Using source dataset {dataset.name}")
 
-    logger.info(f"Getting deep model...")
-    architecture = get_deep_model(
-        num_epochs=num_epochs,
-        dataset=source_dataset,
-        architecture=architecture,
-        train_noise=train_noise
-    )
-    logger.info(f"Got deep model...")
+    logger.info(f"Checking that the received architecture has been trained")
+    assert architecture.is_trained
+    logger.info(f"OK ! Architecture is ready")
 
     logger.info(f"I am going to generate a dataset of {dataset_size} points...")
     logger.info(f"Only successful adversaries ? {'yes' if only_successful_adversaries else 'no'}")
@@ -158,7 +149,7 @@ def get_graph_dataset(
     per_class_nb_samples = np.repeat(0, 10)
 
     while nb_samples < dataset_size:
-        sample = source_dataset.test_and_val_dataset[i]
+        sample = dataset.test_and_val_dataset[i]
         logger.debug(f"per class : {per_class_nb_samples} and nb samples = {nb_samples}")
 
         x, y = process_sample(
@@ -180,7 +171,8 @@ def get_graph_dataset(
         y_adv = 0 if not adv else 1  # is it adversarial
 
         if adv and only_successful_adversaries and y_pred == y:
-            logger.debug(f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv}) and diff = {l2_norm}")
+            logger.debug(
+                f"Rejecting point (epsilon={epsilon}, y={y}, y_pred={y_pred}, y_adv={y_adv}) and diff = {l2_norm}")
             i += 1
             continue
         else:
@@ -203,17 +195,6 @@ def get_graph_dataset(
                 y_adv=y_adv,
                 l2_norm=l2_norm,
                 linf_norm=linf_norm,
-                sample_id=i-1,
+                sample_id=i - 1,
                 x=x
             )
-
-
-if __name__ == "__main__":
-
-    for adv in [True, False]:
-        dataset = get_graph_dataset(
-            num_epochs=20,
-            epsilon=0.02,
-            noise=0.0,
-            adv=adv
-        )

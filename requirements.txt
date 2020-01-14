@@ -11,3 +11,4 @@ networkx==1.11
 r3d3>=0.7.1
 qgrid
 numba>=0.47.0
+cached-property>=1.5.1
