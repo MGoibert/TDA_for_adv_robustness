@@ -68,29 +68,17 @@ def get_config() -> Config:
 
 
 def compute_adv_accuracy(
-        num_epochs: int,
         epsilon: float,
         noise: float,
-        source_dataset_name: str,
+        dataset: Dataset,
         architecture: Architecture,
         dataset_size: int = 100,
         attack_type: str = "FGSM",
-        num_iter: int = 50,
-        train_noise: float = 0.0
+        num_iter: int = 50
 ) -> float:
     # Else we have to compute the dataset first
-    logger.info(f"Getting source dataset {source_dataset_name}")
-    source_dataset = Dataset(name=source_dataset_name)
-    logger.info(f"Got source dataset {source_dataset_name} !!")
 
-    logger.info(f"Getting deep model...")
-    architecture = get_deep_model(
-        num_epochs=num_epochs,
-        dataset=source_dataset,
-        architecture=architecture,
-        train_noise=train_noise
-    )
-    logger.info(f"Got deep model...")
+    assert architecture.is_trained
 
     logger.info(f"I am going to generate a dataset of {dataset_size} points...")
 
@@ -98,7 +86,7 @@ def compute_adv_accuracy(
     corr = 0
 
     while nb_samples < dataset_size:
-        sample = source_dataset.test_and_val_dataset[nb_samples]
+        sample = dataset.test_and_val_dataset[nb_samples]
 
         x, y = process_sample(
             sample=sample,
@@ -135,6 +123,15 @@ def get_all_accuracies(config: Config):
     else:
         all_epsilons = [0.0, 1]
 
+    dataset = Dataset(name=config.dataset)
+
+    architecture = get_deep_model(
+        num_epochs=config.epochs,
+        dataset=dataset,
+        architecture=get_architecture(config.architecture),
+        train_noise=config.train_noise
+    )
+
     accuracies = dict()
 
     for epsilon in all_epsilons:
@@ -142,13 +139,11 @@ def get_all_accuracies(config: Config):
         adversarial_acc = compute_adv_accuracy(
             epsilon=epsilon,
             noise=config.noise,
-            num_epochs=config.epochs,
-            source_dataset_name=config.dataset,
-            architecture=get_architecture(config.architecture),
+            dataset=dataset,
+            architecture=architecture,
             dataset_size=config.dataset_size,
             attack_type=config.attack_type,
             num_iter=config.num_iter,
-            train_noise=config.train_noise
         )
 
         logger.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
