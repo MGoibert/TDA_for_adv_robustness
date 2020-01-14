@@ -42,8 +42,8 @@ class Config(typing.NamedTuple):
     architecture: str
     # Noise to be added during the training of the model
     train_noise: float
-    # Size of the dataset used for the experiment
-    dataset_size: int
+    # Number of batches used in total
+    nb_batches: int
     # Number of nearest neighbors for the estimation of the LID
     number_of_nn: int
     # Batch size for the estimation of the LID
@@ -66,7 +66,7 @@ def get_config() -> Config:
     parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--dataset', type=str, default="MNIST")
     parser.add_argument('--architecture', type=str, default=mnist_lenet.name)
-    parser.add_argument('--dataset_size', type=int, default=100)
+    parser.add_argument('--nb_batches', type=int, default=10)
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--num_iter', type=int, default=5)
     parser.add_argument('--noise', type=float, default=0.0)
@@ -92,7 +92,7 @@ def evaluate_epsilon(
     all_lids_adv = list()
     all_lids_noisy = list()
 
-    for batch_idx in range(10):
+    for batch_idx in range(config.nb_batches):
         raw_batch = dataset.test_and_val_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
         b_norm = [s[0] for s in raw_batch]
         true_labels = [s[1] for s in raw_batch]
