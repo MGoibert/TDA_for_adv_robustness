@@ -66,11 +66,11 @@ def get_stats(
     weights_per_layer = dict()
 
     for line in get_graph_dataset(
-            num_epochs=epochs,
+            # num_epochs=epochs,
             epsilon=0.0,
             noise=0.0,
             adv=False,
-            retain_data_point=False,
+            # retain_data_point=False,
             architecture=architecture,
             source_dataset_name=dataset,
             dataset_size=dataset_size,

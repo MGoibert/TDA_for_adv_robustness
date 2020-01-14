@@ -119,6 +119,6 @@ class Dataset(object):
         shuffle(self.train_dataset)
         shuffle(self.test_and_val_dataset)
 
-        self.test_loader.dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
-                                                                           self.test_loader.dataset)),
-                                             map(itemgetter(1), self.test_loader.dataset)))
+        self.test_dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
+                                                                    self.test_loader.dataset)),
+                                      map(itemgetter(1), self.test_loader.dataset)))
