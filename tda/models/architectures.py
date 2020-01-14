@@ -42,7 +42,7 @@ class Architecture(nn.Module):
             for name in layer_params:
                 self.register_parameter(f"{layer_name}_{name}", layer_params[name])
 
-        self.loss_func = None
+        self.is_trained = False
 
     def __repr__(self):
         return self.name

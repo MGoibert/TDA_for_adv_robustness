@@ -12,6 +12,8 @@ import torchvision.datasets as dset
 from operator import itemgetter
 from random import shuffle, seed
 
+from tda.logging import get_logger
+
 _root = './data'
 _trans = transforms.Compose(
     [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
@@ -19,8 +21,29 @@ _trans = transforms.Compose(
 torch.manual_seed(1)
 seed(1)
 
+logger = get_logger("Datasets")
 
-class _Dataset(object):
+
+class Dataset(object):
+
+    _datasets = dict()
+
+    @classmethod
+    def get_or_create(
+            cls,
+            name: str,
+            validation_size: int = 1000
+    ):
+        """
+        Using singletons for dataset to shuffle once at the beginning of the run
+        """
+        if (name, validation_size) not in Dataset._datasets:
+            Dataset._datasets[(name, validation_size)] = cls(
+                name=name,
+                validation_size=validation_size
+            )
+            logger.info(f"Instantiated dataset {name} with validation_size {validation_size}")
+        return Dataset._datasets[(name, validation_size)]
 
     def __init__(self,
                  name: str,
@@ -99,14 +122,3 @@ class _Dataset(object):
         self.test_loader.dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
                                                                            self.test_loader.dataset)),
                                              map(itemgetter(1), self.test_loader.dataset)))
-
-
-class Dataset(object):
-    Dataset_ = None
-
-    def __init__(self,
-                 name: str,
-                 validation_size: int = 1000):
-        self.name = name.lower()
-        if Dataset.Dataset_ is None:
-            Dataset.Dataset_ = _Dataset(name, validation_size)

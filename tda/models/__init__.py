@@ -232,7 +232,7 @@ def get_deep_model(
         return architecture, val_accuracy, test_accuracy
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
-    architecture.loss_func = loss_func
+    architecture.is_trained = True
     return architecture
 
 
