@@ -12,7 +12,7 @@ import typing
 import numpy as np
 
 from tda.graph import Graph
-from tda.graph_dataset import get_dataset
+from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import get_architecture
 from tda.models.architectures import mnist_lenet, Architecture
 from tda.rootpath import rootpath
@@ -65,7 +65,7 @@ def get_stats(
 
     weights_per_layer = dict()
 
-    for line in get_dataset(
+    for line in get_graph_dataset(
             num_epochs=epochs,
             epsilon=0.0,
             noise=0.0,

@@ -165,7 +165,7 @@ def get_deep_model(
         with_details: bool = False,
         force_retrain: bool = False,
         pretrained_pth: str = ""
-) -> typing.Tuple[Architecture, nn.Module]:
+) -> Architecture:
     loss_func = nn.CrossEntropyLoss()
 
     if len(pretrained_pth) > 0:
@@ -232,7 +232,8 @@ def get_deep_model(
         return architecture, val_accuracy, test_accuracy
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
-    return architecture, loss_func
+    architecture.loss_func = loss_func
+    return architecture
 
 
 def prune_model(model, percentile=10, init_weight=None):

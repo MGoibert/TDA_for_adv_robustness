@@ -53,14 +53,12 @@ for arg in vars(args):
 dataset = Dataset(name=args.dataset)
 
 logger.info(f"Getting deep model...")
-model, loss_func = get_deep_model(
+archi: Architecture = get_deep_model(
     num_epochs=args.epochs,
     dataset=dataset.Dataset_,
     architecture=get_architecture(args.architecture),
     train_noise=0.0
 )
-
-archi: Architecture = model
 
 logger.info(f"Got deep model...")
 

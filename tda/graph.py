@@ -16,13 +16,11 @@ class Graph(object):
     def __init__(self,
                  edge_dict: typing.Dict,
                  layer_links: typing.List,
-                 final_logits: typing.List[float],
-                 original_data_point: typing.Optional[np.ndarray] = None
+                 final_logits: typing.List[float]
                  ):
         self._edge_dict = edge_dict
         self._layer_links = layer_links
 
-        self.original_data_point = original_data_point
         self.final_logits = final_logits
 
     @staticmethod
@@ -45,12 +43,11 @@ class Graph(object):
 
     @classmethod
     def from_architecture_and_data_point(cls,
-                                         model: Architecture,
+                                         architecture: Architecture,
                                          x: Tensor,
-                                         thresholds: typing.Optional[typing.Dict] = None,
-                                         retain_data_point: bool = False
+                                         thresholds: typing.Optional[typing.Dict] = None
                                          ):
-        raw_edge_dict = model.get_graph_values(x)
+        raw_edge_dict = architecture.get_graph_values(x)
 
         edge_dict = dict()
         for layer_link in raw_edge_dict:
@@ -65,15 +62,10 @@ class Graph(object):
 
             edge_dict[layer_link] = v
 
-        original_x = None
-        if retain_data_point:
-            original_x = x.detach().numpy()
-
         return cls(
             edge_dict=edge_dict,
-            layer_links=model.layer_links,
-            final_logits=list(),
-            original_data_point=original_x
+            layer_links=architecture.layer_links,
+            final_logits=list()
         )
 
     def _get_shapes(self):

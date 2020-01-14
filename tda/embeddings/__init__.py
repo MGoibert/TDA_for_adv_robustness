@@ -11,7 +11,6 @@ class EmbeddingType(object):
     AnonymousWalk = "AnonymousWalk"
     WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
-    OriginalDataPoint = "OriginalDataPoint"
     LastLayerSortedLogits = "LastLayerSortedLogits"
 
 

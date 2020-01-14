@@ -8,6 +8,6 @@ tqdm
 dionysus
 scikit-learn
 networkx==1.11
-r3d3
+r3d3>=0.7.1
 qgrid
-numba
+numba>=0.47.0

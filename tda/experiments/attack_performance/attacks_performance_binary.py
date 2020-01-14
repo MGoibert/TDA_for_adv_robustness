@@ -4,19 +4,16 @@
 import argparse
 import logging
 import time
-import typing
-import numpy as np
+
 import matplotlib.pyplot as plt
-
-from tda.graph import Graph
-from tda.graph_dataset import get_dataset, compute_adv_accuracy
-from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet, mnist_lenet
-
 import numpy as np
 from r3d3 import ExperimentDB
 
-from tda.graph_dataset import compute_adv_accuracy
+from tda.graph_dataset import process_sample
+from tda.models import Dataset, get_deep_model
+from tda.models.architectures import Architecture
 from tda.models.architectures import get_architecture, svhn_lenet
+from tda.logging import get_logger
 from tda.rootpath import db_path
 
 start_time = time.time()
@@ -42,14 +39,69 @@ parser.add_argument('--num_iter', type=int, default=10)
 
 args, _ = parser.parse_known_args()
 
-logger = logging.getLogger("GraphStats")
+logger = get_logger("GraphStats")
 
 if args.attack_type in ["FGSM", "BIM"]:
     all_epsilons = list(sorted(np.linspace(0.0, 0.4, num=11)))
 else:
     all_epsilons = [0.0, 1]
 
-architecture = get_architecture(args.architecture)
+
+def compute_adv_accuracy(
+        num_epochs: int,
+        epsilon: float,
+        noise: float,
+        source_dataset_name: str,
+        architecture: Architecture,
+        dataset_size: int = 100,
+        attack_type: str = "FGSM",
+        num_iter: int = 50,
+        train_noise: float = 0.0
+) -> float:
+    # Else we have to compute the dataset first
+    logger.info(f"Getting source dataset {source_dataset_name}")
+    source_dataset = Dataset(name=source_dataset_name).Dataset_
+    logger.info(f"Got source dataset {source_dataset_name} !!")
+
+    logger.info(f"Getting deep model...")
+    architecture = get_deep_model(
+        num_epochs=num_epochs,
+        dataset=source_dataset,
+        architecture=architecture,
+        train_noise=train_noise
+    )
+    logger.info(f"Got deep model...")
+
+    logger.info(f"I am going to generate a dataset of {dataset_size} points...")
+
+    nb_samples = 0
+    corr = 0
+
+    while nb_samples < dataset_size:
+        sample = source_dataset.test_and_val_dataset[nb_samples]
+
+        x, y = process_sample(
+            sample=sample,
+            adversarial=epsilon > 0,
+            noise=noise,
+            epsilon=epsilon,
+            model=architecture,
+            num_classes=10,
+            attack_type=attack_type,
+            num_iter=num_iter
+        )
+
+        y_pred = architecture(x).argmax(dim=-1).item()
+
+        if y == y_pred:
+            corr += 1
+
+        nb_samples += 1
+
+    return corr / dataset_size
+
+
+
 accuracies = dict()
 
 for epsilon in all_epsilons:
@@ -59,12 +111,11 @@ for epsilon in all_epsilons:
         noise=args.noise,
         num_epochs=args.epochs,
         source_dataset_name=args.dataset,
-        architecture=architecture,
+        architecture=get_architecture(args.architecture),
         dataset_size=args.dataset_size,
         attack_type=args.attack_type,
         num_iter=args.num_iter,
         train_noise=args.train_noise
-
     )
 
     logging.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
