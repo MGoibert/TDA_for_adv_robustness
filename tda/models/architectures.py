@@ -115,6 +115,8 @@ class MaxPool2dLayer(Layer):
         Return the weight of the linear layer, ignore biases
         """
         idx = self._indx
+        for i in range(idx.shape[1]):
+            idx[:,i,:,:] = idx[:,i,:,:]+i*self._activations_shape[2]*self._activations_shape[3]
         if idx.is_cuda:
             idx = idx.cpu()
         idx = idx.numpy().flatten()
