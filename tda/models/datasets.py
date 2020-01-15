@@ -28,6 +28,12 @@ class Dataset(object):
 
     _datasets = dict()
 
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
+
     @classmethod
     def get_or_create(
             cls,
