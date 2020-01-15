@@ -12,7 +12,7 @@ class EmbeddingType(object):
     WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
     LastLayerSortedLogits = "LastLayerSortedLogits"
-
+    PersistentDiagramRipser = "PersistentDiagramRipser"
 
 class KernelType(object):
     Euclidean = "Euclidean"
@@ -40,11 +40,14 @@ def get_embedding(
             node_labels=params["node_labels"]
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
-        return compute_dgm_from_graph(graph)
-    elif embedding_type == EmbeddingType.OriginalDataPoint:
-        return np.reshape(graph.original_data_point, (-1))
+        return compute_dgm_from_graph(graph, software="dionysus")
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
         return sorted(graph.final_logits)
+    elif embedding_type == EmbeddingType.PersistentDiagramRipser:
+        return compute_dgm_from_graph(graph, software="ripser")
+    else:
+        raise NotImplementedError(embedding_type)
+
 
 
 def get_gram_matrix(

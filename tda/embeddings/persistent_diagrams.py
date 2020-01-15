@@ -8,42 +8,58 @@ logger = get_logger("PersistentDiagrams")
 try:
     from dionysus import Filtration, Simplex, homology_persistence, init_diagrams
 except Exception as e:
-    print("Unable to find dionysus")
+    logger.warn(e)
     Filtration = None
-    Simplex = None
-    homology_persistence = None
-    init_diagrams = None
+try:
+    from ripser import ripser
+except Exception as e:
+    logger.warn(e)
 
 
 def compute_dgm_from_graph(
-        graph: Graph
+        graph: Graph,
+        software: str="dionysus"
 ):
-    all_edges_for_diagrams = graph.get_edge_list()
+    if software == "dionysus":
+        if Filtration is None:
+            raise NotImplementedError("dionysus not found!")
 
-    timing_by_vertex = dict()
+        all_edges_for_diagrams = graph.get_edge_list()
 
-    for edge, weight in all_edges_for_diagrams:
-        src, tgt = edge
-        if weight < timing_by_vertex.get(src, np.inf):
-            timing_by_vertex[src] = weight
-        if weight < timing_by_vertex.get(tgt, np.inf):
-            timing_by_vertex[tgt] = weight
+        timing_by_vertex = dict()
 
-    all_edges_for_diagrams += [
-        ([vertex], timing_by_vertex[vertex])
-        for vertex in timing_by_vertex
-    ]
+        for edge, weight in all_edges_for_diagrams:
+            src, tgt = edge
+            if weight < timing_by_vertex.get(src, np.inf):
+                timing_by_vertex[src] = weight
+            if weight < timing_by_vertex.get(tgt, np.inf):
+                timing_by_vertex[tgt] = weight
 
-    # Dionysus computations (persistent diagrams)
-    # logger.info(f"Before filtration")
-    f = Filtration()
-    for vertices, timing in all_edges_for_diagrams:
-        f.append(Simplex(vertices, timing))
-    f.sort()
-    m = homology_persistence(f)
-    dgms = init_diagrams(m, f)
+        all_edges_for_diagrams += [
+            ([vertex], timing_by_vertex[vertex])
+            for vertex in timing_by_vertex
+        ]
 
-    return dgms[0]
+        # Dionysus computations (persistent diagrams)
+        # logger.info(f"Before filtration")
+        f = Filtration()
+        for vertices, timing in all_edges_for_diagrams:
+            f.append(Simplex(vertices, timing))
+        f.sort()
+        m = homology_persistence(f)
+        dgms = init_diagrams(m, f)
+
+        return dgms[0]
+
+    elif software == "ripser":
+        if ripser is None:
+            raise NotImplementedError("ripser not found!")
+        adj_mat = graph.get_adjacency_matrix()
+        dgms = ripser(adj_mat, maxdim=1, distance_matrix=True)["dgms"]
+        dgm = np.concatenate(dgms, axis=0)
+        return dgm
+    else:
+        raise NotImplementedError(software)
 
 
 def sliced_wasserstein_kernel(dgm1, dgm2, M=10):

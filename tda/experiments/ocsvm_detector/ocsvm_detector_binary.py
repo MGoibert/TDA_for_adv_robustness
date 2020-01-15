@@ -225,12 +225,21 @@ def get_all_embeddings(config: Config, epsilons: typing.List[float]=None):
         noisy_embeddings_test = list()
     start += config.dataset_size
 
-    artifacts = Parallel(n_jobs=config.n_jobs)(delayed(get_embeddings)(
+    logger.info("Computing embeddings for epsilons %s using n_jobs=%i" % (
+        epsilons, config.n_jobs))
+    adv_embeddings = {}
+    for epsilon in epsilons:
+        adv_embeddings[epsilon] = get_embeddings(
         config=config, dataset=dataset, noise=0.0,
         architecture=architecture, thresholds=thresholds,
         epsilon=epsilon, start=start,
-        stats=stats, stats_inf=stats_inf) for epsilon in epsilons)
-    adv_embeddings = dict(zip(epsilons, artifacts))
+        stats=stats, stats_inf=stats_inf)
+    # artifacts = Parallel(n_jobs=config.n_jobs)(delayed(get_embeddings)(
+    #     config=config, dataset=dataset, noise=0.0,
+    #     architecture=architecture, thresholds=thresholds,
+    #     epsilon=epsilon, start=start,
+    #     stats=stats, stats_inf=stats_inf) for epsilon in epsilons)
+    # adv_embeddings = dict(zip(epsilons, artifacts))
 
     embedding_train = clean_embeddings_train + noisy_embeddings_train
     embedding_test = clean_embeddings_test + noisy_embeddings_test
@@ -304,6 +313,8 @@ def evaluate_all_embeddings(
     Evaluate embeddings all embeddings for all values of epsilon
     """
     epsilons = list(adv_embeddings.keys())
+    logger.info("Evaluating embeddings for epsilons %s using n_jobs=%i" % (
+        epsilons, config.n_jobs))
     artifacts = Parallel(n_jobs=config.n_jobs)(delayed(evaluate_embeddings)(
         gram_train_matrices=gram_train_matrices,
         embeddings_train=embeddings_train,
