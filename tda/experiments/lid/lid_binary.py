@@ -243,6 +243,13 @@ def run_experiment(config: Config):
 
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id}")
 
+    if __name__ != "__main__":
+        my_db.add_experiment(
+            experiment_id=config.experiment_id,
+            run_id=config.run_id,
+            config=config._asdict()
+        )
+
     dataset = Dataset(name=config.dataset)
 
     logger.info(f"Getting deep model...")

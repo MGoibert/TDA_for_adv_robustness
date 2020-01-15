@@ -1,41 +1,22 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import argparse
-import logging
 import os
 import pathlib
 import pickle
-import time
 import typing
 
 import numpy as np
 
 from tda.graph import Graph
 from tda.graph_dataset import get_graph_dataset
-from tda.models.architectures import get_architecture
-from tda.models.architectures import mnist_lenet, Architecture
-from tda.rootpath import rootpath
 from tda.logging import get_logger
-
-################
-# Parsing args #
-################
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--thresholds', type=str, default="0_0_0_0_0_0_0")
-parser.add_argument('--noise', type=float, default=0.0)
-parser.add_argument('--epochs', type=int, default=50)
-parser.add_argument('--dataset', type=str, default="MNIST")
-parser.add_argument('--architecture', type=str, default=mnist_lenet.name)
-parser.add_argument('--train_noise', type=float, default=0.0)
-parser.add_argument('--dataset_size', type=int, default=100)
-parser.add_argument('--num_iter', type=int, default=10)
-parser.add_argument('--visualize_adj_mat', type=float, default=0)
-
-args, _ = parser.parse_known_args()
+from tda.models import Dataset
+from tda.models.architectures import Architecture
+from tda.rootpath import rootpath
 
 logger = get_logger("GraphStats")
+
 
 #####################
 # Fetching datasets #
@@ -43,16 +24,18 @@ logger = get_logger("GraphStats")
 
 
 def get_stats(
-        epochs: int,
         architecture: Architecture,
-        dataset: str,
+        dataset: Dataset,
         dataset_size: int,
         train_noise: float = 0.0
 ) -> (typing.Dict, np.matrix):
     """
     Helper function to get list of embeddings
     """
-    base_path = f"{rootpath}/stats/"+"/".join(sorted([f"{k}={str(v)}" for (k, v) in locals().items()]))
+
+    assert architecture.is_trained
+
+    base_path = f"{rootpath}/stats/" + "/".join(sorted([f"{k}={str(v)}" for (k, v) in locals().items()]))
     pathlib.Path(base_path).mkdir(parents=True, exist_ok=True)
     quants_dict_filename = f"{base_path}/stats.pickle"
 
@@ -66,19 +49,15 @@ def get_stats(
     weights_per_layer = dict()
 
     for line in get_graph_dataset(
-            num_epochs=epochs,
             epsilon=0.0,
             noise=0.0,
             adv=False,
-            retain_data_point=False,
             architecture=architecture,
-            source_dataset_name=dataset,
             dataset_size=dataset_size,
             thresholds=None,
             only_successful_adversaries=False,
-            train_noise=train_noise,
-            use_sigmoid=False
-        ):
+            dataset=dataset
+    ):
 
         graph: Graph = line.graph
         logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv}")
@@ -111,7 +90,7 @@ def get_stats(
         q95 = np.quantile(nonzero_m, 0.95)
         q99 = np.quantile(nonzero_m, 0.99)
         qmax = max(nonzero_m)
-        print(f"Link {key} weights [min = {qmin}; "
+        logger.debug(f"Link {key} weights [min = {qmin}; "
               f"0.10 = {q10}; 0.25 = {q25}; 0.5 = {q50}; "
               f"0.75 = {q75}; 0.8 = {q80}; 0.9 = {q90}; "
               f"0.95 = {q95}; 0.99 = {q99}; max = {qmax}]")
@@ -128,21 +107,3 @@ def get_stats(
         pickle.dump(quants_dict, f)
 
     return quants_dict
-
-
-if __name__ == '__main__':
-
-    start_time = time.time()
-
-    quantiles = get_stats(
-        dataset_size=args.dataset_size,
-        architecture=get_architecture(args.architecture),
-        dataset=args.dataset,
-        epochs=args.epochs,
-        train_noise=args.train_noise
-    )
-
-    logger.info(quantiles.keys())
-    end_time = time.time()
-
-    logger.info(f"Success in {end_time-start_time} seconds")
