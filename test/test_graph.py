@@ -19,7 +19,7 @@ def test_simple_graph():
 
     simple_example = torch.ones(4)
 
-    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example, use_sigmoid=False)
+    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix().todense()
 
     from matplotlib import pyplot as plt
@@ -57,7 +57,7 @@ def test_simple_resnet_graph():
 
     simple_example = torch.ones(4)
 
-    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example, use_sigmoid=False)
+    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix().todense()
 
     from matplotlib import pyplot as plt
@@ -77,7 +77,7 @@ def test_mnist_graph():
 
     simple_example = torch.randn((28, 28))
 
-    graph = Graph.from_architecture_and_data_point(mnist_mlp, simple_example, use_sigmoid=False)
+    graph = Graph.from_architecture_and_data_point(mnist_mlp, simple_example)
 
     adjacency_matrix = graph.get_adjacency_matrix().todense()
 
@@ -172,7 +172,7 @@ def test_simple_cnn_multi_channels():
     assert np.shape(m[(-1, 0)]) == (18, 24)
     assert np.shape(m[(0, 1)]) == (1, 18)
 
-    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example, use_sigmoid=False)
+    graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix()
 
     assert np.shape(adjacency_matrix) == (18+24+1, 18+24+1)
@@ -184,7 +184,7 @@ def test_svhn_graph():
     for param in svhn_cnn_simple.parameters():
         param.data = torch.ones_like(param.data)*0.5
 
-    graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example, use_sigmoid=False)
+    graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix()
 
     assert np.shape(adjacency_matrix) == (11838, 11838)
@@ -205,7 +205,7 @@ def test_svhn_graph():
 def test_svhn_lenet_graph():
 
     simple_example = torch.randn((3, 32, 32))
-    graph = Graph.from_architecture_and_data_point(svhn_lenet, simple_example, use_sigmoid=False)
+    graph = Graph.from_architecture_and_data_point(svhn_lenet, simple_example)
 
     assert len(graph._edge_dict) == svhn_lenet.get_nb_graph_layers()
 
@@ -216,6 +216,6 @@ if __name__ == "__main__":
     print(out)
     print(out.shape)
 
-    graph = Graph.from_architecture_and_data_point(svhn_resnet, simple_example, use_sigmoid=False)
+    graph = Graph.from_architecture_and_data_point(svhn_resnet, simple_example)
     edge_list = graph.get_edge_list()
     print(len(edge_list))
