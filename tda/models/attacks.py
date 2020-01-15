@@ -10,8 +10,9 @@ import copy
 import numpy as np
 import torch
 from torch.autograd import Variable
-import logging
-logger = logging.getLogger()
+from tda.logging import get_logger
+
+logger = get_logger("Attacks")
 
 
 def where(cond, x, y):
@@ -262,7 +263,7 @@ class CW(_BaseAttack):
     """
     Carlini-Wagner Method
     """
-    def __init__(self, model, binary_search_steps=3,
+    def __init__(self, model, binary_search_steps=15,
                  num_iter=50, lims=(-0.5, 0.5)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
@@ -270,7 +271,7 @@ class CW(_BaseAttack):
         self.lims = lims
 
     def run(self, data, target, **kwargs):
-        #logger.info(f"CW binary search steps = {self.binary_search_steps} and number iterations = {self.num_iter}")
+        logger.debug(f"CW binary search steps = {self.binary_search_steps} and number iterations = {self.num_iter}")
         perturbed_data = CW_attack(
             data, target, self.model, num_iter=self.num_iter,
             binary_search_steps=self.binary_search_steps, lims=self.lims, **kwargs)

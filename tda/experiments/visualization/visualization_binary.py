@@ -13,7 +13,7 @@ import os
 import pathlib
 
 from tda.graph import Graph
-from tda.graph_dataset import get_dataset
+from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, get_architecture, svhn_lenet
 from tda.models.architectures import get_architecture, svhn_lenet
 from tda.thresholds import process_thresholds
@@ -79,7 +79,7 @@ def get_stats(epsilon: float, noise: float, attack_type: str = "FGSM", start: in
     wrong_ex = True
 
     while wrong_ex:
-        for line in get_dataset(
+        for line in get_graph_dataset(
                 num_epochs=args.epochs,
                 epsilon=epsilon,
                 noise=noise,

@@ -1,23 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Wed May 29 13:24:22 2019
+from typing import List, Callable, Tuple, Dict
 
-Author: Morgane Goibert <morgane.goibert@gmail.com>
-"""
-
-import logging
-from functools import reduce
-from typing import List, Callable, Tuple, Dict, Optional
-
-import numpy as np
-from scipy.sparse import coo_matrix, bmat as sparse_bmat
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from numba import njit
 
 from tda.devices import device
+from tda.logging import get_logger
+from tda.models.layers import Layer, ConvLayer, MaxPool2dLayer, DropOut, LinearLayer, SoftMaxLayer, BatchNorm2d, \
+    ReluLayer, AvgPool2dLayer
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 logging.basicConfig(level=logging.INFO)
@@ -477,7 +469,7 @@ class BatchNorm2d(Layer):
 #################
 # Architectures #
 #################
-
+logger = get_logger("Architecture")
 
 class Architecture(nn.Module):
 
@@ -487,7 +479,7 @@ class Architecture(nn.Module):
                  layer_links: List[Tuple[int, int]] = None,
                  name: str = ""):
         """
-        Instatiating architecture with a list of layers and edges.
+        Instantiating architecture with a list of layers and edges.
         The graph on the layers should be a DAG (we won't check for cycles)
         """
         super().__init__()
@@ -505,6 +497,14 @@ class Architecture(nn.Module):
             layer_name = layer.name or f"layer{i}"
             for name in layer_params:
                 self.register_parameter(f"{layer_name}_{name}", layer_params[name])
+
+        self.is_trained = False
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
 
     def set_train_mode(self):
         for layer in self.layers:

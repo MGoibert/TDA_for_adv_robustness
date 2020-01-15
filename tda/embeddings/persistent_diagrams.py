@@ -1,12 +1,9 @@
-import typing
 import numpy as np
-from operator import itemgetter
-import logging
 
 from tda.graph import Graph
+from tda.logging import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger("PersistentDiagrams")
 
 try:
     from dionysus import Filtration, Simplex, homology_persistence, init_diagrams

@@ -6,12 +6,13 @@ import pathlib
 import os
 import copy
 import typing
-import logging
 from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 from tda.devices import device
-logger = logging.getLogger()
+from tda.logging import get_logger
+
+logger = get_logger("Models")
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
@@ -164,10 +165,13 @@ def get_deep_model(
         with_details: bool = False,
         force_retrain: bool = False,
         pretrained_pth: str = ""
-) -> typing.Tuple[Architecture, nn.Module]:
+) -> Architecture:
     loss_func = nn.CrossEntropyLoss()
 
     if len(pretrained_pth) > 0:
+        # Experimental: to help loading an existing model
+        # possibly trained outside of our framework
+        # Can be used with tda/models/pretrained/lenet_mnist_model.pth
         state_dict = torch.load(
             f"{rootpath}/tda/models/pretrained/{pretrained_pth}",
             map_location=device
@@ -193,24 +197,27 @@ def get_deep_model(
                      f"epochs.model"
     logger.info(f"Filename = {model_filename} \n")
 
-
     try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
 
-        net = torch.load(model_filename, map_location=device)
-        print(f"Loaded successfully model from {model_filename}")
+        architecture = torch.load(model_filename, map_location=device)
+        logger.info(f"Loaded successfully model from {model_filename}")
     except FileNotFoundError:
-        print(f"Unable to find model in {model_filename}... Retraining it...")
+        logger.info(f"Unable to find model in {model_filename}... Retraining it...")
 
         # Train the NN
-        net: Architecture = train_network(
+        train_network(
             architecture,
             dataset.train_loader,
             dataset.val_loader,
             loss_func,
             num_epochs,
-            train_noise)[0]
+            train_noise
+        )
+
+        # Saving model
+        torch.save(architecture, model_filename)
 
         # Compute accuracies
         val_accuracy = compute_val_acc(architecture, dataset.val_loader)
@@ -218,17 +225,15 @@ def get_deep_model(
         test_accuracy = compute_test_acc(architecture, dataset.test_loader)
         logger.info(f"Test accuracy = {test_accuracy}")
 
-        # Saving model
-        torch.save(net, model_filename)
-
     if device.type == "cuda":
-        net.cuda(device)
+        architecture.cuda(device)
 
     if with_details:
-        return net, val_accuracy, test_accuracy
+        return architecture, val_accuracy, test_accuracy
     # Forcing eval mode just in case it was not done before
-    net.set_eval_mode()
-    return net, loss_func
+    architecture.set_eval_mode()
+    architecture.is_trained = True
+    return architecture
 
 
 def prune_model(model, percentile=10, init_weight=None):

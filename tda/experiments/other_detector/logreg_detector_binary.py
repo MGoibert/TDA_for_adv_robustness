@@ -15,7 +15,7 @@ from sklearn.svm import OneClassSVM, SVC
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.graph_dataset import get_dataset
+from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
@@ -93,7 +93,7 @@ def get_embeddings(epsilon: float, noise: float, start: int = 0) -> typing.List:
     Helper function to get list of embeddings
     """
     my_embeddings = list()
-    for line in get_dataset(
+    for line in get_graph_dataset(
             num_epochs=args.epochs,
             epsilon=epsilon,
             noise=noise,
