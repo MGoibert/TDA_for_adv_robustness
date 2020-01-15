@@ -154,9 +154,8 @@ def get_all_embeddings(config: Config):
 
     thresholds = process_thresholds(
         raw_thresholds=config.thresholds,
-        dataset=config.dataset,
+        dataset=dataset,
         architecture=architecture,
-        epochs=config.epochs,
         dataset_size=5
     )
 
