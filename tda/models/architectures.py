@@ -102,12 +102,13 @@ class MaxPool2dLayer(Layer):
 
     def __init__(self, kernel_size, activ=None):
 
-        self._activ = activ
-
         super().__init__(
             func=nn.MaxPool2d(kernel_size, return_indices=True),
             graph_layer=True
         )
+
+        self._activ = activ
+        #self._use_activation = True
 
     def get_matrix(self):
         """
@@ -126,7 +127,10 @@ class MaxPool2dLayer(Layer):
         # print("dim =", dim, "and dim output =", dim_out)
         m = np.zeros((dim, dim_out))
         for i in range(dim_out):
-            m[:, i][idx[i]] = 1
+            if True: #self._use_activation:
+                m[:, i][idx[i]] = self._out.flatten(0)[i] #self._activations.flatten(0)[idx[i]]
+            else:
+                m[:, i][idx[i]] = 1
         return {
             parentidx: coo_matrix(np.matrix(m.transpose()))
             for parentidx in self._parent_indices
@@ -142,6 +146,8 @@ class MaxPool2dLayer(Layer):
             self._activations_shape = x.shape
             self._indx = indx
             self._out_shape = out.shape
+            self._activations = x
+            self._out = out
         if self._activ:
             if type(self._activ) == list:
                 for act in self._activ:
@@ -318,6 +324,7 @@ class ConvLayer(Layer):
             ]
 
             m[parentidx] = sparse_bmat(blocks=matrix_grid, format="coo")
+            #logger.info(f"parent = {parentidx} and m = {m[parentidx].todense()}")
 
         return m
 
@@ -335,9 +342,15 @@ class ConvLayer(Layer):
 
         # logging.info(f"Processing in={in_channel} and out={out_channel}")
 
-        for param in self.func.parameters():
+        for param_ in self.func.named_parameters():
+            #logger.info(f"size param {param[1].size()} and name = {param[0]}")
+            #logger.info(f"out channel = {out_channel} and in channel = {in_channel}")
             # TODO: why this order out / in ???
-            kernel = param.data[out_channel, in_channel, :, :]
+            param = param_[1]
+            name_ = param_[0]
+            if len(param.size()) > 1:
+                kernel = param.data[out_channel, in_channel, :, :]
+                #logger.info(f"name = {name_} and kernel = {kernel.size()}")
 
         ##################################
         # Compute the size of the matrix #
