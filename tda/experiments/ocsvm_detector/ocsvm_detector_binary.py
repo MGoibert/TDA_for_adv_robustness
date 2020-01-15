@@ -4,7 +4,7 @@
 import argparse
 import time
 import typing
-from multiprocessing import Pool
+from joblib import Parallel, delayed
 
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
@@ -63,7 +63,8 @@ class Config(typing.NamedTuple):
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
     run_id: int = 0
-
+    # Number of jobs to spawn
+    n_jobs: int=1
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser(
@@ -108,6 +109,8 @@ def get_embeddings(
     Compute the embeddings used for the detection
     """
 
+    logger.info(f"Adversarial test dataset for espilon = {epsilon} !!")
+
     my_embeddings = list()
     for line in get_graph_dataset(
             epsilon=epsilon,
@@ -120,8 +123,7 @@ def get_embeddings(
             only_successful_adversaries=config.successful_adv > 0,
             attack_type=config.attack_type,
             num_iter=config.num_iter,
-            start=start
-    ):
+            start=start):
         stats[epsilon].append(line.l2_norm)
         stats_inf[epsilon].append(line.linf_norm)
         my_embeddings.append(get_embedding(
@@ -138,10 +140,14 @@ def get_embeddings(
         f"Computed embeddings for (attack = {config.attack_type}, "
         f"eps={epsilon}, noise={config.noise}), "
         f"number of sample = {len(my_embeddings)}")
+    logger.debug(
+        f"Stats for diff btw clean and adv: "
+        f"{np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
+
     return my_embeddings
 
 
-def get_all_embeddings(config: Config):
+def get_all_embeddings(config: Config, epsilons: typing.List[float]=None):
     architecture = get_architecture(config.architecture)
     dataset = Dataset.get_or_create(name=config.dataset)
 
@@ -159,20 +165,21 @@ def get_all_embeddings(config: Config):
         dataset_size=5
     )
 
-    if config.attack_type in ["FGSM", "BIM"]:
-        all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
-    else:
-        all_epsilons = [0.0, 1.0]
+    if epsilons is None:
+        if config.attack_type in ["FGSM", "BIM"]:
+            epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
+        else:
+            epsilons = [0.0, 1.0]
 
     start = 0
 
     stats = {
         epsilon: list()
-        for epsilon in all_epsilons
+        for epsilon in epsilons
     }
     stats_inf = {
         epsilon: list()
-        for epsilon in all_epsilons
+        for epsilon in epsilons
     }
 
     # Clean train
@@ -218,22 +225,15 @@ def get_all_embeddings(config: Config):
         noisy_embeddings_test = list()
     start += config.dataset_size
 
-    adv_embeddings = dict()
-    for epsilon in all_epsilons[1:]:
-        logger.info(f"Adversarial test dataset for espilon = {epsilon} !!")
-        adv_embeddings[epsilon] = get_embeddings(
-            config=config, dataset=dataset, noise=0.0,
-            architecture=architecture, thresholds=thresholds,
-            epsilon=epsilon, start=start,
-            stats=stats, stats_inf=stats_inf)
-        logger.debug(
-            f"Stats for diff btw clean and adv: "
-            f"{np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
+    artifacts = Parallel(n_jobs=config.n_jobs)(delayed(get_embeddings)(
+        config=config, dataset=dataset, noise=0.0,
+        architecture=architecture, thresholds=thresholds,
+        epsilon=epsilon, start=start,
+        stats=stats, stats_inf=stats_inf) for epsilon in epsilons)
+    adv_embeddings = dict(zip(epsilons, artifacts))
 
     embedding_train = clean_embeddings_train + noisy_embeddings_train
     embedding_test = clean_embeddings_test + noisy_embeddings_test
-
-    adv_embeddings[0.0] = embedding_test
 
     return embedding_train, embedding_test, adv_embeddings, thresholds, stats, stats_inf
 
@@ -261,7 +261,7 @@ def evaluate_embeddings(
 
         # Training model
         start_time = time.time()
-        logger.info(f"sum ram matrix train = {gram_train_matrices[i].sum()}")
+        logger.info(f"sum gram matrix train = {gram_train_matrices[i].sum()}")
         ocs.fit(gram_train_matrices[i])
         logger.info(f"Trained model in {time.time() - start_time} secs")
 
@@ -291,6 +291,28 @@ def evaluate_embeddings(
             best_auc = roc_auc_val
 
     return best_auc
+
+
+def evaluate_all_embeddings(
+        gram_train_matrices: typing.Dict,
+        embeddings_train: typing.List,
+        embeddings_test: typing.List,
+        adv_embeddings: typing.Dict[float, typing.List[float]],
+        param_space: typing.List,
+        config: Config) -> typing.Dict:
+    """
+    Evaluate embeddings all embeddings for all values of epsilon
+    """
+    epsilons = list(adv_embeddings.keys())
+    artifacts = Parallel(n_jobs=config.n_jobs)(delayed(evaluate_embeddings)(
+        gram_train_matrices=gram_train_matrices,
+        embeddings_train=embeddings_train,
+        embeddings_test=embeddings_test,
+        adv_embeddings=adv_embeddings[epsilon],
+        param_space=param_space,
+        kernel_type=config.kernel_type) for epsilon in epsilons)
+    assert len(epsilons) == len(artifacts)
+    return dict(zip(epsilons, artifacts))
 
 
 def run_experiment(config: Config):
