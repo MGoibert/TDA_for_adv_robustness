@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from typing import List, Callable, Tuple, Dict
+from typing import List, Callable, Tuple, Dict, Optional
+from functools import reduce
+from scipy.sparse import coo_matrix, bmat as sparse_bmat
+from numba import njit
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -12,8 +16,7 @@ from tda.models.layers import Layer, ConvLayer, MaxPool2dLayer, DropOut, LinearL
     ReluLayer, AvgPool2dLayer
 
 torch.set_default_tensor_type(torch.DoubleTensor)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("Architecture")
+logger = get_logger("Architecture")
 
 
 ##########
