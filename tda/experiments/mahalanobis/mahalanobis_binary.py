@@ -193,7 +193,7 @@ def compute_means_and_sigmas_inv(
     return mean_per_class, sigma_per_class_inv
 
 
-def evaluate_epsilon(
+def get_feature_datasets(
         config: Config,
         dataset: Dataset,
         architecture: Architecture,
@@ -297,7 +297,7 @@ def evaluate_epsilon(
                     )[layer_idx].reshape(1, -1)
                     new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
 
-                    logger.info(f"Added perturbation to x {live_score.detach().numpy()[0, 0]} "
+                    logger.debug(f"Added perturbation to x {live_score.detach().numpy()[0, 0]} "
                                 f"-> {new_score.detach().numpy()[0, 0]}")
 
                     # Now we have to do a second pass of optimization
@@ -307,7 +307,7 @@ def evaluate_epsilon(
                     for clazz in all_classes:
                         mu_clazz = mean_per_class[layer_idx][clazz]
                         gap = fhat - mu_clazz
-                        score_clazz = gap @ np.linalg.pinv(sigma_l_inv) @ np.transpose(gap)
+                        score_clazz = gap @ sigma_l_inv @ np.transpose(gap)
 
                         if score_clazz < best_score:
                             best_score = score_clazz[0, 0]
@@ -325,6 +325,12 @@ def evaluate_epsilon(
     detector_test_dataset = detector_train_dataset  # create_dataset(start=args.dataset_size)
     logger.info("Generated test dataset for detector !")
 
+    return detector_train_dataset, detector_test_dataset
+
+
+def evaluate_detector(
+        detector_train_dataset, detector_test_dataset
+):
     detector = LogisticRegression(
         fit_intercept=True,
         verbose=1,
@@ -375,7 +381,7 @@ def run_experiment(config: Config):
     )
 
     for epsilon in [0.01, 0.025, 0.05, 0.1, 0.4]:
-        auc, coef = evaluate_epsilon(
+        ds_train, ds_test = get_feature_datasets(
             config=config,
             epsilon=epsilon,
             dataset=dataset,
@@ -383,6 +389,8 @@ def run_experiment(config: Config):
             mean_per_class=mean_per_class,
             sigma_per_class_inv=sigma_per_class_inv
         )
+
+        auc, coef = evaluate_detector(ds_train, ds_test)
 
         aucs[epsilon] = auc
         coefs[epsilon] = coef
