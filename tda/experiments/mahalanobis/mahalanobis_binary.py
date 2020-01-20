@@ -277,7 +277,7 @@ def evaluate_epsilon(
                         x=x,
                         store_for_graph=False,
                         output="all_inner"
-                    )[layer_idx]
+                    )[layer_idx].reshape(1, -1)
 
                     live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
 
@@ -290,11 +290,11 @@ def evaluate_epsilon(
                     xhat = torch.clamp(xhat, -0.5, 0.5)
 
                     # Computing new score
-                    fhat = architecture.archi.forward(
+                    fhat = architecture.forward(
                         x=xhat,
                         store_for_graph=False,
                         output="all_inner"
-                    )[layer_idx]
+                    )[layer_idx].reshape(1, -1)
                     new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
 
                     logger.info(f"Added perturbation to x {live_score.detach().numpy()[0, 0]} "
