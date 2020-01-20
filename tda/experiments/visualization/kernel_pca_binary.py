@@ -24,6 +24,7 @@ from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
+from tda.models import get_deep_model, Dataset
 
 start_time = time.time()
 
@@ -74,43 +75,50 @@ if not os.path.exists(directory):
 # Fetching datasets #
 #####################
 
+#if args.embedding_type == EmbeddingType.OriginalDataPoint:
+#    retain_data_point = True
+#else:
+#    retain_data_point = False
+
 architecture = get_architecture(args.architecture)
+dataset = Dataset.get_or_create(name=args.dataset)
 
-if args.embedding_type == EmbeddingType.OriginalDataPoint:
-    retain_data_point = True
-else:
-    retain_data_point = False
-
+architecture = get_deep_model(
+    num_epochs=args.epochs,
+    dataset=dataset,
+    architecture=architecture,
+    train_noise=args.train_noise
+    )
 thresholds = process_thresholds(
     raw_thresholds=args.thresholds,
-    dataset=args.dataset,
-    architecture=args.architecture,
-    epochs=args.epochs
+    dataset=dataset,
+    architecture=architecture,
+    dataset_size=500 if args.dataset == "MNIST" else 300
 )
 
 
 # f"stats/{dataset}_{architecture}_{str(epochs)}_epochs.npy"
 
-def get_embeddings(epsilon: float, noise: float, start: int = 0, attack=args.attack_type) -> typing.List:
+def get_embeddings(epsilon: float, noise: float, start: int = 0, attack=args.attack_type, train: bool = True) -> typing.List:
     """
     Helper function to get list of embeddings
     """
     my_embeddings = list()
     for line in get_graph_dataset(
-            num_epochs=args.epochs,
+            #num_epochs=args.epochs,
             epsilon=epsilon,
             noise=noise,
             adv=epsilon > 0.0,
-            retain_data_point=retain_data_point,
+            #retain_data_point=retain_data_point,
             architecture=architecture,
-            source_dataset_name=args.dataset,
+            dataset=dataset,
             dataset_size=args.dataset_size,
             thresholds=thresholds,
             only_successful_adversaries=args.successful_adv > 0,
             attack_type=attack,
             num_iter=args.num_iter,
             start=start,
-            train_noise=args.train_noise,
+            train=train
     ):
         my_embeddings.append(get_embedding(
             embedding_type=args.embedding_type,
@@ -134,7 +142,7 @@ start = 0
 
 # Clean dataset
 logger.info(f"Clean train dataset !!")
-clean_embeddings = get_embeddings(epsilon=0.0, noise=0.0, start=0)
+clean_embeddings = get_embeddings(epsilon=0.0, noise=0.0, start=0, train=False)
 if args.identical_train_samples < 0.5:
     start += args.dataset_size
 
@@ -142,8 +150,8 @@ if args.identical_train_samples < 0.5:
 if args.noise > 0.0:
     logger.info(f"Noisy train dataset !!")
     noisy_embeddings = list()
-    for noise in [0.005, 0.05, 0.1]:
-        noisy_embeddings += get_embeddings(epsilon=0.0, noise=noise, start=start)
+    for noise in [0.025, 0.05, 0.1]:
+        noisy_embeddings += get_embeddings(epsilon=0.0, noise=noise, start=start, train=False)
 else:
     noisy_embeddings = list()
 if args.identical_train_samples < 0.5:
@@ -161,10 +169,12 @@ else:
         {'M': 10, 'sigma': 5 * 10 ** (-5)}
     ]
 
+logger.info(f"attack type = {args.attack_type}")
 if args.attack_type in ["FGSM", "BIM", "All"]:
-    all_epsilons = list([0.005, 0.05, 0.1])
+    all_epsilons = list([0.025, 0.05, 0.1])
 elif args.attack_type in ["DeepFool", "CW"]:
     all_epsilons = [1]
+logger.info(f"all esp = {all_epsilons}")
 
 if args.attack_type != "All":
     logger.info(f"Not all")
@@ -172,7 +182,7 @@ if args.attack_type != "All":
     adv_embeddings_all = list()
     for epsilon in all_epsilons[:]:
         logger.info(f"Adversarial dataset for espilon = {epsilon} !!")
-        adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=start)
+        adv_embeddings[epsilon] = get_embeddings(epsilon=epsilon, noise=0.0, start=start, train=False)
         adv_embeddings_all += adv_embeddings[epsilon]
 else:
     logger.info(f"All")
@@ -246,7 +256,7 @@ filename = directory + f"/{args.attack_type}.png"
 
 le = len(all_epsilons)
 if args.attack_type == "FGSM":
-    pal = sns.color_palette(["#0F0F0F", "#757575", "#A0A0A0", "#C9C9C9"] + sns.color_palette("Blues", le))
+    pal = sns.color_palette(["#0F0F0F", "#C9C9C9", "#A0A0A0", "#757575"] + sns.color_palette("Blues", le))
 elif args.attack_type == "BIM":
     pal = sns.color_palette(["#0F0F0F", "#A0A0A0"] + sns.color_palette("Greens", le))
 elif args.attack_type == "DeepFool":

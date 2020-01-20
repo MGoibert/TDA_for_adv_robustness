@@ -131,6 +131,7 @@ def load_saved_ex_dataset(
     file_path += "train_" if train else "test_"
     file_path += str(attack_type)+"_" if adv else ""
     file_path += "eps="+str(epsilon)+"_" if adv else ""
+    file_path += "noise="+str(noise)+"_" if noise > 0 else ""
     file_path += str(dataset_size)+"ex.pt"
 
     # Check if a good dataset already exists
@@ -279,15 +280,18 @@ def get_graph_dataset(
         
         if save_dataset:
             list_examples.append((sample[0], sample[1], x, y, y_pred))
-
-        edge_dict, layer_links = Graph.from_architecture_and_data_point_raw_dict(
-                architecture=architecture,
-                x=x.double()
-                )
-
+        #edge_dict, layer_links = Graph.from_architecture_and_data_point_raw_dict(
+        #        architecture=architecture,
+        #        x=x.double()
+        #        )
+        #x_graph = Graph.from_architecture_and_data_point(
+        #    edge_dict=edge_dict,
+        #    layer_links=layer_links,
+        #    thresholds=thresholds
+        #)
         x_graph = Graph.from_architecture_and_data_point(
-            edge_dict=edge_dict,
-            layer_links=layer_links,
+            architecture=architecture,
+            x=x.double(),
             thresholds=thresholds
         )
 
