@@ -7,6 +7,7 @@ import time
 import typing
 
 import numpy as np
+import pandas as pd
 import torch
 from r3d3.experiment_db import ExperimentDB
 from sklearn.linear_model import LogisticRegression
@@ -57,8 +58,8 @@ class Config(typing.NamedTuple):
     experiment_id: int = int(time.time())
     run_id: int = 0
 
-def get_config() -> Config:
 
+def get_config() -> Config:
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_id', type=int, default=-1)
     parser.add_argument('--run_id', type=int, default=-1)
@@ -79,13 +80,12 @@ def get_config() -> Config:
     return Config(**args.__dict__)
 
 
-def evaluate_epsilon(
+def get_feature_datasets(
         config: Config,
         epsilon: float,
         dataset: Dataset,
         archi: Architecture
 ):
-
     logger.info(f"Evaluating epsilon={epsilon}")
 
     all_lids_norm = list()
@@ -194,7 +194,7 @@ def evaluate_epsilon(
     N = len(all_lids_norm)
     logger.info(f"Computed LIDs for {N} points")
 
-    train_ds = np.concatenate([
+    train_features = np.concatenate([
         all_lids_norm[:N // 2],
         all_lids_adv[:N // 2]
     ])
@@ -204,10 +204,14 @@ def evaluate_epsilon(
         np.ones((N // 2, 1))
     ])
 
-    logger.info(f"Shape of train ds for LR is {np.shape(train_ds)}")
+    logger.info(f"Shape of train ds for LR is {np.shape(train_features)}")
     logger.info(f"Shape of train labels for LR is {np.shape(train_labels)}")
 
-    test_ds = np.concatenate([
+    train_ds = np.concatenate([train_features, train_labels], axis=1)
+    train_ds = pd.DataFrame(train_ds,
+                            columns=[f"x_{idx}" for idx in range(np.shape(train_features)[1])] + ["label"])
+
+    test_features = np.concatenate([
         all_lids_norm[N // 2:],
         all_lids_adv[N // 2:]
     ])
@@ -217,9 +221,19 @@ def evaluate_epsilon(
         np.ones((N // 2, 1))
     ])
 
-    logger.info(f"Shape of train ds for LR is {np.shape(test_ds)}")
+    logger.info(f"Shape of train ds for LR is {np.shape(test_features)}")
     logger.info(f"Shape of train labels for LR is {np.shape(test_labels)}")
 
+    test_ds = np.concatenate([test_features, test_labels], axis=1)
+    test_ds = pd.DataFrame(test_ds,
+                           columns=[f"x_{idx}" for idx in range(np.shape(test_features)[1])] + ["label"])
+
+    return train_ds, test_ds
+
+
+def evaluate_detector(
+        train_ds, test_ds
+):
     detector = LogisticRegression(
         fit_intercept=True,
         verbose=1,
@@ -228,19 +242,18 @@ def evaluate_epsilon(
         solver='lbfgs'
     )
 
-    detector.fit(X=train_ds, y=train_labels)
+    detector.fit(X=train_ds.iloc[:, :-1], y=train_ds.iloc[:, -1])
     coefs = list(detector.coef_.flatten())
     logger.info(f"Coefs of detector {coefs}")
 
-    test_predictions = detector.predict_proba(X=test_ds)[:, 1]
-    auc = roc_auc_score(y_true=test_labels, y_score=test_predictions)
+    test_predictions = detector.predict_proba(X=test_ds.iloc[:, :-1])[:, 1]
+    auc = roc_auc_score(y_true=test_ds.iloc[:, -1], y_score=test_predictions)
     logger.info(f"AUC is {auc}")
 
     return auc, coefs
 
 
 def run_experiment(config: Config):
-
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id}")
 
     if __name__ != "__main__":
@@ -260,16 +273,25 @@ def run_experiment(config: Config):
         train_noise=config.train_noise
     )
 
-    all_aucs = dict()
-    all_coefs = dict()
+    datasets = dict()
 
     for epsilon in [0.01, 0.025, 0.05, 0.1, 0.4]:
-        auc, coefs = evaluate_epsilon(
+        ds_train, ds_test = get_feature_datasets(
             config=config,
             epsilon=epsilon,
             dataset=dataset,
             archi=archi
         )
+        datasets[epsilon] = (ds_train, ds_test)
+
+    all_aucs = dict()
+    all_coefs = dict()
+
+    for epsilon in datasets:
+        train_ds, test_ds = datasets[epsilon]
+
+        auc, coefs = evaluate_detector(train_ds, test_ds)
+
         all_aucs[epsilon] = auc
         all_coefs[epsilon] = coefs
 
@@ -279,7 +301,7 @@ def run_experiment(config: Config):
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
-            "time": time.time()-start_time,
+            "time": time.time() - start_time,
             "classifier_coefs": all_coefs,
             "auc": all_aucs
         }
