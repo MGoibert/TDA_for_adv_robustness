@@ -103,24 +103,6 @@ def get_feature_datasets(
 
     # Adv dataset
 
-    total_adv_dataset = get_graph_dataset(
-                adv=True,
-                dataset=dataset,
-                architecture=archi,
-                dataset_size=config.batch_size * config.nb_batches,
-                only_successful_adversaries=config.successful_adv > 0.5,
-                attack_type=config.attack_type,
-                num_iter=num_iter,
-                epsilon=epsilon,
-                noise=config.noise,
-                compute_graph=False
-    )
-
-    vulnerable_indices = [line.sample_id for line in total_adv_dataset]
-
-
-
-
     for batch_idx in range(config.nb_batches):
         raw_batch = dataset.test_and_val_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
         b_norm = [s[0] for s in raw_batch]
