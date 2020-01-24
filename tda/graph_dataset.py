@@ -109,8 +109,10 @@ def process_sample(
 
     return x, y
 
+
 def load_saved_ex_dataset(
         epsilon: float,
+        num_iter: int,
         noise: float,
         adv: bool,
         dataset: Dataset,
@@ -119,8 +121,6 @@ def load_saved_ex_dataset(
         attack_type: str = "FGSM",
         train: bool = True
             ):
-
-    use_dataset = False
 
     # Generating folder and file path to save dataset of examples
     folder_path = f"{rootpath}/ex_datasets/dataset={dataset.name}/archi={architecture.name}/"
@@ -131,6 +131,7 @@ def load_saved_ex_dataset(
     file_path += "train_" if train else "test_"
     file_path += str(attack_type)+"_" if adv else ""
     file_path += "eps="+str(epsilon)+"_" if adv else ""
+    file_path += "num_iter="+str(num_iter)+"_" if adv else ""
     file_path += "noise="+str(noise)+"_" if noise > 0 else ""
     file_path += str(dataset_size)+"ex.pt"
 
@@ -144,7 +145,6 @@ def load_saved_ex_dataset(
         nb_saved_ex = use_file_name.split("ex")[0].split("_")
         nb_saved_ex = int(nb_saved_ex[len(nb_saved_ex)-1])
         if dataset_size <= nb_saved_ex:
-            use_dataset = True
             logger.info(f"We are going to use a saved dataset: {use_file_name} (dataset size required = {dataset_size})")
             ex_dataset = torch.load(folder_path+use_file_name)
         else:
@@ -153,7 +153,8 @@ def load_saved_ex_dataset(
         ex_dataset = None
     return ex_dataset, folder_path, file_path
 
-def get_point(
+
+def _get_point(
     point_number: int,
     saved_dataset: typing.Optional[typing.List],
     dataset: Dataset,
@@ -161,7 +162,6 @@ def get_point(
     noise: float = 0,
     epsilon: float = 0,
     model: typing.Optional[torch.nn.Module] = None,
-    num_classes: int = 10,
     attack_type: str = "FGSM",
     num_iter: int = 10,
     only_successful_adversaries: bool = True
@@ -220,7 +220,8 @@ def get_graph_dataset(
         num_iter: int = 10,
         start: int = 0,
         per_class: bool = False,
-        train: bool = True
+        train: bool = True,
+        compute_graph: bool = True
 ) -> typing.Generator[DatasetLine, None, None]:
     # Else we have to compute the dataset first
     logger.info(f"Using source dataset {dataset.name}")
@@ -238,6 +239,7 @@ def get_graph_dataset(
 
     ex_dataset, folder_path, file_path = load_saved_ex_dataset(
         epsilon=epsilon,
+        num_iter=num_iter,
         noise=noise,
         adv=adv,
         dataset=dataset,
@@ -256,7 +258,7 @@ def get_graph_dataset(
 
     while nb_samples < dataset_size:
 
-        sample, x, y, y_pred, nb_rejected = get_point(
+        sample, x, y, y_pred, nb_rejected = _get_point(
                 point_number=i,
                 saved_dataset=ex_dataset,
                 dataset=dataset,
@@ -264,7 +266,6 @@ def get_graph_dataset(
                 noise=noise,
                 epsilon=epsilon,
                 model=architecture,
-                num_classes=10,
                 attack_type=attack_type,
                 num_iter=num_iter,
                 only_successful_adversaries=only_successful_adversaries
@@ -289,11 +290,14 @@ def get_graph_dataset(
         #    layer_links=layer_links,
         #    thresholds=thresholds
         #)
-        x_graph = Graph.from_architecture_and_data_point(
-            architecture=architecture,
-            x=x.double(),
-            thresholds=thresholds
-        )
+        if compute_graph:
+            x_graph = Graph.from_architecture_and_data_point(
+                architecture=architecture,
+                x=x.double(),
+                thresholds=thresholds
+            )
+        else:
+            x_graph = None
 
         nb_samples += 1
         if nb_samples % 10 == 0:

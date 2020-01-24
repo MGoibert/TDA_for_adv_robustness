@@ -12,8 +12,9 @@ import torch
 from r3d3.experiment_db import ExperimentDB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
 
-from tda.graph_dataset import process_sample
+from tda.graph_dataset import get_graph_dataset
 from tda.logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
@@ -47,6 +48,8 @@ class Config(typing.NamedTuple):
     noise: float
     # Number of sample per class to estimate mu_class and sigma_class
     number_of_samples_for_mu_sigma: int
+    # Should we filter out non successful_adversaries
+    successful_adv: int
 
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -67,6 +70,7 @@ def get_config() -> Config:
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--preproc_epsilon', type=float, default=0.0)
     parser.add_argument('--noise', type=float, default=0.0)
+    parser.add_argument('--successful_adv', type=int, default=0)
 
     args, _ = parser.parse_known_args()
 
@@ -78,7 +82,6 @@ def compute_means_and_sigmas_inv(
         dataset: Dataset,
         architecture: Architecture
 ):
-
     assert architecture.is_trained
 
     ##########################################
@@ -199,8 +202,9 @@ def get_feature_datasets(
         architecture: Architecture,
         mean_per_class: typing.Dict,
         sigma_per_class_inv: typing.Dict,
-        epsilon: float):
-
+        epsilon: float,
+        num_iter: int = 50
+):
     assert architecture.is_trained
 
     all_feature_indices = sorted(list(mean_per_class.keys()))
@@ -208,35 +212,28 @@ def get_feature_datasets(
     all_classes = sorted(list(mean_per_class[all_feature_indices[0]].keys()))
     logger.info(f"All classes are {all_classes}")
 
-    logger.info(f"Evaluating epsilon={epsilon}")
+    logger.info(f"Evaluating epsilon={epsilon} / num_iter={num_iter}")
 
-    def create_dataset(start: int) -> pd.DataFrame:
-        i = start
+    def create_dataset(
+            adv: bool
+    ) -> pd.DataFrame:
         ret = list()
 
-        while i < start + config.dataset_size:
-            logger.debug(f"{i}/{start + config.dataset_size}")
+        for i, dataset_line in enumerate(get_graph_dataset(
+                adv=adv,
+                dataset=dataset,
+                architecture=architecture,
+                dataset_size=config.dataset_size,
+                only_successful_adversaries=config.successful_adv > 0.5,
+                attack_type=config.attack_type,
+                num_iter=num_iter,
+                epsilon=epsilon,
+                noise=config.noise,
+                compute_graph=False
+        )):
+            logger.debug(f"{i}/{config.dataset_size} (adv={adv})")
 
-            sample = dataset.test_and_val_dataset[i]
-
-            if i % 2 == 0:
-                adv = True
-                my_epsilon = epsilon
-                noise = 0.0
-            else:
-                adv = False
-                my_epsilon = 0
-                noise = config.noise
-
-            x, y = process_sample(
-                sample=sample,
-                adversarial=adv,
-                noise=noise,
-                epsilon=my_epsilon,
-                model=architecture,
-                num_classes=10,
-                attack_type=config.attack_type
-            )
+            x = dataset_line.x
 
             m_features = architecture.forward(
                 x=x,
@@ -298,7 +295,7 @@ def get_feature_datasets(
                     new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
 
                     logger.debug(f"Added perturbation to x {live_score.detach().numpy()[0, 0]} "
-                                f"-> {new_score.detach().numpy()[0, 0]}")
+                                 f"-> {new_score.detach().numpy()[0, 0]}")
 
                     # Now we have to do a second pass of optimization
                     best_score = np.inf
@@ -314,16 +311,23 @@ def get_feature_datasets(
 
                 scores.append(best_score)
 
-            ret.append(scores + [int(adv)])
+            ret.append(scores + [int(adv), dataset_line.l2_norm, dataset_line.linf_norm])
             i += 1
 
-        return pd.DataFrame(ret, columns=[f"layer_{idx}" for idx in all_feature_indices] + ["label"])
+        return pd.DataFrame(ret,
+                            columns=[f"layer_{idx}" for idx in all_feature_indices] + ["label", "l2_norm", "linf_norm"])
 
-    detector_train_dataset = create_dataset(start=0)
-    logger.info("Generated train dataset for detector !")
+    non_adv_dataset = create_dataset(adv=False)
+    logger.info("Generated clean dataset for detector !")
 
-    detector_test_dataset = detector_train_dataset  # create_dataset(start=args.dataset_size)
+    adv_dataset = create_dataset(adv=True)
     logger.info("Generated test dataset for detector !")
+
+    non_adv_dataset_train, non_adv_dataset_test = train_test_split(non_adv_dataset, test_size=0.5)
+    adv_dataset_train, adv_dataset_test = train_test_split(adv_dataset, test_size=0.5)
+
+    detector_train_dataset = pd.concat([non_adv_dataset_train, adv_dataset_train])
+    detector_test_dataset = pd.concat([non_adv_dataset_test, adv_dataset_test])
 
     return detector_train_dataset, detector_test_dataset
 
@@ -351,7 +355,6 @@ def evaluate_detector(
 
 
 def run_experiment(config: Config):
-
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id}")
 
     if __name__ != "__main__":
@@ -406,4 +409,3 @@ def run_experiment(config: Config):
             "coefs": coefs
         }
     )
-

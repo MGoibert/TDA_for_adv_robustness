@@ -92,6 +92,12 @@ def get_feature_datasets(
     all_lids_adv = list()
     all_lids_noisy = list()
 
+    l2_noisy = list()
+    linf_noisy = list()
+
+    l2_adv = list()
+    linf_adv = list()
+
     for batch_idx in range(config.nb_batches):
         raw_batch = dataset.test_and_val_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
         b_norm = [s[0] for s in raw_batch]
@@ -113,6 +119,8 @@ def get_feature_datasets(
                 attack_type=None
             )
             b_noisy.append(x_noisy)
+            l2_noisy.append(np.linalg.norm(torch.abs((x_norm.double() - x_noisy.double()).flatten()).detach().numpy(), 2))
+            linf_noisy.append(np.linalg.norm(torch.abs((x_norm.double() - x_noisy.double()).flatten()).detach().numpy(), np.inf))
 
         #######################
         # Creating adv batch  #
@@ -131,6 +139,8 @@ def get_feature_datasets(
                 num_iter=config.num_iter
             )
             b_adv.append(x_adv)
+            l2_adv.append(np.linalg.norm(torch.abs((x_norm.double() - x_adv.double()).flatten()).detach().numpy(), 2))
+            linf_adv.append(np.linalg.norm(torch.abs((x_norm.double() - x_adv.double()).flatten()).detach().numpy(), np.inf))
 
         b_norm = torch.cat([x.unsqueeze(0) for x in b_norm])
         b_adv = torch.cat([x.unsqueeze(0) for x in b_adv])
