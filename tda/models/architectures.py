@@ -248,7 +248,7 @@ class ConvLayer(Layer):
         return reduce(lambda a, b: a * b, list(t.shape))
 
     @staticmethod
-    @njit(parallel=True)
+    @njit
     def _generate_cnn_edges(
             kernel: np.ndarray,
             nbcols_input: int,

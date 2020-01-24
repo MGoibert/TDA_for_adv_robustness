@@ -228,8 +228,7 @@ def get_feature_datasets(
                 attack_type=config.attack_type,
                 num_iter=num_iter,
                 epsilon=epsilon,
-                noise=config.noise,
-                compute_graph=False
+                noise=config.noise
         )):
             logger.debug(f"{i}/{config.dataset_size} (adv={adv})")
 
