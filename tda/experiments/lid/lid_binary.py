@@ -14,7 +14,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import euclidean_distances
 
-from tda.graph_dataset import process_sample
+from tda.graph_dataset import process_sample, get_graph_dataset
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
@@ -53,6 +53,8 @@ class Config(typing.NamedTuple):
     attack_type: str
     # Parameter used by DeepFool and CW
     num_iter: int
+    # Should we filter out non successful_adversaries
+    successful_adv: int
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -84,7 +86,8 @@ def get_feature_datasets(
         config: Config,
         epsilon: float,
         dataset: Dataset,
-        archi: Architecture
+        archi: Architecture,
+        num_iter: int = 50
 ):
     logger.info(f"Evaluating epsilon={epsilon}")
 
@@ -97,6 +100,26 @@ def get_feature_datasets(
 
     l2_adv = list()
     linf_adv = list()
+
+    # Adv dataset
+
+    total_adv_dataset = get_graph_dataset(
+                adv=True,
+                dataset=dataset,
+                architecture=archi,
+                dataset_size=config.batch_size * config.nb_batches,
+                only_successful_adversaries=config.successful_adv > 0.5,
+                attack_type=config.attack_type,
+                num_iter=num_iter,
+                epsilon=epsilon,
+                noise=config.noise,
+                compute_graph=False
+    )
+
+    vulnerable_indices = [line.sample_id for line in total_adv_dataset]
+
+
+
 
     for batch_idx in range(config.nb_batches):
         raw_batch = dataset.test_and_val_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
