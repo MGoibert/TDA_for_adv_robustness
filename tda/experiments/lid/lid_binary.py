@@ -229,12 +229,23 @@ def get_feature_datasets(
         np.ones((N // 2, 1))
     ])
 
+    l2_train = np.concatenate([
+        np.zeros((N // 2, 1)),
+        np.expand_dims(l2_adv[:N // 2], 1)
+    ])
+
+    linf_train = np.concatenate([
+        np.zeros((N // 2, 1)),
+        np.expand_dims(linf_adv[:N // 2], 1)
+    ])
+
     logger.info(f"Shape of train ds for LR is {np.shape(train_features)}")
     logger.info(f"Shape of train labels for LR is {np.shape(train_labels)}")
 
-    train_ds = np.concatenate([train_features, train_labels], axis=1)
+    train_ds = np.concatenate([train_features, train_labels, l2_train,  linf_train], axis=1)
     train_ds = pd.DataFrame(train_ds,
-                            columns=[f"x_{idx}" for idx in range(np.shape(train_features)[1])] + ["label"])
+                            columns=[f"x_{idx}" for idx in range(np.shape(train_features)[1])] +
+                                    ["label", "l2_norm", "linf_norm"])
 
     test_features = np.concatenate([
         all_lids_norm[N // 2:],
@@ -246,12 +257,23 @@ def get_feature_datasets(
         np.ones((N // 2, 1))
     ])
 
+    l2_test = np.concatenate([
+        np.zeros((N // 2, 1)),
+        np.expand_dims(l2_adv[N // 2:], 1)
+    ])
+
+    linf_test = np.concatenate([
+        np.zeros((N // 2, 1)),
+        np.expand_dims(linf_adv[N // 2:], 1)
+    ])
+
     logger.info(f"Shape of train ds for LR is {np.shape(test_features)}")
     logger.info(f"Shape of train labels for LR is {np.shape(test_labels)}")
 
-    test_ds = np.concatenate([test_features, test_labels], axis=1)
+    test_ds = np.concatenate([test_features, test_labels, l2_test, linf_test], axis=1)
     test_ds = pd.DataFrame(test_ds,
-                           columns=[f"x_{idx}" for idx in range(np.shape(test_features)[1])] + ["label"])
+                           columns=[f"x_{idx}" for idx in range(np.shape(test_features)[1])] +
+                                   ["label", "l2_norm", "linf_norm"])
 
     return train_ds, test_ds
 
