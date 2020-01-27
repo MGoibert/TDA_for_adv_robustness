@@ -14,7 +14,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
-from tda.graph_dataset import get_graph_dataset
+from tda.graph_dataset import get_sample_dataset
 from tda.logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
@@ -219,16 +219,17 @@ def get_feature_datasets(
     ) -> pd.DataFrame:
         ret = list()
 
-        for i, dataset_line in enumerate(get_graph_dataset(
+        for i, dataset_line in enumerate(get_sample_dataset(
                 adv=adv,
                 dataset=dataset,
-                architecture=architecture,
+                archi=architecture,
                 dataset_size=config.dataset_size,
-                only_successful_adversaries=config.successful_adv > 0.5,
+                succ_adv=config.successful_adv > 0.5,
                 attack_type=config.attack_type,
                 num_iter=num_iter,
                 epsilon=epsilon,
-                noise=config.noise
+                noise=config.noise,
+                train=False
         )):
             logger.debug(f"{i}/{config.dataset_size} (adv={adv})")
 
