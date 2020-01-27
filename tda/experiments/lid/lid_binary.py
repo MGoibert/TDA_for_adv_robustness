@@ -14,7 +14,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import euclidean_distances
 
-from tda.graph_dataset import process_sample, get_graph_dataset
+from tda.graph_dataset import process_sample, get_graph_dataset, get_sample_dataset
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
@@ -101,16 +101,46 @@ def get_feature_datasets(
     l2_adv = list()
     linf_adv = list()
 
+    # Generating adv sample dataset
+    adv_dataset = get_sample_dataset(
+        adv=True,
+        dataset=dataset,
+        archi=archi,
+        dataset_size=config.batch_size * config.nb_batches,
+        succ_adv=config.successful_adv > 0.5,
+        attack_type=config.attack_type,
+        num_iter=num_iter,
+        epsilon=epsilon,
+        noise=config.noise,
+        train=False
+    )
+
     # Adv dataset
 
     for batch_idx in range(config.nb_batches):
-        raw_batch = dataset.test_and_val_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
-        b_norm = [s[0] for s in raw_batch]
-        true_labels = [s[1] for s in raw_batch]
 
-        #########################
-        # Creating noisy batch  #
-        #########################
+        raw_batch_adv = adv_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
+
+        #####################
+        # Adversarial Batch #
+        #####################
+
+        b_adv = [line.x for line in raw_batch_adv]
+        l2_adv += [line.l2_norm for line in raw_batch_adv]
+        linf_adv += [line.linf_norm for line in raw_batch_adv]
+
+        ###################################
+        # Normal batch on the same points #
+        ###################################
+
+        batch_indices = [line.sample_id for line in raw_batch_adv]
+        logger.debug(f"Batch indices {batch_indices}")
+        b_norm = [dataset.test_and_val_dataset[idx][0] for idx in batch_indices]
+
+        ##########################################
+        # Creating noisy batch from normal batch #
+        ##########################################
+
         b_noisy = list()
 
         for x_norm in b_norm:
@@ -126,26 +156,6 @@ def get_feature_datasets(
             b_noisy.append(x_noisy)
             l2_noisy.append(np.linalg.norm(torch.abs((x_norm.double() - x_noisy.double()).flatten()).detach().numpy(), 2))
             linf_noisy.append(np.linalg.norm(torch.abs((x_norm.double() - x_noisy.double()).flatten()).detach().numpy(), np.inf))
-
-        #######################
-        # Creating adv batch  #
-        #######################
-        b_adv = list()
-
-        for i, x_norm in enumerate(b_norm):
-            x_adv, _ = process_sample(
-                sample=(x_norm, true_labels[i]),
-                adversarial=True,
-                noise=0.0,
-                epsilon=epsilon,
-                model=archi,
-                num_classes=10,
-                attack_type=config.attack_type,
-                num_iter=config.num_iter
-            )
-            b_adv.append(x_adv)
-            l2_adv.append(np.linalg.norm(torch.abs((x_norm.double() - x_adv.double()).flatten()).detach().numpy(), 2))
-            linf_adv.append(np.linalg.norm(torch.abs((x_norm.double() - x_adv.double()).flatten()).detach().numpy(), np.inf))
 
         b_norm = torch.cat([x.unsqueeze(0) for x in b_norm])
         b_adv = torch.cat([x.unsqueeze(0) for x in b_adv])
