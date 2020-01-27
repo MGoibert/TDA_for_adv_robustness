@@ -258,6 +258,6 @@ def get_graph_dataset(
         )
 
         if yielded_lines % 10 == 0:
-            logger.info(f"Yielding line {yielded_lines}/{dataset_size}")
+            logger.info(f"Computing graph {yielded_lines}/{dataset_size}")
 
         yield line._replace(graph=x_graph)

@@ -26,7 +26,7 @@ def cached(my_func):
         else:
             ret = my_func(**kw)
             logger.info(f"Creating cache file {cache_path} for the call to {my_func.__name__}")
-            torch.save(ret, cache_path)
+            torch.save(ret, cache_path, pickle_protocol=4)
             return ret
 
     return my_func_with_cache
