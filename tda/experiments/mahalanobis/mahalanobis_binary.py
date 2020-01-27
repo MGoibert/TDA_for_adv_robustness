@@ -13,12 +13,14 @@ from r3d3.experiment_db import ExperimentDB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+from sklearn.svm import OneClassSVM
 
 from tda.graph_dataset import get_sample_dataset
 from tda.logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
 from tda.rootpath import db_path
+from tda.devices import device
 
 logger = get_logger("Mahalanobis")
 
@@ -114,7 +116,10 @@ def compute_means_and_sigmas_inv(
             if layer_idx not in features_per_class:
                 features_per_class[layer_idx] = dict()
             features_per_class[layer_idx][y] = \
-                features_per_class[layer_idx].get(y, list()) + [feat.detach().numpy()]
+                features_per_class[layer_idx].get(y, list()) + [feat.cpu().detach().numpy()]
+
+        if nb_sample_for_classes % 50 == 0:
+            logger.info(f"Done {nb_sample_for_classes} / {config.number_of_samples_for_mu_sigma}")
 
         nb_sample_for_classes += 1
 
@@ -171,7 +176,7 @@ def compute_means_and_sigmas_inv(
 
         # Assuming only one link to the softmax layer in the model
         softmax_layer_idx = architecture.get_pre_softmax_idx()
-        m_features = all_inner_activations[softmax_layer_idx].reshape(1, -1).detach().numpy()
+        m_features = all_inner_activations[softmax_layer_idx].reshape(1, -1).cpu().detach().numpy()
 
         best_score = np.inf
         best_class = -1
@@ -251,7 +256,7 @@ def get_feature_datasets(
 
                 for clazz in all_classes:
                     mu_clazz = mean_per_class[layer_idx][clazz]
-                    gap = m_features[layer_idx].reshape(1, -1).detach().numpy() - mu_clazz
+                    gap = m_features[layer_idx].reshape(1, -1).cpu().detach().numpy() - mu_clazz
                     score_clazz = gap @ sigma_l_inv @ np.transpose(gap)
 
                     if score_clazz < best_score:
@@ -266,8 +271,8 @@ def get_feature_datasets(
                     x = x.detach()
                     x.requires_grad = True
 
-                    inv_sigma_tensor = torch.from_numpy(sigma_l_inv)
-                    mu_tensor = torch.from_numpy(mu_l)
+                    inv_sigma_tensor = torch.from_numpy(sigma_l_inv).to(device)
+                    mu_tensor = torch.from_numpy(mu_l).to(device)
 
                     # Adding perturbation on x
                     f = architecture.forward(
@@ -278,7 +283,7 @@ def get_feature_datasets(
 
                     live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
 
-                    assert np.isclose(live_score.detach().numpy(), best_score)
+                    assert np.isclose(live_score.cpu().detach().numpy(), best_score)
 
                     architecture.zero_grad()
                     live_score.backward()
@@ -337,21 +342,39 @@ def evaluate_detector(
 ):
     detector = LogisticRegression(
         fit_intercept=True,
-        verbose=1,
-        tol=1e-5,
-        max_iter=1000,
+        verbose=0,
+        tol=1e-9,
+        max_iter=100000,
         solver='lbfgs'
     )
 
-    detector.fit(X=detector_train_dataset.iloc[:, :-1], y=detector_train_dataset.iloc[:, -1])
+    detector.fit(X=detector_train_dataset.iloc[:, :-3], y=detector_train_dataset.iloc[:, -3])
     coefs = list(detector.coef_.flatten())
     logger.info(f"Coefs of detector {coefs}")
 
-    test_predictions = detector.predict_proba(X=detector_test_dataset.iloc[:, :-1])[:, 1]
-    auc = roc_auc_score(y_true=detector_test_dataset.iloc[:, -1], y_score=test_predictions)
+    test_predictions = detector.predict_proba(X=detector_test_dataset.iloc[:, :-3])[:, 1]
+    auc = roc_auc_score(y_true=detector_test_dataset.iloc[:, -3], y_score=test_predictions)
     logger.info(f"AUC is {auc}")
 
     return auc, coefs
+
+
+def evaluate_detector_unsupervised(
+        detector_train_dataset, detector_test_dataset
+):
+    detector = OneClassSVM(
+        tol=1e-5,
+        kernel='rbf',
+        nu=0.1
+    )
+
+    detector.fit(X=detector_train_dataset.iloc[:, :-3])
+
+    test_predictions = detector.decision_function(X=detector_test_dataset.iloc[:, :-3])
+    auc = roc_auc_score(y_true=detector_test_dataset.iloc[:, -3], y_score=test_predictions)
+    logger.info(f"AUC is {auc}")
+
+    return auc
 
 
 def run_experiment(config: Config):
@@ -375,6 +398,7 @@ def run_experiment(config: Config):
     )
 
     aucs = dict()
+    aucs_unsupervised = dict()
     coefs = dict()
 
     mean_per_class, sigma_per_class_inv = compute_means_and_sigmas_inv(
@@ -383,20 +407,28 @@ def run_experiment(config: Config):
         architecture=architecture
     )
 
-    for epsilon in [0.01, 0.025, 0.05, 0.1, 0.4]:
+    if config.attack_type in ["FGSM", "BIM"]:
+        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
+    else:
+        all_epsilons = [1.0]  # Not used for DeepFool and CW
+
+    for epsilon in all_epsilons:
         ds_train, ds_test = get_feature_datasets(
             config=config,
             epsilon=epsilon,
             dataset=dataset,
             architecture=architecture,
             mean_per_class=mean_per_class,
-            sigma_per_class_inv=sigma_per_class_inv
+            sigma_per_class_inv=sigma_per_class_inv,
+            num_iter=50  # Fixed for DeepFool and CW
         )
 
         auc, coef = evaluate_detector(ds_train, ds_test)
+        auc_unsupervised = evaluate_detector_unsupervised(ds_train, ds_test)
 
         aucs[epsilon] = auc
         coefs[epsilon] = coef
+        aucs_unsupervised[epsilon] = auc_unsupervised
 
     logger.info(f"All AUCS are {aucs}")
 
@@ -406,6 +438,12 @@ def run_experiment(config: Config):
         metrics={
             "time": time.time() - start_time,
             "aucs": aucs,
+            "aucs_unsupervised": aucs_unsupervised,
             "coefs": coefs
         }
     )
+
+
+if __name__ == "__main__":
+    config = get_config()
+    run_experiment(config)
