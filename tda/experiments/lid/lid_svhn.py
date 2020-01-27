@@ -28,7 +28,7 @@ experiment = R3D3Experiment(
             20
         ],
         "successful_adv": [
-            1
+            0, 1
         ],
         "nb_batches": [
             1

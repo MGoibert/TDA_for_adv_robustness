@@ -5,6 +5,8 @@ from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel, \
     compute_dgm_from_graph
+from tda.graph_dataset import DatasetLine
+from tda.models import Architecture
 
 
 class EmbeddingType(object):
@@ -22,9 +24,17 @@ class KernelType(object):
 
 def get_embedding(
         embedding_type: str,
-        graph: Graph,
+        line: DatasetLine,
+        architecture: Architecture,
+        thresholds: Dict,
         params: Dict = dict()
 ):
+    graph = Graph.from_architecture_and_data_point(
+        architecture=architecture,
+        x=line.x.double(),
+        thresholds=thresholds
+    )
+
     if embedding_type == EmbeddingType.AnonymousWalk:
         walk = AnonymousWalks(G=graph.to_nx_graph())
         embedding = walk.embed(
@@ -41,8 +51,6 @@ def get_embedding(
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_graph(graph)
-    elif embedding_type == EmbeddingType.OriginalDataPoint:
-        return np.reshape(graph.original_data_point, (-1))
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
         return sorted(graph.final_logits)
 
