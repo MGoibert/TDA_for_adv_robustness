@@ -8,7 +8,7 @@ import typing
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
 from sklearn.metrics import roc_auc_score
-from sklearn.svm import OneClassSVM, SVC
+from sklearn.svm import OneClassSVM
 
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
@@ -17,7 +17,6 @@ from tda.graph_dataset import get_graph_dataset
 from tda.logging import get_logger
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture, Architecture
-from tda.protocol import get_protocolar_datasets
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
 
@@ -57,6 +56,8 @@ class Config(typing.NamedTuple):
     attack_type: str
     # Parameter used by DeepFool and CW
     num_iter: int
+    # Should we use the same images clean vs attack when training the detector
+    identical_train_samples: int
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -84,10 +85,59 @@ def get_config() -> Config:
     parser.add_argument('--successful_adv', type=int, default=1)
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--num_iter', type=int, default=10)
+    parser.add_argument('--identical_train_samples', type=int, default=1)
 
     args, _ = parser.parse_known_args()
 
     return Config(**args.__dict__)
+
+
+def get_embeddings(
+        config: Config,
+        architecture: Architecture,
+        noise: float,
+        thresholds: typing.List[float],
+        epsilon: float,
+        dataset: Dataset,
+        stats: typing.Dict,
+        stats_inf: typing.Dict,
+        start: int = 0
+) -> typing.List:
+    """
+    Compute the embeddings used for the detection
+    """
+
+    my_embeddings = list()
+    for line in get_graph_dataset(
+            epsilon=epsilon,
+            noise=noise,
+            adv=epsilon > 0.0,
+            architecture=architecture,
+            dataset=dataset,
+            dataset_size=config.dataset_size,
+            thresholds=thresholds,
+            only_successful_adversaries=config.successful_adv > 0,
+            attack_type=config.attack_type,
+            num_iter=config.num_iter,
+            start=start
+    ):
+        stats[epsilon].append(line.l2_norm)
+        stats_inf[epsilon].append(line.linf_norm)
+        my_embeddings.append(get_embedding(
+            embedding_type=config.embedding_type,
+            graph=line.graph,
+            params={
+                "hash_size": int(config.hash_size),
+                "height": int(config.height),
+                "node_labels": config.node_labels,
+                "steps": config.steps
+            }
+        ))
+    logger.info(
+        f"Computed embeddings for (attack = {config.attack_type}, "
+        f"eps={epsilon}, noise={config.noise}), "
+        f"number of sample = {len(my_embeddings)}")
+    return my_embeddings
 
 
 def get_all_embeddings(config: Config):
@@ -109,11 +159,11 @@ def get_all_embeddings(config: Config):
     )
 
     if config.attack_type in ["FGSM", "BIM"]:
-        # all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
-        all_epsilons = np.linspace(1e-2, 1.0, 10)
-        # all_epsilons = [0.0, 1.0]
+        all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
     else:
-        all_epsilons = [1.0]
+        all_epsilons = [0.0, 1.0]
+
+    start = 0
 
     stats = {
         epsilon: list()
@@ -124,104 +174,77 @@ def get_all_embeddings(config: Config):
         for epsilon in all_epsilons
     }
 
-    train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
-        noise=config.noise,
-        dataset=dataset,
-        succ_adv=config.successful_adv > 0,
-        archi=architecture,
-        dataset_size=config.dataset_size,
-        attack_type=config.attack_type,
-        all_epsilons=all_epsilons
-    )
-
     # Clean train
     logger.info(f"Clean train dataset !!")
-    clean_embeddings_train = list()
-    for line in train_clean:
-        clean_embeddings_train.append(get_embedding(
-            embedding_type=config.embedding_type,
-            line=line,
-            params={
-                "hash_size": int(config.hash_size),
-                "height": int(config.height),
-                "node_labels": config.node_labels,
-                "steps": config.steps
-            },
-            architecture=architecture,
-            thresholds=thresholds
-        ))
+    clean_embeddings_train = get_embeddings(
+        config=config, dataset=dataset, noise=0.0,
+        architecture=architecture, thresholds=thresholds,
+        epsilon=0.0, start=0,
+        stats=stats, stats_inf=stats_inf)
+    if config.identical_train_samples < 0.5:
+        start += config.dataset_size
+
+    # Noisy train
+    if config.noise > 0.0:
+        logger.info(f"Noisy train dataset !!")
+        noisy_embeddings_train = get_embeddings(
+            config=config, dataset=dataset, noise=config.noise,
+            architecture=architecture, thresholds=thresholds,
+            epsilon=0.0, start=start,
+            stats=stats, stats_inf=stats_inf)
+    else:
+        noisy_embeddings_train = list()
+    start += config.dataset_size
 
     # Clean test
     logger.info(f"Clean test dataset !!")
-    clean_embeddings_test = list()
-    for line in test_clean:
-        clean_embeddings_test.append(get_embedding(
-            embedding_type=config.embedding_type,
-            line=line,
-            params={
-                "hash_size": int(config.hash_size),
-                "height": int(config.height),
-                "node_labels": config.node_labels,
-                "steps": config.steps
-            },
-            architecture=architecture,
-            thresholds=thresholds
-        ))
+    clean_embeddings_test = get_embeddings(
+        config=config, dataset=dataset, noise=0.0,
+        architecture=architecture, thresholds=thresholds,
+        epsilon=0.0, start=start,
+        stats=stats, stats_inf=stats_inf)
+    start += config.dataset_size
 
-    adv_embeddings_train = dict()
-    adv_embeddings_test = dict()
+    # Noisy test
+    if config.noise > 0.0:
+        logger.info(f"Noisy test dataset !!")
+        noisy_embeddings_test = get_embeddings(
+            config=config, dataset=dataset, noise=config.noise,
+            architecture=architecture, thresholds=thresholds,
+            epsilon=0.0, start=start,
+            stats=stats, stats_inf=stats_inf)
+    else:
+        noisy_embeddings_test = list()
+    start += config.dataset_size
 
-    for epsilon in all_epsilons:
-        logger.info(f"Adversarial train dataset for espilon = {epsilon} !!")
-        adv_embeddings_train[epsilon] = list()
-        for line in train_adv[epsilon]:
-            adv_embeddings_train[epsilon].append(get_embedding(
-                embedding_type=config.embedding_type,
-                line=line,
-                params={
-                    "hash_size": int(config.hash_size),
-                    "height": int(config.height),
-                    "node_labels": config.node_labels,
-                    "steps": config.steps
-                },
-                architecture=architecture,
-                thresholds=thresholds
-            ))
-
+    adv_embeddings = dict()
+    for epsilon in all_epsilons[1:]:
         logger.info(f"Adversarial test dataset for espilon = {epsilon} !!")
-        adv_embeddings_test[epsilon] = list()
-        for line in test_adv[epsilon]:
-            stats[epsilon].append(line.l2_norm)
-            stats_inf[epsilon].append(line.linf_norm)
-            adv_embeddings_test[epsilon].append(get_embedding(
-                embedding_type=config.embedding_type,
-                line=line,
-                params={
-                    "hash_size": int(config.hash_size),
-                    "height": int(config.height),
-                    "node_labels": config.node_labels,
-                    "steps": config.steps
-                },
-                architecture=architecture,
-                thresholds=thresholds
-            ))
-
+        adv_embeddings[epsilon] = get_embeddings(
+            config=config, dataset=dataset, noise=0.0,
+            architecture=architecture, thresholds=thresholds,
+            epsilon=epsilon, start=start,
+            stats=stats, stats_inf=stats_inf)
         logger.debug(
             f"Stats for diff btw clean and adv: "
             f"{np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
 
-    return clean_embeddings_train, clean_embeddings_test, adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
+    embedding_train = clean_embeddings_train + noisy_embeddings_train
+    embedding_test = clean_embeddings_test + noisy_embeddings_test
+
+    adv_embeddings[0.0] = embedding_test
+
+    return embedding_train, embedding_test, adv_embeddings, thresholds, stats, stats_inf
 
 
 def evaluate_embeddings(
         gram_train_matrices: typing.Dict,
         embeddings_train: typing.List,
         embeddings_test: typing.List,
-        adv_embeddings_train: typing.List,
-        adv_embeddings_test: typing.List,
+        adv_embeddings: typing.List,
         param_space: typing.List,
         kernel_type: str
-) -> (float, float):
+) -> float:
     """
     Compute the AUC for a given epsilon and returns also the scores
     of the best OneClass SVM
@@ -229,21 +252,15 @@ def evaluate_embeddings(
 
     # embeddings = clean_embeddings + adv_embeddings[epsilon]
     best_auc = 0.0
-    best_auc_supervised = 0.0
 
     for i, param in enumerate(param_space):
-
-        #########################
-        # Unsupervised Learning #
-        #########################
-
         ocs = OneClassSVM(
             tol=1e-5,
             kernel="precomputed")
 
         # Training model
         start_time = time.time()
-        logger.info(f"sum gram matrix train = {gram_train_matrices[i].sum()}")
+        logger.info(f"sum ram matrix train = {gram_train_matrices[i].sum()}")
         ocs.fit(gram_train_matrices[i])
         logger.info(f"Trained model in {time.time() - start_time} secs")
 
@@ -251,7 +268,7 @@ def evaluate_embeddings(
         start_time = time.time()
         gram_test_and_bad = get_gram_matrix(
             kernel_type=kernel_type,
-            embeddings_in=embeddings_test + adv_embeddings_test,
+            embeddings_in=embeddings_test + adv_embeddings,
             embeddings_out=embeddings_train,
             params=param
         )
@@ -262,7 +279,7 @@ def evaluate_embeddings(
         labels = np.concatenate(
             (
                 np.ones(len(embeddings_test)),
-                np.zeros(len(adv_embeddings_test))
+                np.zeros(len(adv_embeddings))
             )
         )
 
@@ -272,49 +289,7 @@ def evaluate_embeddings(
         if roc_auc_val > best_auc:
             best_auc = roc_auc_val
 
-        #######################
-        # Supervised Learning #
-        #######################
-
-        detector = SVC(
-            verbose=0,
-            tol=1e-9,
-            max_iter=100000,
-            kernel='precomputed'
-        )
-
-        labels_train = np.concatenate(
-            (
-                np.ones(len(embeddings_train)),
-                np.zeros(len(adv_embeddings_train))
-            )
-        )
-
-        gram_train = get_gram_matrix(
-            kernel_type=kernel_type,
-            embeddings_in=embeddings_train + adv_embeddings_train,
-            embeddings_out=None,
-            params=param
-        )
-
-        detector.fit(gram_train, labels_train)
-
-        gram_test = get_gram_matrix(
-            kernel_type=kernel_type,
-            embeddings_in=embeddings_test + adv_embeddings_test,
-            embeddings_out=embeddings_train + adv_embeddings_train,
-            params=param
-        )
-
-        predictions = detector.decision_function(gram_test)
-
-        roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
-        logger.info(f"Supervised AUC score for param = {param} : {roc_auc_val}")
-
-        if roc_auc_val > best_auc_supervised:
-            best_auc_supervised = roc_auc_val
-
-    return best_auc, best_auc_supervised
+    return best_auc
 
 
 def run_experiment(config: Config):
@@ -331,8 +306,7 @@ def run_experiment(config: Config):
             config=config._asdict()
         )
 
-    embedding_train, embedding_test, adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf = get_all_embeddings(
-        config)
+    embedding_train, embedding_test, adv_embeddings, thresholds, stats, stats_inf = get_all_embeddings(config)
 
     if config.kernel_type == KernelType.RBF:
         param_space = [
@@ -354,19 +328,18 @@ def run_experiment(config: Config):
     )
         for i, param in enumerate(param_space)
     }
-    logger.info(f"Computed all unsupervised Gram train matrices !")
+    logger.info(f"Computed all Gram train matrices !")
 
     all_results = {
         epsilon: evaluate_embeddings(
             gram_train_matrices=gram_train_matrices,
             embeddings_train=embedding_train,
             embeddings_test=embedding_test,
-            adv_embeddings_train=adv_embeddings_train[epsilon],
-            adv_embeddings_test=adv_embeddings_test[epsilon],
+            adv_embeddings=adv_embeddings[epsilon],
             param_space=param_space,
             kernel_type=config.kernel_type
         )
-        for epsilon in adv_embeddings_train
+        for epsilon in adv_embeddings
     }
 
     logger.info(all_results)
@@ -377,8 +350,7 @@ def run_experiment(config: Config):
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
-            "aucs": {key: all_results[key][0] for key in all_results},
-            "aucs_supervised": {key: all_results[key][1] for key in all_results},
+            "separability_values": all_results,
             "effective_thresholds": {
                 "_".join([str(v) for v in key]): thresholds[key]
                 for key in thresholds

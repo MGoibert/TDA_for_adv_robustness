@@ -19,7 +19,7 @@ experiment = R3D3Experiment(
             200
         ],
         'dataset': [
-            "MNIST"
+            "SVHN"
         ],
         'attack_type': [
             "FGSM", "BIM", "CW", "DeepFool"

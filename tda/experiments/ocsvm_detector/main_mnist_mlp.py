@@ -29,9 +29,6 @@ experiment = R3D3Experiment(
         ],
         'noise': [
             0.0
-        ],
-        'identical_train_samples': [
-            1
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

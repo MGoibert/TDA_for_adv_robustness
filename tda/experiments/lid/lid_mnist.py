@@ -22,13 +22,13 @@ experiment = R3D3Experiment(
             0.1
         ],
         "batch_size": [
-            100
+            50
         ],
         "number_of_nn": [
-            20
+            10
         ],
         "successful_adv": [
-            1
+            0, 1
         ],
         "nb_batches": [
             1

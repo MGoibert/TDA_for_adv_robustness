@@ -15,10 +15,11 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.svm import OneClassSVM
 
-from tda.graph_dataset import get_sample_dataset
+from tda.graph_dataset import get_sample_dataset, DatasetLine
 from tda.logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
+from tda.protocol import get_protocolar_datasets
 from tda.rootpath import db_path
 from tda.devices import device
 
@@ -219,24 +220,27 @@ def get_feature_datasets(
 
     logger.info(f"Evaluating epsilon={epsilon} / num_iter={num_iter}")
 
+    train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
+        noise=config.noise,
+        dataset=dataset,
+        succ_adv=config.successful_adv > 0,
+        archi=architecture,
+        dataset_size=config.dataset_size,
+        attack_type=config.attack_type,
+        all_epsilons=[epsilon]
+    )
+
+    train_adv = train_adv[epsilon]
+    test_adv = test_adv[epsilon]
+
     def create_dataset(
-            adv: bool
+            input_dataset: typing.List[DatasetLine],
+            adv: int
     ) -> pd.DataFrame:
         ret = list()
 
-        for i, dataset_line in enumerate(get_sample_dataset(
-                adv=adv,
-                dataset=dataset,
-                archi=architecture,
-                dataset_size=config.dataset_size,
-                succ_adv=config.successful_adv > 0.5,
-                attack_type=config.attack_type,
-                num_iter=num_iter,
-                epsilon=epsilon,
-                noise=config.noise,
-                train=False
-        )):
-            logger.debug(f"{i}/{config.dataset_size} (adv={adv})")
+        for i, dataset_line in enumerate(input_dataset):
+            logger.debug(f"Processing {i}/{len(input_dataset)}")
 
             x = dataset_line.x
 
@@ -316,20 +320,19 @@ def get_feature_datasets(
 
                 scores.append(best_score)
 
-            ret.append(scores + [int(adv), dataset_line.l2_norm, dataset_line.linf_norm])
+            ret.append(scores + [adv, dataset_line.l2_norm, dataset_line.linf_norm])
             i += 1
 
         return pd.DataFrame(ret,
                             columns=[f"layer_{idx}" for idx in all_feature_indices] + ["label", "l2_norm", "linf_norm"])
 
-    non_adv_dataset = create_dataset(adv=False)
-    logger.info("Generated clean dataset for detector !")
+    non_adv_dataset_train = create_dataset(train_clean, adv=0)
+    non_adv_dataset_test = create_dataset(test_clean, adv=0)
 
-    adv_dataset = create_dataset(adv=True)
-    logger.info("Generated test dataset for detector !")
+    adv_dataset_train = create_dataset(train_adv, adv=1)
+    adv_dataset_test = create_dataset(test_adv, adv=1)
 
-    non_adv_dataset_train, non_adv_dataset_test = train_test_split(non_adv_dataset, test_size=0.5)
-    adv_dataset_train, adv_dataset_test = train_test_split(adv_dataset, test_size=0.5)
+    logger.info("Generated all datasets for detector !")
 
     detector_train_dataset = pd.concat([non_adv_dataset_train, adv_dataset_train])
     detector_test_dataset = pd.concat([non_adv_dataset_test, adv_dataset_test])
@@ -408,7 +411,8 @@ def run_experiment(config: Config):
     )
 
     if config.attack_type in ["FGSM", "BIM"]:
-        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
+        # all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
+        all_epsilons = np.linspace(1e-2, 1.0, 10)
     else:
         all_epsilons = [1.0]  # Not used for DeepFool and CW
 

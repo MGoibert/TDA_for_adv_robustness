@@ -15,11 +15,12 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.svm import OneClassSVM
 
-from tda.graph_dataset import process_sample, get_sample_dataset
+from tda.graph_dataset import process_sample, get_sample_dataset, DatasetLine
 from tda.logging import get_logger
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
+from tda.protocol import get_protocolar_datasets
 from tda.rootpath import db_path
 
 logger = get_logger("LID")
@@ -85,190 +86,93 @@ def get_feature_datasets(
         config: Config,
         epsilon: float,
         dataset: Dataset,
-        archi: Architecture,
-        num_iter: int = 50
+        archi: Architecture
 ):
     logger.info(f"Evaluating epsilon={epsilon}")
 
-    all_lids_norm = list()
-    all_lids_adv = list()
-    all_lids_noisy = list()
-
-    l2_noisy = list()
-    linf_noisy = list()
-
-    l2_adv = list()
-    linf_adv = list()
-
-    # Generating adv sample dataset
-    adv_dataset = get_sample_dataset(
-        adv=True,
-        dataset=dataset,
-        archi=archi,
-        dataset_size=config.batch_size * config.nb_batches,
-        succ_adv=config.successful_adv > 0.5,
-        attack_type=config.attack_type,
-        num_iter=num_iter,
-        epsilon=epsilon,
+    train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
-        train=False
+        dataset=dataset,
+        succ_adv=config.successful_adv > 0,
+        archi=archi,
+        dataset_size=2 * config.batch_size * config.nb_batches,  # Train + Test
+        attack_type=config.attack_type,
+        all_epsilons=[epsilon]
     )
 
-    # Adv dataset
+    def create_lid_dataset(
+            input_dataset: typing.List[DatasetLine],
+            adv: int
+    ):
+        logger.debug(f"Adv is {adv}")
+        logger.debug(f"Dataset size is {len(input_dataset)}")
+        logger.debug(f"Expected size is {config.batch_size} * {config.nb_batches} = {config.batch_size * config.nb_batches}")
+        assert len(input_dataset) == config.batch_size * config.nb_batches
 
-    for batch_idx in range(config.nb_batches):
+        all_lids = list()
+        l2_norms = list()
+        linf_norms = list()
 
-        raw_batch_adv = adv_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
+        for batch_idx in range(config.nb_batches):
 
-        #####################
-        # Adversarial Batch #
-        #####################
+            raw_batch = input_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
 
-        b_adv = [line.x for line in raw_batch_adv]
-        l2_adv += [line.l2_norm for line in raw_batch_adv]
-        linf_adv += [line.linf_norm for line in raw_batch_adv]
+            #########################
+            # Computing activations #
+            #########################
 
-        ###################################
-        # Normal batch on the same points #
-        ###################################
+            activations = archi.forward(
+                torch.cat([line.x.unsqueeze(0) for line in raw_batch]), output="all_inner")
 
-        batch_indices = [line.sample_id for line in raw_batch_adv]
-        logger.debug(f"Batch indices {batch_indices}")
-        b_norm = [dataset.test_and_val_dataset[idx][0] for idx in batch_indices]
+            lids = np.zeros((config.batch_size, len(archi.layers) - 1))
 
-        ##########################################
-        # Creating noisy batch from normal batch #
-        ##########################################
+            for layer_idx in archi.layer_visit_order:
+                if layer_idx == -1:
+                    # Skipping input
+                    continue
+                if isinstance(archi.layers[layer_idx], SoftMaxLayer):
+                    # Skipping softmax
+                    continue
+                activations_layer = activations[layer_idx].reshape(config.batch_size, -1).cpu().detach().numpy()
 
-        b_noisy = list()
+                distances = euclidean_distances(activations_layer, activations_layer)
 
-        for x_norm in b_norm:
-            x_noisy, _ = process_sample(
-                sample=(x_norm, 0),
-                adversarial=False,
-                noise=config.noise
-            )
-            b_noisy.append(x_noisy)
-            l2_noisy.append(np.linalg.norm(torch.abs((x_norm.double() - x_noisy.double()).flatten()).detach().numpy(), 2))
-            linf_noisy.append(np.linalg.norm(torch.abs((x_norm.double() - x_noisy.double()).flatten()).detach().numpy(), np.inf))
+                for sample_idx in range(config.batch_size):
+                    z = distances[sample_idx]
+                    z = z[z.argsort()[1:config.number_of_nn + 1]]
 
-        b_norm = torch.cat([x.unsqueeze(0) for x in b_norm])
-        b_adv = torch.cat([x.unsqueeze(0) for x in b_adv])
-        b_noisy = torch.cat([x.unsqueeze(0) for x in b_noisy])
+                    lid = -1 / (sum([np.log(x / z[-1]) for x in z]) / config.number_of_nn)
 
-        #########################
-        # Computing activations #
-        #########################
+                    lids[sample_idx, layer_idx] = lid
 
-        a_norm = archi.forward(b_norm, output="all_inner")
-        a_adv = archi.forward(b_adv, output="all_inner")
-        a_noisy = archi.forward(b_noisy, output="all_inner")
+            all_lids.append(lids)
+            l2_norms += [line.l2_norm for line in raw_batch]
+            linf_norms += [line.linf_norm for line in raw_batch]
 
-        lids_norm = np.zeros((config.batch_size, len(archi.layers) - 1))
-        lids_adv = np.zeros((config.batch_size, len(archi.layers) - 1))
-        lids_noisy = np.zeros((config.batch_size, len(archi.layers) - 1))
+        logger.info(f"adv={adv}")
+        logger.info(len(input_dataset))
+        logger.info(np.shape(all_lids))
+        logger.info(len(l2_norms))
+        logger.info("---")
 
-        for layer_idx in archi.layer_visit_order:
-            if layer_idx == -1:
-                # Skipping input
-                continue
-            if isinstance(archi.layers[layer_idx], SoftMaxLayer):
-                # Skipping softmax
-                continue
-            a_norm_layer = a_norm[layer_idx].reshape(config.batch_size, -1).cpu().detach().numpy()
-            a_adv_layer = a_adv[layer_idx].reshape(config.batch_size, -1).cpu().detach().numpy()
-            a_noisy_layer = a_noisy[layer_idx].reshape(config.batch_size, -1).cpu().detach().numpy()
+        all_lids = np.concatenate(all_lids, axis=0)
 
-            d_norm = euclidean_distances(a_norm_layer, a_norm_layer)
-            d_adv = euclidean_distances(a_adv_layer, a_adv_layer)
-            d_noisy = euclidean_distances(a_noisy_layer, a_noisy_layer)
+        df = pd.DataFrame(all_lids, columns=[f"x_{idx}" for idx in range(np.shape(all_lids)[1])])
+        df["label"] = adv
+        df["l2_norm"] = l2_norms
+        df["linf_norm"] = linf_norms
 
-            for sample_idx in range(config.batch_size):
-                z_norm = d_norm[sample_idx]
-                z_norm = z_norm[z_norm.argsort()[1:config.number_of_nn + 1]]
+        return df
 
-                lid_norm = -1 / (sum([np.log(x / z_norm[-1]) for x in z_norm]) / config.number_of_nn)
-
-                z_adv = d_adv[sample_idx]
-                z_adv = z_adv[z_adv.argsort()[1:config.number_of_nn + 1]]
-
-                lid_adv = -1 / (sum([np.log(x / z_adv[-1]) for x in z_adv]) / config.number_of_nn)
-
-                z_noisy = d_noisy[sample_idx]
-                z_noisy = z_noisy[z_noisy.argsort()[1:config.number_of_nn + 1]]
-
-                lid_noisy = -1 / (sum([np.log(x / z_noisy[-1]) for x in z_noisy]) / config.number_of_nn)
-
-                lids_norm[sample_idx, layer_idx] = lid_norm
-                lids_adv[sample_idx, layer_idx] = lid_adv
-                lids_noisy[sample_idx, layer_idx] = lid_noisy
-
-        all_lids_norm.append(lids_norm)
-        all_lids_adv.append(lids_adv)
-        all_lids_noisy.append(lids_noisy)
-
-    all_lids_norm = np.concatenate(all_lids_norm, axis=0)
-    all_lids_adv = np.concatenate(all_lids_adv, axis=0)
-    all_lids_noisy = np.concatenate(all_lids_noisy, axis=0)
-
-    N = len(all_lids_norm)
-    logger.info(f"Computed LIDs for {N} points")
-
-    train_features = np.concatenate([
-        all_lids_norm[:N // 2],
-        all_lids_adv[:N // 2]
+    train_ds = pd.concat([
+        create_lid_dataset(train_clean, 0),
+        create_lid_dataset(train_adv[epsilon], 1)
     ])
 
-    train_labels = np.concatenate([
-        np.zeros((N // 2, 1)),
-        np.ones((N // 2, 1))
+    test_ds = pd.concat([
+        create_lid_dataset(test_clean, 0),
+        create_lid_dataset(test_adv[epsilon], 1)
     ])
-
-    l2_train = np.concatenate([
-        np.zeros((N // 2, 1)),
-        np.expand_dims(l2_adv[:N // 2], 1)
-    ])
-
-    linf_train = np.concatenate([
-        np.zeros((N // 2, 1)),
-        np.expand_dims(linf_adv[:N // 2], 1)
-    ])
-
-    logger.info(f"Shape of train ds for LR is {np.shape(train_features)}")
-    logger.info(f"Shape of train labels for LR is {np.shape(train_labels)}")
-
-    train_ds = np.concatenate([train_features, train_labels, l2_train,  linf_train], axis=1)
-    train_ds = pd.DataFrame(train_ds,
-                            columns=[f"x_{idx}" for idx in range(np.shape(train_features)[1])] +
-                                    ["label", "l2_norm", "linf_norm"])
-
-    test_features = np.concatenate([
-        all_lids_norm[N // 2:],
-        all_lids_adv[N // 2:]
-    ])
-
-    test_labels = np.concatenate([
-        np.zeros((N // 2, 1)),
-        np.ones((N // 2, 1))
-    ])
-
-    l2_test = np.concatenate([
-        np.zeros((N // 2, 1)),
-        np.expand_dims(l2_adv[N // 2:], 1)
-    ])
-
-    linf_test = np.concatenate([
-        np.zeros((N // 2, 1)),
-        np.expand_dims(linf_adv[N // 2:], 1)
-    ])
-
-    logger.info(f"Shape of train ds for LR is {np.shape(test_features)}")
-    logger.info(f"Shape of train labels for LR is {np.shape(test_labels)}")
-
-    test_ds = np.concatenate([test_features, test_labels, l2_test, linf_test], axis=1)
-    test_ds = pd.DataFrame(test_ds,
-                           columns=[f"x_{idx}" for idx in range(np.shape(test_features)[1])] +
-                                   ["label", "l2_norm", "linf_norm"])
 
     return train_ds, test_ds
 
@@ -278,9 +182,9 @@ def evaluate_detector(
 ):
     detector = LogisticRegression(
         fit_intercept=True,
-        verbose=1,
-        tol=1e-5,
-        max_iter=1000,
+        verbose=0,
+        tol=1e-9,
+        max_iter=100000,
         solver='lbfgs'
     )
 
@@ -306,7 +210,7 @@ def evaluate_detector_unsupervised(
 
     detector.fit(X=train_ds.iloc[:, :-3])
 
-    test_predictions = detector.decision_function(X=test_ds.iloc[:, :-3])[:, 1]
+    test_predictions = detector.decision_function(X=test_ds.iloc[:, :-3])
     auc = roc_auc_score(y_true=test_ds.iloc[:, -3], y_score=test_predictions)
     logger.info(f"AUC is {auc}")
 
@@ -336,7 +240,8 @@ def run_experiment(config: Config):
     datasets = dict()
 
     if config.attack_type in ["FGSM", "BIM"]:
-        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
+        # all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
+        all_epsilons = np.linspace(1e-2, 1.0, 10)
     else:
         all_epsilons = [1.0]  # Not used for DeepFool and CW
 
