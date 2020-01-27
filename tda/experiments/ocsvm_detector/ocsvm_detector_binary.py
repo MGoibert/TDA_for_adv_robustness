@@ -4,7 +4,6 @@
 import argparse
 import time
 import typing
-from multiprocessing import Pool
 
 import numpy as np
 from r3d3.experiment_db import ExperimentDB
@@ -15,11 +14,11 @@ from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_graph_dataset
+from tda.logging import get_logger
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture, Architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
-from tda.logging import get_logger
 
 logger = get_logger("Detector")
 start_time = time.time()

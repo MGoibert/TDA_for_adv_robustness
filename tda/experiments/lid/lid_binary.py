@@ -13,13 +13,14 @@ from r3d3.experiment_db import ExperimentDB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.svm import OneClassSVM
 
-from tda.graph_dataset import process_sample, get_graph_dataset, get_sample_dataset
+from tda.graph_dataset import process_sample, get_sample_dataset
+from tda.logging import get_logger
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
 from tda.rootpath import db_path
-from tda.logging import get_logger
 
 logger = get_logger("LID")
 
@@ -51,8 +52,6 @@ class Config(typing.NamedTuple):
     batch_size: int
     # Type of attack (FGSM, BIM, CW)
     attack_type: str
-    # Parameter used by DeepFool and CW
-    num_iter: int
     # Should we filter out non successful_adversaries
     successful_adv: int
     # Default parameters when running interactively for instance
@@ -71,11 +70,11 @@ def get_config() -> Config:
     parser.add_argument('--architecture', type=str, default=mnist_lenet.name)
     parser.add_argument('--nb_batches', type=int, default=10)
     parser.add_argument('--attack_type', type=str, default="FGSM")
-    parser.add_argument('--num_iter', type=int, default=5)
     parser.add_argument('--noise', type=float, default=0.0)
     parser.add_argument('--train_noise', type=float, default=0.0)
     parser.add_argument('--batch_size', type=int, default=100)
     parser.add_argument('--number_of_nn', type=int, default=20)
+    parser.add_argument('--successful_adv', type=int, default=1)
 
     args, _ = parser.parse_known_args()
 
@@ -147,11 +146,7 @@ def get_feature_datasets(
             x_noisy, _ = process_sample(
                 sample=(x_norm, 0),
                 adversarial=False,
-                noise=config.noise,
-                epsilon=None,
-                model=None,
-                num_classes=None,
-                attack_type=None
+                noise=config.noise
             )
             b_noisy.append(x_noisy)
             l2_noisy.append(np.linalg.norm(torch.abs((x_norm.double() - x_noisy.double()).flatten()).detach().numpy(), 2))
@@ -289,15 +284,33 @@ def evaluate_detector(
         solver='lbfgs'
     )
 
-    detector.fit(X=train_ds.iloc[:, :-1], y=train_ds.iloc[:, -1])
+    detector.fit(X=train_ds.iloc[:, :-3], y=train_ds.iloc[:, -3])
     coefs = list(detector.coef_.flatten())
     logger.info(f"Coefs of detector {coefs}")
 
-    test_predictions = detector.predict_proba(X=test_ds.iloc[:, :-1])[:, 1]
-    auc = roc_auc_score(y_true=test_ds.iloc[:, -1], y_score=test_predictions)
+    test_predictions = detector.predict_proba(X=test_ds.iloc[:, :-3])[:, 1]
+    auc = roc_auc_score(y_true=test_ds.iloc[:, -3], y_score=test_predictions)
     logger.info(f"AUC is {auc}")
 
     return auc, coefs
+
+
+def evaluate_detector_unsupervised(
+        train_ds, test_ds
+):
+    detector = OneClassSVM(
+        tol=1e-5,
+        kernel='rbf',
+        nu=0.1
+    )
+
+    detector.fit(X=train_ds.iloc[:, :-3])
+
+    test_predictions = detector.decision_function(X=test_ds.iloc[:, :-3])[:, 1]
+    auc = roc_auc_score(y_true=test_ds.iloc[:, -3], y_score=test_predictions)
+    logger.info(f"AUC is {auc}")
+
+    return auc
 
 
 def run_experiment(config: Config):
@@ -322,27 +335,37 @@ def run_experiment(config: Config):
 
     datasets = dict()
 
-    for epsilon in [0.01, 0.025, 0.05, 0.1, 0.4]:
+    if config.attack_type in ["FGSM", "BIM"]:
+        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
+    else:
+        all_epsilons = [1.0]  # Not used for DeepFool and CW
+
+    for epsilon in all_epsilons:
         ds_train, ds_test = get_feature_datasets(
             config=config,
             epsilon=epsilon,
             dataset=dataset,
-            archi=archi
+            archi=archi,
+            num_iter=50
         )
         datasets[epsilon] = (ds_train, ds_test)
 
     all_aucs = dict()
     all_coefs = dict()
+    all_aucs_unsupervised = dict()
 
     for epsilon in datasets:
         train_ds, test_ds = datasets[epsilon]
 
         auc, coefs = evaluate_detector(train_ds, test_ds)
+        auc_unsupervised = evaluate_detector_unsupervised(train_ds, test_ds)
 
         all_aucs[epsilon] = auc
         all_coefs[epsilon] = coefs
+        all_aucs_unsupervised[epsilon] = auc_unsupervised
 
     logger.info(all_aucs)
+    logger.info(all_aucs_unsupervised)
 
     my_db.update_experiment(
         experiment_id=config.experiment_id,
@@ -350,13 +373,14 @@ def run_experiment(config: Config):
         metrics={
             "time": time.time() - start_time,
             "classifier_coefs": all_coefs,
-            "auc": all_aucs
+            "aucs": all_aucs,
+            "aucs_unsupervised": all_aucs_unsupervised
         }
     )
 
     logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !")
 
-    return all_aucs, all_coefs
+    return all_aucs, all_coefs, all_aucs_unsupervised
 
 
 if __name__ == "__main__":

@@ -1,16 +1,16 @@
 from r3d3 import R3D3Experiment
 
-from tda.models.architectures import mnist_lenet
+from tda.models.architectures import mnist_mlp
 from tda.rootpath import rootpath, db_path
 
 experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'architecture': [
-            mnist_lenet.name
+            mnist_mlp.name
         ],
         'epochs': [
-            50
+            25
         ],
         'dataset': [
             "MNIST"

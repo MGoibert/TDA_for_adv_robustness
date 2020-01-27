@@ -1,8 +1,7 @@
 from r3d3 import R3D3Experiment
 
-from tda.models.architectures import mnist_mlp, mnist_lenet
+from tda.models.architectures import mnist_lenet
 from tda.rootpath import rootpath, db_path
-import numpy as np
 
 experiment = R3D3Experiment(
     db_path=db_path,
@@ -17,22 +16,25 @@ experiment = R3D3Experiment(
             "MNIST"
         ],
         'attack_type': [
-            "FGSM"
-        ],
-        'dataset_size': [
-          25
-        ],
-        'epsilon': [
-            0.02, 0.1, 0.2, 0.4
+            "FGSM", "BIM", "CW", "DeepFool"
         ],
         'noise': [
             0.1
         ],
         "batch_size": [
-            500
+            100
         ],
         "number_of_nn": [
-            100
+            20
+        ],
+        "successful_adv": [
+            1
+        ],
+        "nb_batches": [
+            1
+        ],
+        "train_noise": [
+            0.0
         ]
     },
     binary=f"{rootpath}/tda/experiments/lid/lid_binary.py",
