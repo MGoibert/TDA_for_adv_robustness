@@ -14,6 +14,14 @@ except Exception as e:
     homology_persistence = None
     init_diagrams = None
 
+from ripser import Rips
+
+
+def compute_dgm_from_graph_ripser(
+    graph: Graph
+):
+    ret = Rips(maxdim=1, coeff=2)
+
 
 def compute_dgm_from_graph(
         graph: Graph

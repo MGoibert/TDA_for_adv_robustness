@@ -15,7 +15,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.svm import OneClassSVM
 
-from tda.graph_dataset import process_sample, get_sample_dataset, DatasetLine
+from tda.graph_dataset import DatasetLine
 from tda.logging import get_logger
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
@@ -250,8 +250,7 @@ def run_experiment(config: Config):
             config=config,
             epsilon=epsilon,
             dataset=dataset,
-            archi=archi,
-            num_iter=50
+            archi=archi
         )
         datasets[epsilon] = (ds_train, ds_test)
 
