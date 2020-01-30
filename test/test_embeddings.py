@@ -16,6 +16,15 @@ def test_euclidean_gram():
         embeddings_in=embed_in,
         embeddings_out=embed_out)
 
+    M_legacy = get_gram_matrix_legacy(
+        kernel_type=KernelType.Euclidean,
+        embeddings_in=embed_in,
+        embeddings_out=embed_out)
+
+    print(M_legacy-M)
+
+    assert np.isclose(np.linalg.norm(M-M_legacy), 0)
+
     assert M.shape == (10, 5)
 
 
@@ -24,15 +33,16 @@ def test_sliced_wasserstein_gram_matrix(benchmark):
         preprocess=lambda x: x,
         layers=[
             LinearLayer(4, 3),
-            LinearLayer(3, 2),
-            LinearLayer(2, 10),
             SoftMaxLayer()
         ])
 
     embeddings = list()
 
     for val in np.random.randint(1, 100, 100):
-        ex = torch.ones(4) * val
+        idx = np.random.randint(0, 4)
+        z = np.zeros(4)
+        z[idx] = val
+        ex = torch.from_numpy(z)
         g = Graph.from_architecture_and_data_point(simple_archi, ex, thresholds=dict())
         dgm = compute_dgm_from_graph(g)
         embeddings.append(dgm)
@@ -45,14 +55,16 @@ def test_sliced_wasserstein_gram_matrix(benchmark):
             params={"M": 20, "sigma": 0.5}
         )
 
-    matrix = benchmark(compute_matrix)
-
     legacy_matrix = get_gram_matrix_legacy(
-            kernel_type=KernelType.SlicedWasserstein,
-            embeddings_in=embeddings,
-            embeddings_out=embeddings,
-            params={"M": 20, "sigma": 0.5}
-        )
+        kernel_type=KernelType.SlicedWasserstein,
+        embeddings_in=embeddings,
+        embeddings_out=embeddings,
+        params={"M": 20, "sigma": 0.5}
+    )
+
+    print(legacy_matrix)
+
+    matrix = benchmark(compute_matrix)
 
     assert np.isclose(np.linalg.norm(matrix), 99.9999999)
     assert np.isclose(np.linalg.norm(matrix-legacy_matrix), 0.0)
