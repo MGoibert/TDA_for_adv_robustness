@@ -20,6 +20,7 @@ from tda.models.architectures import mnist_mlp, get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
+from joblib import delayed, Parallel
 
 logger = get_logger("Detector")
 start_time = time.time()
@@ -115,15 +116,6 @@ def get_all_embeddings(config: Config):
     else:
         all_epsilons = [1.0]
 
-    stats = {
-        epsilon: list()
-        for epsilon in all_epsilons
-    }
-    stats_inf = {
-        epsilon: list()
-        for epsilon in all_epsilons
-    }
-
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
@@ -134,77 +126,59 @@ def get_all_embeddings(config: Config):
         all_epsilons=all_epsilons
     )
 
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
+
+    def embedding_getter(line_chunk):
+        ret = list()
+        for line in line_chunk:
+            ret.append(get_embedding(
+                embedding_type=config.embedding_type,
+                line=line,
+                params={
+                    "hash_size": int(config.hash_size),
+                    "height": int(config.height),
+                    "node_labels": config.node_labels,
+                    "steps": config.steps
+                },
+                architecture=architecture,
+                thresholds=thresholds
+            ))
+        return ret
+
+    nb_jobs = 24
+
+    def process(input_dataset):
+        my_chunks = chunks(input_dataset, len(input_dataset) // nb_jobs)
+        ret = Parallel(n_jobs=nb_jobs)(delayed(embedding_getter)(chunk) for chunk in my_chunks)
+        ret = [item for sublist in ret for item in sublist]
+        return ret
+
     # Clean train
     logger.info(f"Clean train dataset !!")
-    clean_embeddings_train = list()
-    for line in train_clean:
-        clean_embeddings_train.append(get_embedding(
-            embedding_type=config.embedding_type,
-            line=line,
-            params={
-                "hash_size": int(config.hash_size),
-                "height": int(config.height),
-                "node_labels": config.node_labels,
-                "steps": config.steps
-            },
-            architecture=architecture,
-            thresholds=thresholds
-        ))
+    clean_embeddings_train = process(train_clean)
 
     # Clean test
     logger.info(f"Clean test dataset !!")
-    clean_embeddings_test = list()
-    for line in test_clean:
-        clean_embeddings_test.append(get_embedding(
-            embedding_type=config.embedding_type,
-            line=line,
-            params={
-                "hash_size": int(config.hash_size),
-                "height": int(config.height),
-                "node_labels": config.node_labels,
-                "steps": config.steps
-            },
-            architecture=architecture,
-            thresholds=thresholds
-        ))
+    clean_embeddings_test = process(test_clean)
 
     adv_embeddings_train = dict()
     adv_embeddings_test = dict()
 
+    stats = dict()
+    stats_inf = dict()
+
     for epsilon in all_epsilons:
         logger.info(f"Adversarial train dataset for espilon = {epsilon} !!")
-        adv_embeddings_train[epsilon] = list()
-        for line in train_adv[epsilon]:
-            adv_embeddings_train[epsilon].append(get_embedding(
-                embedding_type=config.embedding_type,
-                line=line,
-                params={
-                    "hash_size": int(config.hash_size),
-                    "height": int(config.height),
-                    "node_labels": config.node_labels,
-                    "steps": config.steps
-                },
-                architecture=architecture,
-                thresholds=thresholds
-            ))
+        adv_embeddings_train[epsilon] = process(train_adv[epsilon])
 
         logger.info(f"Adversarial test dataset for espilon = {epsilon} !!")
-        adv_embeddings_test[epsilon] = list()
-        for line in test_adv[epsilon]:
-            stats[epsilon].append(line.l2_norm)
-            stats_inf[epsilon].append(line.linf_norm)
-            adv_embeddings_test[epsilon].append(get_embedding(
-                embedding_type=config.embedding_type,
-                line=line,
-                params={
-                    "hash_size": int(config.hash_size),
-                    "height": int(config.height),
-                    "node_labels": config.node_labels,
-                    "steps": config.steps
-                },
-                architecture=architecture,
-                thresholds=thresholds
-            ))
+        adv_embeddings_test[epsilon] = process(test_adv[epsilon])
+
+        stats[epsilon] = [line.l2_norm for line in test_adv[epsilon]]
+        stats_inf[epsilon] = [line.linf_norm for line in test_adv[epsilon]]
 
         logger.debug(
             f"Stats for diff btw clean and adv: "

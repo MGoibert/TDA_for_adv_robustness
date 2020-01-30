@@ -38,7 +38,7 @@ def test_sliced_wassertstein_kernel(benchmark):
     k_dionysus = benchmark(compute_dgm)
     assert np.isclose(k_dionysus, 7.450580596923829e-10, rtol=1e-12)
 
-    rips = Rips(maxdim=2, coeff=2)
+    rips = Rips(maxdim=1, coeff=2)
 
     dgm1_ripser = rips.fit_transform(g1.get_adjacency_matrix(), distance_matrix=True)
     dgm1_ripser_alt = rips.fit_transform(-g1.get_adjacency_matrix(), distance_matrix=False)

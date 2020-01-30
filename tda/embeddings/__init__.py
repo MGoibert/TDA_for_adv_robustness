@@ -162,7 +162,7 @@ def get_gram_matrix(
                 )
         return ret
 
-    nb_jobs = 8
+    nb_jobs = 24
 
     p = Parallel(n_jobs=nb_jobs)
 
