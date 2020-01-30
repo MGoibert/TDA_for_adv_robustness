@@ -156,7 +156,7 @@ class Graph(object):
         col = [e[0][1] for e in edges]
 
         N = sum(self._get_shapes().values())
-        mat = coo_matrix((data, (row, col)), shape=(N, N))
+        mat = coo_matrix((data+data, (row+col, col+row)), shape=(N, N))
 
         return mat
 

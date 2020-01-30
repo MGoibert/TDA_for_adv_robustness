@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from ripser import Rips
 
 from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, sliced_wasserstein_kernel
 from tda.graph import Graph
@@ -36,5 +37,24 @@ def test_sliced_wassertstein_kernel(benchmark):
 
     k_dionysus = benchmark(compute_dgm)
     assert np.isclose(k_dionysus, 7.450580596923829e-10, rtol=1e-12)
+
+    rips = Rips(maxdim=2, coeff=2)
+
+    dgm1_ripser = rips.fit_transform(g1.get_adjacency_matrix(), distance_matrix=True)
+    dgm1_ripser_alt = rips.fit_transform(-g1.get_adjacency_matrix(), distance_matrix=False)
+
+    print("Dionysus")
+    print(dgm1)
+    for pt in dgm1:
+        print(pt)
+
+    print("----")
+    print("Ripser")
+    print(dgm1_ripser)
+    print("##")
+    print(dgm1_ripser_alt)
+
+
+
 
 
