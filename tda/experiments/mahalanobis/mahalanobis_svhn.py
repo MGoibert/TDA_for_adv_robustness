@@ -19,10 +19,10 @@ experiment = R3D3Experiment(
             "FGSM", "BIM", "CW", "DeepFool"
         ],
         'dataset_size': [
-          100
+          500
         ],
         'number_of_samples_for_mu_sigma': [
-          100
+          500
         ],
         'preproc_epsilon': [
             0.0, 1e-4, 1e-2
