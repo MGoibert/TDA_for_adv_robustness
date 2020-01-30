@@ -90,17 +90,17 @@ def get_gram_matrix_legacy(
     for i in range(n):
 
         if sym:
-            lim = i+1
+            lim = i + 1
         else:
             lim = m
 
         for j in range(lim):
             if kernel_type == KernelType.Euclidean:
-                gram[i, j] = np.transpose(embeddings_in[i])@embeddings_out[j]
+                gram[i, j] = np.transpose(embeddings_in[i]) @ embeddings_out[j]
             elif kernel_type == KernelType.RBF:
                 gram[i, j] = np.exp(-np.linalg.norm(
                     embeddings_in[i] - embeddings_out[j]
-                ) / 2 * params['gamma']**2)
+                ) / 2 * params['gamma'] ** 2)
             elif kernel_type == KernelType.SlicedWasserstein:
                 sw = sliced_wasserstein_kernel(
                     embeddings_in[i],
@@ -166,7 +166,7 @@ def get_gram_matrix(
 
     p = Parallel(n_jobs=nb_jobs)
 
-    all_indices = [(i, j) for j in range(m) for i in range(n)]
+    all_indices = [(i, j) for i in range(n) for j in range(m)]
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
