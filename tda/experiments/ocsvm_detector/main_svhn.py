@@ -21,6 +21,9 @@ experiment = R3D3Experiment(
         'dataset': [
             "SVHN"
         ],
+        'dataset_size': [
+            500, 1000
+        ],
         'attack_type': [
             "FGSM", "BIM", "CW", "DeepFool"
         ],
@@ -30,9 +33,6 @@ experiment = R3D3Experiment(
         'noise': [
             0.0
         ],
-        'identical_train_samples': [
-            1
-        ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
     max_nb_processes=1

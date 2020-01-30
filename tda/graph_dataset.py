@@ -156,7 +156,7 @@ def get_sample_dataset(
 
     ret = list()
 
-    while nb_samples < dataset_size or current_sample_id < len(source_dataset):
+    while nb_samples < dataset_size and current_sample_id < len(source_dataset):
 
         sample = None
         processed_sample = None
@@ -182,7 +182,8 @@ def get_sample_dataset(
                 logger.debug(f"Rejecting point (epsilon={epsilon}, y={sample[1]}, y_pred={y_pred}, adv={adv})")
                 processed_sample = None
                 current_sample_id += 1
-                continue
+                if current_sample_id >= len(source_dataset):
+                    break
 
         # Ok we have found a point
         l2_norm = np.linalg.norm(
