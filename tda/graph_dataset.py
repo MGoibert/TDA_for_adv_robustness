@@ -156,7 +156,7 @@ def get_sample_dataset(
 
     ret = list()
 
-    while nb_samples < dataset_size:
+    while nb_samples < dataset_size or current_sample_id < len(source_dataset):
 
         sample = None
         processed_sample = None
@@ -212,6 +212,10 @@ def get_sample_dataset(
 
         current_sample_id += 1
 
+    if nb_samples < dataset_size:
+        logger.warn(f"I was only able to generate {nb_samples} points even if {dataset_size} was requested. "
+                    f"This is probably a lack of adversarial points.")
+
     return ret
 
 
@@ -230,6 +234,9 @@ def get_graph_dataset(
         per_class: bool = False,
         train: bool = True
 ) -> typing.Generator[DatasetLine, None, None]:
+
+    logger.warn(f"This function is deprecated !! Please use {get_sample_dataset.__name__}")
+
     sample_dataset: typing.List[DatasetLine] = get_sample_dataset(
         epsilon=epsilon,
         noise=noise,

@@ -6,6 +6,7 @@ import time
 import typing
 
 import numpy as np
+from joblib import delayed, Parallel
 from r3d3.experiment_db import ExperimentDB
 from sklearn.metrics import roc_auc_score
 from sklearn.svm import OneClassSVM, SVC
@@ -13,14 +14,12 @@ from sklearn.svm import OneClassSVM, SVC
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.graph_dataset import get_graph_dataset
 from tda.logging import get_logger
 from tda.models import get_deep_model, Dataset
-from tda.models.architectures import mnist_mlp, get_architecture, Architecture
+from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
-from joblib import delayed, Parallel
 
 logger = get_logger("Detector")
 start_time = time.time()
