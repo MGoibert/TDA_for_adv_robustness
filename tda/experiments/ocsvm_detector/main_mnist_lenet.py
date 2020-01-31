@@ -23,7 +23,7 @@ experiment = R3D3Experiment(
             "MNIST"
         ],
         'dataset_size': [
-            500, 1000
+            500
         ],
         'attack_type': [
             "FGSM", "BIM", "CW", "DeepFool"
