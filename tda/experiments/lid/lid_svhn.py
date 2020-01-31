@@ -21,16 +21,16 @@ experiment = R3D3Experiment(
         'noise': [
             0.1
         ],
+        "dataset_size": [
+            500
+        ],
         "batch_size": [
             100
         ],
-        "number_of_nn": [
-            20
+        "perc_of_nn": [
+            0.2
         ],
         "successful_adv": [
-            0, 1
-        ],
-        "nb_batches": [
             1
         ],
         "train_noise": [
