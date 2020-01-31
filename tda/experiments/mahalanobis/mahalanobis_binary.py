@@ -7,21 +7,17 @@ import time
 import typing
 
 import numpy as np
-import pandas as pd
 import torch
 from r3d3.experiment_db import ExperimentDB
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import train_test_split
-from sklearn.svm import OneClassSVM
 
-from tda.graph_dataset import get_sample_dataset, DatasetLine
+from tda.devices import device
+from tda.embeddings import KernelType
+from tda.graph_dataset import DatasetLine
 from tda.logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
-from tda.protocol import get_protocolar_datasets
+from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
-from tda.devices import device
 
 logger = get_logger("Mahalanobis")
 
@@ -208,8 +204,7 @@ def get_feature_datasets(
         architecture: Architecture,
         mean_per_class: typing.Dict,
         sigma_per_class_inv: typing.Dict,
-        epsilon: float,
-        num_iter: int = 50
+        epsilons: typing.List[float]
 ):
     assert architecture.is_trained
 
@@ -218,8 +213,6 @@ def get_feature_datasets(
     all_classes = sorted(list(mean_per_class[all_feature_indices[0]].keys()))
     logger.info(f"All classes are {all_classes}")
 
-    logger.info(f"Evaluating epsilon={epsilon} / num_iter={num_iter}")
-
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
@@ -227,16 +220,12 @@ def get_feature_datasets(
         archi=architecture,
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
-        all_epsilons=[epsilon]
+        all_epsilons=epsilons
     )
 
-    train_adv = train_adv[epsilon]
-    test_adv = test_adv[epsilon]
-
     def create_dataset(
-            input_dataset: typing.List[DatasetLine],
-            adv: int
-    ) -> pd.DataFrame:
+            input_dataset: typing.List[DatasetLine]
+    ) -> typing.List:
         ret = list()
 
         for i, dataset_line in enumerate(input_dataset):
@@ -303,8 +292,8 @@ def get_feature_datasets(
                     )[layer_idx].reshape(1, -1)
                     new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
 
-                    logger.debug(f"Added perturbation to x {live_score.detach().numpy()[0, 0]} "
-                                 f"-> {new_score.detach().numpy()[0, 0]}")
+                    logger.debug(f"Added perturbation to x {live_score.cpu().detach().numpy()[0, 0]} "
+                                 f"-> {new_score.cpu().detach().numpy()[0, 0]}")
 
                     # Now we have to do a second pass of optimization
                     best_score = np.inf
@@ -320,64 +309,23 @@ def get_feature_datasets(
 
                 scores.append(best_score)
 
-            ret.append(scores + [adv, dataset_line.l2_norm, dataset_line.linf_norm])
+            ret.append(scores)
             i += 1
 
-        return pd.DataFrame(ret,
-                            columns=[f"layer_{idx}" for idx in all_feature_indices] + ["label", "l2_norm", "linf_norm"])
+        return ret
 
-    non_adv_dataset_train = create_dataset(train_clean, adv=0)
-    non_adv_dataset_test = create_dataset(test_clean, adv=0)
+    embeddings_train = create_dataset(train_clean)
+    embeddings_test = create_dataset(test_clean)
 
-    adv_dataset_train = create_dataset(train_adv, adv=1)
-    adv_dataset_test = create_dataset(test_adv, adv=1)
+    adv_embedding_train = {
+        epsilon: create_dataset(train_adv) for epsilon in epsilons
+    }
 
-    logger.info("Generated all datasets for detector !")
+    adv_embedding_test = {
+        epsilon: create_dataset(test_adv) for epsilon in epsilons
+    }
 
-    detector_train_dataset = pd.concat([non_adv_dataset_train, adv_dataset_train])
-    detector_test_dataset = pd.concat([non_adv_dataset_test, adv_dataset_test])
-
-    return detector_train_dataset, detector_test_dataset
-
-
-def evaluate_detector(
-        detector_train_dataset, detector_test_dataset
-):
-    detector = LogisticRegression(
-        fit_intercept=True,
-        verbose=0,
-        tol=1e-9,
-        max_iter=100000,
-        solver='lbfgs'
-    )
-
-    detector.fit(X=detector_train_dataset.iloc[:, :-3], y=detector_train_dataset.iloc[:, -3])
-    coefs = list(detector.coef_.flatten())
-    logger.info(f"Coefs of detector {coefs}")
-
-    test_predictions = detector.predict_proba(X=detector_test_dataset.iloc[:, :-3])[:, 1]
-    auc = roc_auc_score(y_true=detector_test_dataset.iloc[:, -3], y_score=test_predictions)
-    logger.info(f"AUC is {auc}")
-
-    return auc, coefs
-
-
-def evaluate_detector_unsupervised(
-        detector_train_dataset, detector_test_dataset
-):
-    detector = OneClassSVM(
-        tol=1e-5,
-        kernel='rbf',
-        nu=0.1
-    )
-
-    detector.fit(X=detector_train_dataset.iloc[:, :-3])
-
-    test_predictions = detector.decision_function(X=detector_test_dataset.iloc[:, :-3])
-    auc = roc_auc_score(y_true=detector_test_dataset.iloc[:, -3], y_score=test_predictions)
-    logger.info(f"AUC is {auc}")
-
-    return auc
+    return embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test
 
 
 def run_experiment(config: Config):
@@ -400,10 +348,6 @@ def run_experiment(config: Config):
         train_noise=0.0
     )
 
-    aucs = dict()
-    aucs_unsupervised = dict()
-    coefs = dict()
-
     mean_per_class, sigma_per_class_inv = compute_means_and_sigmas_inv(
         config=config,
         dataset=dataset,
@@ -416,38 +360,38 @@ def run_experiment(config: Config):
     else:
         all_epsilons = [1.0]  # Not used for DeepFool and CW
 
-    for epsilon in all_epsilons:
-        ds_train, ds_test = get_feature_datasets(
-            config=config,
-            epsilon=epsilon,
-            dataset=dataset,
-            architecture=architecture,
-            mean_per_class=mean_per_class,
-            sigma_per_class_inv=sigma_per_class_inv,
-            num_iter=50  # Fixed for DeepFool and CW
-        )
+    embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test = get_feature_datasets(
+        config=config,
+        epsilons=all_epsilons,
+        dataset=dataset,
+        architecture=architecture,
+        mean_per_class=mean_per_class,
+        sigma_per_class_inv=sigma_per_class_inv
+    )
 
-        auc, coef = evaluate_detector(ds_train, ds_test)
-        auc_unsupervised = evaluate_detector_unsupervised(ds_train, ds_test)
+    auc, auc_unsupervised = evaluate_embeddings(
+        embeddings_train=list(embeddings_train),
+        embeddings_test=list(embeddings_test),
+        all_adv_embeddings_train=adv_embedding_train,
+        all_adv_embeddings_test=adv_embedding_test,
+        param_space=[{"gamma": gamma} for gamma in np.logspace(-3, 3, 6)],
+        kernel_type=KernelType.RBF
+    )
 
-        aucs[epsilon] = auc
-        coefs[epsilon] = coef
-        aucs_unsupervised[epsilon] = auc_unsupervised
-
-    logger.info(f"All AUCS are {aucs}")
+    logger.info(auc)
+    logger.info(auc_unsupervised)
 
     my_db.update_experiment(
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
             "time": time.time() - start_time,
-            "aucs": aucs,
-            "aucs_unsupervised": aucs_unsupervised,
-            "coefs": coefs
+            "aucs": auc,
+            "aucs_unsupervised": auc_unsupervised
         }
     )
 
 
 if __name__ == "__main__":
-    config = get_config()
-    run_experiment(config)
+    my_config = get_config()
+    run_experiment(my_config)

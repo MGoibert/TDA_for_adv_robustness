@@ -211,7 +211,7 @@ def run_experiment(config: Config):
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,
         all_adv_embeddings_test=adv_embedding_test,
-        param_space=[{"gamma": 0.1}],
+        param_space=[{"gamma": gamma} for gamma in np.logspace(-3, 3, 6)],
         kernel_type=KernelType.RBF
     )
 
