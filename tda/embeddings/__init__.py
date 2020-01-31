@@ -7,8 +7,10 @@ from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel, \
     compute_dgm_from_graph
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
+from tda.logging import get_logger
 from joblib import Parallel, delayed
 
+logger = get_logger("Embeddings")
 
 class EmbeddingType(object):
     AnonymousWalk = "AnonymousWalk"
@@ -140,6 +142,8 @@ def get_gram_matrix(
 
     n = len(embeddings_in)
     m = len(embeddings_out)
+
+    logger.info(f"Computing Gram matrix {n} x {m}...")
 
     def compute_gram_chunk(my_slices):
         ret = list()

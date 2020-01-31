@@ -185,6 +185,9 @@ def get_sample_dataset(
                 if current_sample_id >= len(source_dataset):
                     break
 
+        if processed_sample is None:
+            break
+
         # Ok we have found a point
         l2_norm = np.linalg.norm(
             torch.abs((processed_sample[0].double() - sample[0].double()).flatten()).detach().numpy(), 2)

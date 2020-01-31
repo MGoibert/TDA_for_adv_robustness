@@ -17,7 +17,7 @@ from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.logging import get_logger
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture
-from tda.protocol import get_protocolar_datasets
+from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
 
@@ -186,108 +186,7 @@ def get_all_embeddings(config: Config):
     return clean_embeddings_train, clean_embeddings_test, adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
 
 
-def evaluate_embeddings(
-        gram_train_matrices: typing.Dict,
-        embeddings_train: typing.List,
-        embeddings_test: typing.List,
-        adv_embeddings_train: typing.List,
-        adv_embeddings_test: typing.List,
-        param_space: typing.List,
-        kernel_type: str
-) -> (float, float):
-    """
-    Compute the AUC for a given epsilon and returns also the scores
-    of the best OneClass SVM
-    """
 
-    # embeddings = clean_embeddings + adv_embeddings[epsilon]
-    best_auc = 0.0
-    best_auc_supervised = 0.0
-
-    for i, param in enumerate(param_space):
-
-        #########################
-        # Unsupervised Learning #
-        #########################
-
-        ocs = OneClassSVM(
-            tol=1e-5,
-            kernel="precomputed")
-
-        # Training model
-        start_time = time.time()
-        logger.info(f"sum gram matrix train = {gram_train_matrices[i].sum()}")
-        ocs.fit(gram_train_matrices[i])
-        logger.info(f"Trained model in {time.time() - start_time} secs")
-
-        # Testing model
-        start_time = time.time()
-        gram_test_and_bad = get_gram_matrix(
-            kernel_type=kernel_type,
-            embeddings_in=embeddings_test + adv_embeddings_test,
-            embeddings_out=embeddings_train,
-            params=param
-        )
-        logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
-
-        predictions = ocs.score_samples(gram_test_and_bad)
-
-        labels = np.concatenate(
-            (
-                np.ones(len(embeddings_test)),
-                np.zeros(len(adv_embeddings_test))
-            )
-        )
-
-        roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
-        logger.info(f"AUC score for param = {param} : {roc_auc_val}")
-
-        if roc_auc_val > best_auc:
-            best_auc = roc_auc_val
-
-        #######################
-        # Supervised Learning #
-        #######################
-
-        detector = SVC(
-            verbose=0,
-            tol=1e-9,
-            max_iter=100000,
-            kernel='precomputed'
-        )
-
-        labels_train = np.concatenate(
-            (
-                np.ones(len(embeddings_train)),
-                np.zeros(len(adv_embeddings_train))
-            )
-        )
-
-        gram_train = get_gram_matrix(
-            kernel_type=kernel_type,
-            embeddings_in=embeddings_train + adv_embeddings_train,
-            embeddings_out=None,
-            params=param
-        )
-
-        detector.fit(gram_train, labels_train)
-
-        gram_test = get_gram_matrix(
-            kernel_type=kernel_type,
-            embeddings_in=embeddings_test + adv_embeddings_test,
-            embeddings_out=embeddings_train + adv_embeddings_train,
-            params=param
-        )
-
-        predictions = detector.decision_function(gram_test)
-
-        roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
-        logger.info(f"Supervised AUC score for param = {param} : {roc_auc_val}")
-
-        if roc_auc_val > best_auc_supervised:
-            best_auc_supervised = roc_auc_val
-
-    return best_auc, best_auc_supervised
 
 
 def run_experiment(config: Config):
@@ -319,30 +218,17 @@ def run_experiment(config: Config):
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
-    gram_train_matrices = {i: get_gram_matrix(
-        kernel_type=config.kernel_type,
-        embeddings_in=embedding_train,
-        embeddings_out=None,
-        params=param
-    )
-        for i, param in enumerate(param_space)
-    }
-    logger.info(f"Computed all unsupervised Gram train matrices !")
-
-    all_results = {
-        epsilon: evaluate_embeddings(
-            gram_train_matrices=gram_train_matrices,
+    aucs, aucs_supervised = evaluate_embeddings(
             embeddings_train=embedding_train,
             embeddings_test=embedding_test,
-            adv_embeddings_train=adv_embeddings_train[epsilon],
-            adv_embeddings_test=adv_embeddings_test[epsilon],
+            all_adv_embeddings_train=adv_embeddings_train,
+            all_adv_embeddings_test=adv_embeddings_test,
             param_space=param_space,
             kernel_type=config.kernel_type
-        )
-        for epsilon in adv_embeddings_train
-    }
+    )
 
-    logger.info(all_results)
+    logger.info(aucs)
+    logger.info(aucs_supervised)
 
     end_time = time.time()
 
@@ -350,8 +236,8 @@ def run_experiment(config: Config):
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
-            "aucs": {key: all_results[key][0] for key in all_results},
-            "aucs_supervised": {key: all_results[key][1] for key in all_results},
+            "aucs": aucs,
+            "aucs_supervised": aucs_supervised,
             "effective_thresholds": {
                 "_".join([str(v) for v in key]): thresholds[key]
                 for key in thresholds

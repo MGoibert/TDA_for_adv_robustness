@@ -7,20 +7,17 @@ import time
 import typing
 
 import numpy as np
-import pandas as pd
 import torch
 from r3d3.experiment_db import ExperimentDB
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import euclidean_distances
-from sklearn.svm import OneClassSVM
 
+from tda.embeddings import KernelType
 from tda.graph_dataset import DatasetLine
 from tda.logging import get_logger
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
-from tda.protocol import get_protocolar_datasets
+from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 
 logger = get_logger("LID")
@@ -45,10 +42,10 @@ class Config(typing.NamedTuple):
     architecture: str
     # Noise to be added during the training of the model
     train_noise: float
-    # Number of batches used in total
-    nb_batches: int
-    # Number of nearest neighbors for the estimation of the LID
-    number_of_nn: int
+    # Dataset size
+    dataset_size: int
+    # Percentage of nearest neighbors in a batch for the estimation of the LID
+    perc_of_nn: int
     # Batch size for the estimation of the LID
     batch_size: int
     # Type of attack (FGSM, BIM, CW)
@@ -69,12 +66,12 @@ def get_config() -> Config:
     parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--dataset', type=str, default="MNIST")
     parser.add_argument('--architecture', type=str, default=mnist_lenet.name)
-    parser.add_argument('--nb_batches', type=int, default=10)
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--noise', type=float, default=0.0)
     parser.add_argument('--train_noise', type=float, default=0.0)
+    parser.add_argument('--dataset_size', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=100)
-    parser.add_argument('--number_of_nn', type=int, default=20)
+    parser.add_argument('--perc_of_nn', type=float, default=0.2)
     parser.add_argument('--successful_adv', type=int, default=1)
 
     args, _ = parser.parse_known_args()
@@ -82,139 +79,98 @@ def get_config() -> Config:
     return Config(**args.__dict__)
 
 
+def create_lid_dataset(
+        config: Config,
+        archi: Architecture,
+        input_dataset: typing.List[DatasetLine]
+) -> (typing.List, typing.List, typing.List):
+    logger.debug(f"Dataset size is {len(input_dataset)}")
+
+    nb_batches = int(np.ceil(len(input_dataset) / config.batch_size))
+
+    logger.debug(f"Number of batches is {nb_batches}")
+
+    all_lids = list()
+    l2_norms = list()
+    linf_norms = list()
+
+    for batch_idx in range(nb_batches):
+
+        raw_batch = input_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
+
+        actual_batch_size = len(raw_batch)  # Can be < config.batch_size (for the last batch)
+        number_of_nn = int(actual_batch_size * config.perc_of_nn)
+
+        #########################
+        # Computing activations #
+        #########################
+
+        activations = archi.forward(
+            torch.cat([line.x.unsqueeze(0) for line in raw_batch]), output="all_inner")
+
+        lids = np.zeros((actual_batch_size, len(archi.layers) - 1))
+
+        for layer_idx in archi.layer_visit_order:
+            if layer_idx == -1:
+                # Skipping input
+                continue
+            if isinstance(archi.layers[layer_idx], SoftMaxLayer):
+                # Skipping softmax
+                continue
+            activations_layer = activations[layer_idx].reshape(actual_batch_size, -1).cpu().detach().numpy()
+
+            distances = euclidean_distances(activations_layer, activations_layer)
+
+            for sample_idx in range(actual_batch_size):
+                z = distances[sample_idx]
+                z = z[z.argsort()[1:number_of_nn + 1]]
+
+                lid = -1 / (sum([np.log(x / z[-1]) for x in z]) / number_of_nn)
+
+                lids[sample_idx, layer_idx] = lid
+
+        all_lids.append(lids)
+        l2_norms += [line.l2_norm for line in raw_batch]
+        linf_norms += [line.linf_norm for line in raw_batch]
+
+    all_lids = np.concatenate(all_lids, axis=0)
+
+    return all_lids, l2_norms, linf_norms
+
+
 def get_feature_datasets(
         config: Config,
-        epsilon: float,
+        epsilons: typing.List[float],
         dataset: Dataset,
         archi: Architecture
 ):
-    logger.info(f"Evaluating epsilon={epsilon}")
+    logger.info(f"Evaluating epsilon={epsilons}")
 
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
         succ_adv=config.successful_adv > 0,
         archi=archi,
-        dataset_size=2 * config.batch_size * config.nb_batches,  # Train + Test
+        dataset_size=config.dataset_size,  # 2 * config.batch_size * config.nb_batches,  # Train + Test
         attack_type=config.attack_type,
-        all_epsilons=[epsilon]
+        all_epsilons=epsilons
     )
 
-    def create_lid_dataset(
-            input_dataset: typing.List[DatasetLine],
-            adv: int
-    ):
-        logger.debug(f"Adv is {adv}")
-        logger.debug(f"Dataset size is {len(input_dataset)}")
-        logger.debug(f"Expected size is {config.batch_size} * {config.nb_batches} = {config.batch_size * config.nb_batches}")
-        assert len(input_dataset) == config.batch_size * config.nb_batches
+    embeddings_train = create_lid_dataset(config, archi, train_clean)[0]
+    embeddings_test = create_lid_dataset(config, archi, test_clean)[0]
 
-        all_lids = list()
-        l2_norms = list()
-        linf_norms = list()
+    adv_embedding_train = {
+        epsilon: create_lid_dataset(config, archi, train_adv[epsilon])[0] for epsilon in epsilons
+    }
 
-        for batch_idx in range(config.nb_batches):
+    adv_embedding_test = {
+        epsilon: create_lid_dataset(config, archi, test_adv[epsilon])[0] for epsilon in epsilons
+    }
 
-            raw_batch = input_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
+    logger.info(f"Generated {len(embeddings_train)} clean embeddings for train")
+    logger.info(f"Generated {len(embeddings_test)} clean embeddings for test")
 
-            #########################
-            # Computing activations #
-            #########################
-
-            activations = archi.forward(
-                torch.cat([line.x.unsqueeze(0) for line in raw_batch]), output="all_inner")
-
-            lids = np.zeros((config.batch_size, len(archi.layers) - 1))
-
-            for layer_idx in archi.layer_visit_order:
-                if layer_idx == -1:
-                    # Skipping input
-                    continue
-                if isinstance(archi.layers[layer_idx], SoftMaxLayer):
-                    # Skipping softmax
-                    continue
-                activations_layer = activations[layer_idx].reshape(config.batch_size, -1).cpu().detach().numpy()
-
-                distances = euclidean_distances(activations_layer, activations_layer)
-
-                for sample_idx in range(config.batch_size):
-                    z = distances[sample_idx]
-                    z = z[z.argsort()[1:config.number_of_nn + 1]]
-
-                    lid = -1 / (sum([np.log(x / z[-1]) for x in z]) / config.number_of_nn)
-
-                    lids[sample_idx, layer_idx] = lid
-
-            all_lids.append(lids)
-            l2_norms += [line.l2_norm for line in raw_batch]
-            linf_norms += [line.linf_norm for line in raw_batch]
-
-        logger.info(f"adv={adv}")
-        logger.info(len(input_dataset))
-        logger.info(np.shape(all_lids))
-        logger.info(len(l2_norms))
-        logger.info("---")
-
-        all_lids = np.concatenate(all_lids, axis=0)
-
-        df = pd.DataFrame(all_lids, columns=[f"x_{idx}" for idx in range(np.shape(all_lids)[1])])
-        df["label"] = adv
-        df["l2_norm"] = l2_norms
-        df["linf_norm"] = linf_norms
-
-        return df
-
-    train_ds = pd.concat([
-        create_lid_dataset(train_clean, 0),
-        create_lid_dataset(train_adv[epsilon], 1)
-    ])
-
-    test_ds = pd.concat([
-        create_lid_dataset(test_clean, 0),
-        create_lid_dataset(test_adv[epsilon], 1)
-    ])
-
-    return train_ds, test_ds
-
-
-def evaluate_detector(
-        train_ds, test_ds
-):
-    detector = LogisticRegression(
-        fit_intercept=True,
-        verbose=0,
-        tol=1e-9,
-        max_iter=100000,
-        solver='lbfgs'
-    )
-
-    detector.fit(X=train_ds.iloc[:, :-3], y=train_ds.iloc[:, -3])
-    coefs = list(detector.coef_.flatten())
-    logger.info(f"Coefs of detector {coefs}")
-
-    test_predictions = detector.predict_proba(X=test_ds.iloc[:, :-3])[:, 1]
-    auc = roc_auc_score(y_true=test_ds.iloc[:, -3], y_score=test_predictions)
-    logger.info(f"AUC is {auc}")
-
-    return auc, coefs
-
-
-def evaluate_detector_unsupervised(
-        train_ds, test_ds
-):
-    detector = OneClassSVM(
-        tol=1e-5,
-        kernel='rbf',
-        nu=0.1
-    )
-
-    detector.fit(X=train_ds.iloc[:, :-3])
-
-    test_predictions = detector.decision_function(X=test_ds.iloc[:, :-3])
-    auc = roc_auc_score(y_true=test_ds.iloc[:, -3], y_score=test_predictions)
-    logger.info(f"AUC is {auc}")
-
-    return auc
+    return embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test
 
 
 def run_experiment(config: Config):
@@ -237,56 +193,46 @@ def run_experiment(config: Config):
         train_noise=config.train_noise
     )
 
-    datasets = dict()
-
     if config.attack_type in ["FGSM", "BIM"]:
         # all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
         all_epsilons = np.linspace(1e-2, 1.0, 10)
     else:
         all_epsilons = [1.0]  # Not used for DeepFool and CW
 
-    for epsilon in all_epsilons:
-        ds_train, ds_test = get_feature_datasets(
-            config=config,
-            epsilon=epsilon,
-            dataset=dataset,
-            archi=archi
-        )
-        datasets[epsilon] = (ds_train, ds_test)
+    embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test = get_feature_datasets(
+        config=config,
+        epsilons=all_epsilons,
+        dataset=dataset,
+        archi=archi
+    )
 
-    all_aucs = dict()
-    all_coefs = dict()
-    all_aucs_unsupervised = dict()
+    auc, auc_unsupervised = evaluate_embeddings(
+        embeddings_train=list(embeddings_train),
+        embeddings_test=list(embeddings_test),
+        all_adv_embeddings_train=adv_embedding_train,
+        all_adv_embeddings_test=adv_embedding_test,
+        param_space=[{"gamma": 0.1}],
+        kernel_type=KernelType.RBF
+    )
 
-    for epsilon in datasets:
-        train_ds, test_ds = datasets[epsilon]
-
-        auc, coefs = evaluate_detector(train_ds, test_ds)
-        auc_unsupervised = evaluate_detector_unsupervised(train_ds, test_ds)
-
-        all_aucs[epsilon] = auc
-        all_coefs[epsilon] = coefs
-        all_aucs_unsupervised[epsilon] = auc_unsupervised
-
-    logger.info(all_aucs)
-    logger.info(all_aucs_unsupervised)
+    logger.info(auc)
+    logger.info(auc_unsupervised)
 
     my_db.update_experiment(
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
             "time": time.time() - start_time,
-            "classifier_coefs": all_coefs,
-            "aucs": all_aucs,
-            "aucs_unsupervised": all_aucs_unsupervised
+            "aucs": auc,
+            "aucs_unsupervised": auc_unsupervised
         }
     )
 
     logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !")
 
-    return all_aucs, all_coefs, all_aucs_unsupervised
+    return auc, auc_unsupervised
 
 
 if __name__ == "__main__":
-    config = get_config()
-    run_experiment(config)
+    my_config = get_config()
+    run_experiment(my_config)
