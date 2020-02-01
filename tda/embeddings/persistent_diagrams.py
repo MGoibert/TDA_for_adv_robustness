@@ -2,6 +2,7 @@ import numpy as np
 
 from tda.graph import Graph
 from tda.logging import get_logger
+from numba import njit
 
 logger = get_logger("PersistentDiagrams")
 
@@ -64,12 +65,34 @@ def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
     for pt2 in dgm2:
         vec2.append([pt2.birth, pt2.death])
         vec1.append([(pt2.birth + pt2.death) / 2.0, (pt2.birth + pt2.death) / 2.0])
+    return _helper_fast(tuple(vec1), tuple(vec2), M)
+
+@njit
+def _helper_fast(vec1, vec2, M):
     sw = 0
     theta = -np.pi / 2
     s = np.pi / M
     for _ in range(M):
-        v1 = [np.dot(pt1, [theta, theta]) for pt1 in vec1]
-        v2 = [np.dot(pt2, [theta, theta]) for pt2 in vec2]
+        v1 = [(pt1[0]+pt1[1])*theta for pt1 in vec1]
+        v2 = [(pt2[0]+pt2[1])*theta for pt2 in vec2]
+        v1.sort()
+        v2.sort()
+        val = np.asarray(v1) - np.asarray(v2)
+        val[np.isnan(val)] = 0
+        sw = sw + s * np.linalg.norm(val, ord=1)
+        theta = theta + s
+        # logger.info(f"End Sliced Wass. Kernel")
+        # print("Run :", i, " and sw =", (1/np.pi)*sw)
+    return (1 / np.pi) * sw
+
+
+def _helper_slow(vec1, vec2, M):
+    sw = 0
+    theta = -np.pi / 2
+    s = np.pi / M
+    for _ in range(M):
+        v1 = [np.dot(pt1, (theta, theta)) for pt1 in vec1]
+        v2 = [np.dot(pt2, (theta, theta)) for pt2 in vec2]
         v1.sort()
         v2.sort()
         val = np.nan_to_num(np.asarray(v1) - np.asarray(v2))
