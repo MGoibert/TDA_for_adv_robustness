@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from ripser import Rips
 
-from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, sliced_wasserstein_kernel
+from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, sliced_wasserstein_kernel, _helper_fast, _helper_slow
 from tda.graph import Graph
 from tda.models import Architecture
 from tda.models.architectures import LinearLayer, SoftMaxLayer
@@ -55,6 +55,28 @@ def test_sliced_wassertstein_kernel(benchmark):
     print(dgm1_ripser_alt)
 
 
+def test_helper_slow(benchmark):
+    a = ((1.0, 34.0), (2.2, 33.2)) * 10
+    b = ((2.9, 22.6), (4.5, 46.3)) * 10
 
+    def f():
+        return _helper_slow(a, b, 10)
+
+    result = benchmark(f)
+
+    assert np.isclose(result, 195.56414268596455)
+
+
+def test_helper_fast(benchmark):
+    a = ((1.0, 34.0), (2.2, 33.2)) * 10
+    b = ((2.9, 22.6), (4.5, 46.3)) * 10
+
+    def f():
+        return _helper_fast(a, b, 10)
+
+    result = benchmark(f)
+
+    assert np.isclose(result, _helper_slow(a, b, 10))
+    assert np.isclose(result, 195.56414268596455)
 
 
