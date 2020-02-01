@@ -1,25 +1,25 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import time
 import argparse
-import logging
-import numpy as np
-import typing
 import os
-import torch
-import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
+import time
+import typing
 
+import numpy as np
+import torch
 from r3d3.experiment_db import ExperimentDB
 
-from tda.graph_dataset import process_sample
+from tda.devices import device
+from tda.embeddings import KernelType
+from tda.graph_dataset import DatasetLine
+from tda.logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
+from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 
-import matplotlib.pyplot as plt
+logger = get_logger("Mahalanobis")
 
 start_time = time.time()
 
@@ -29,308 +29,369 @@ if not os.path.exists(plot_path):
 
 my_db = ExperimentDB(db_path=db_path)
 
-parser = argparse.ArgumentParser(
-    description='Transform a dataset in pail files to tf records.')
-parser.add_argument('--experiment_id', type=int, default=-1)
-parser.add_argument('--run_id', type=int, default=-1)
 
-parser.add_argument('--epochs', type=int, default=20)
-parser.add_argument('--dataset', type=str, default="MNIST")
-parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
-parser.add_argument('--dataset_size', type=int, default=100)
-parser.add_argument('--attack_type', type=str, default="FGSM")
-parser.add_argument('--epsilon', type=float, default=0.02)
-parser.add_argument('--preproc_epsilon', type=float, default=0.0)
-parser.add_argument('--noise', type=float, default=0.0)
+class Config(typing.NamedTuple):
+    # Number of epochs for the model
+    epochs: int
+    # Dataset we consider (MNIST, SVHN)
+    dataset: str
+    # Name of the architecture
+    architecture: str
+    # Size of the dataset used for the experiment
+    dataset_size: int
+    # Type of attack (FGSM, BIM, CW)
+    attack_type: str
+    # Epsilon for the preprocessing step (see the paper)
+    preproc_epsilon: float
+    # Noise to consider for the noisy samples
+    noise: float
+    # Number of sample per class to estimate mu_class and sigma_class
+    number_of_samples_for_mu_sigma: int
+    # Should we filter out non successful_adversaries
+    successful_adv: int
 
-args, _ = parser.parse_known_args()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(f"[{args.experiment_id}_{args.run_id}]")
-
-for arg in vars(args):
-    logger.info(f"{arg} => {getattr(args, arg)}")
-
-dataset = Dataset(name=args.dataset)
-
-logger.info(f"Getting deep model...")
-
-archi: Architecture = get_deep_model(
-    num_epochs=args.epochs,
-    dataset=dataset,
-    architecture=get_architecture(args.architecture),
-    train_noise=0.0
-)
-
-logger.info(f"Got deep model...")
-
-##########################################
-# Step 1: Compute all mu_clazz and sigma #
-#         for each layer                 #
-##########################################
-
-max_sample_for_classes = 100
-nb_sample_for_classes = 0
-
-logger.info(f"I am going to go through a dataset of {max_sample_for_classes} points...")
-
-i = 0
-corr = 0
-
-class_counters = dict()
-class_means = dict()
-
-features_per_class = dict()
-mean_per_class = dict()
-sigma_per_class = dict()
+    # Used to store the results in the DB
+    experiment_id: int = int(time.time())
+    run_id: int = 0
 
 
-def sum_list_of_lists(
-        list_a: typing.List[typing.List],
-        list_b: typing.List[typing.List]):
-    if len(list_a) == 0:
-        return list_b
-    else:
-        assert len(list_a) == len(list_b)
-        return [list_a[i] + list_b[i]
-                for i in range(len(list_a))]
+def get_config() -> Config:
+    parser = argparse.ArgumentParser(
+        description='Transform a dataset in pail files to tf records.')
+    parser.add_argument('--experiment_id', type=int)
+    parser.add_argument('--run_id', type=int)
+
+    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--dataset', type=str, default="MNIST")
+    parser.add_argument('--architecture', type=str, default=mnist_mlp.name)
+    parser.add_argument('--dataset_size', type=int, default=100)
+    parser.add_argument('--number_of_samples_for_mu_sigma', type=int, default=100)
+    parser.add_argument('--attack_type', type=str, default="FGSM")
+    parser.add_argument('--preproc_epsilon', type=float, default=0.0)
+    parser.add_argument('--noise', type=float, default=0.0)
+    parser.add_argument('--successful_adv', type=int, default=0)
+
+    args, _ = parser.parse_known_args()
+
+    return Config(**args.__dict__)
 
 
-# As proposed in the paper, we use the train samples here
-for x, y in dataset.Dataset_.train_dataset:
+def compute_means_and_sigmas_inv(
+        config: Config,
+        dataset: Dataset,
+        architecture: Architecture
+):
+    assert architecture.is_trained
 
-    if nb_sample_for_classes >= max_sample_for_classes:
-        break
+    ##########################################
+    # Step 1: Compute all mu_clazz and sigma #
+    #         for each layer                 #
+    ##########################################
 
-    m_features = archi.forward(
-        x=x,
-        store_for_graph=False,
-        output="all_inner"
-    )
+    nb_sample_for_classes = 0
 
-    for layer_idx in m_features:
-        feat = m_features[layer_idx]
-        if layer_idx not in features_per_class:
-            features_per_class[layer_idx] = dict()
-        features_per_class[layer_idx][y] = features_per_class[layer_idx].get(y, list()) \
-                                           + [feat.detach().numpy()]
+    logger.info(f"I am going to go through a dataset of {config.number_of_samples_for_mu_sigma} points...")
 
-    nb_sample_for_classes += 1
+    features_per_class = dict()
+    mean_per_class = dict()
+    sigma_per_class = dict()
 
-all_feature_indices = sorted(list(features_per_class.keys()))
-logger.info(f"All indices for features are {all_feature_indices}")
-all_classes = sorted(list(features_per_class[all_feature_indices[0]].keys()))
-logger.info(f"All classes are {all_classes}")
+    # As proposed in the paper, we use the train samples here
+    for x, y in dataset.train_dataset:
 
+        if nb_sample_for_classes >= config.number_of_samples_for_mu_sigma:
+            break
 
-for layer_idx in all_feature_indices:
-    mean_per_class[layer_idx] = dict()
-    sigma_per_class[layer_idx] = None
-    counters_per_class = 0
-
-    for clazz in all_classes:
-
-        # Shortcut for the name
-        arr = features_per_class[layer_idx][clazz]
-
-        # Computing mu_clazz
-        mu_clazz = sum(arr) / len(arr)
-        mean_per_class[layer_idx][clazz] = mu_clazz
-
-        # Computing sigma_clazz
-        sigma_clazz = sum([np.transpose(v-mu_clazz)@(v-mu_clazz) for v in arr])
-        if sigma_per_class[layer_idx] is None:
-            sigma_per_class[layer_idx] = sigma_clazz
-        else:
-            sigma_per_class[layer_idx] += sigma_clazz
-        counters_per_class += len(arr)
-
-    sigma_per_class[layer_idx] = sigma_per_class[layer_idx] / counters_per_class
-
-    plt.imshow(sigma_per_class[layer_idx])
-    plt.savefig(f"{plot_path}/{layer_idx}_sigma")
-
-
-################################################################
-# Step 2: (OPT) Evaluate classifier based on confidence scores #
-################################################################
-
-i = 0
-corr = 0
-while i < args.dataset_size:
-    x, y = dataset.Dataset_.test_and_val_dataset[i]
-    all_inner_activations = archi.forward(
-        x=x,
-        store_for_graph=False,
-        output="all_inner"
-    )
-
-    # Assuming only one link to the softmax layer in the model
-    softmax_layer_idx = archi.get_pre_softmax_idx()
-    m_features = all_inner_activations[softmax_layer_idx].detach().numpy()
-
-    best_score = np.inf
-    best_class = -1
-
-    for clazz in all_classes:
-        mu_clazz = mean_per_class[softmax_layer_idx][clazz]
-        sigma_clazz = sigma_per_class[softmax_layer_idx]
-
-        score_clazz = (m_features-mu_clazz)@np.linalg.pinv(sigma_clazz)@np.transpose(m_features-mu_clazz)
-
-        if score_clazz < best_score:
-            best_score = score_clazz
-            best_class = clazz
-
-    if best_class == y:
-        corr += 1
-
-    i += 1
-
-logger.info(f"Accuracy on test set = {corr/args.dataset_size}")
-
-
-#############################################
-# Step 3: Evaluate performance of detector  #
-#############################################
-
-def create_dataset(start: int) -> pd.DataFrame:
-    i = start
-    ret = list()
-
-    while i < start + args.dataset_size:
-        sample = dataset.Dataset_.test_and_val_dataset[i]
-
-        if i % 2 == 0:
-            adv = True
-            epsilon = args.epsilon
-            noise = 0.0
-        else:
-            adv = False
-            epsilon = 0
-            noise = args.noise
-
-        x, y = process_sample(
-            sample=sample,
-            adversarial=adv,
-            noise=noise,
-            epsilon=epsilon,
-            model=model,
-            num_classes=10,
-            attack_type=args.attack_type
-        )
-
-        m_features = archi.forward(
+        m_features = architecture.forward(
             x=x,
             store_for_graph=False,
             output="all_inner"
         )
 
-        scores = list()
+        for layer_idx in m_features:
+            feat = m_features[layer_idx].reshape(1, -1)
+            if layer_idx not in features_per_class:
+                features_per_class[layer_idx] = dict()
+            features_per_class[layer_idx][y] = \
+                features_per_class[layer_idx].get(y, list()) + [feat.cpu().detach().numpy()]
 
-        for layer_idx in all_feature_indices:
+        if nb_sample_for_classes % 50 == 0:
+            logger.info(f"Done {nb_sample_for_classes} / {config.number_of_samples_for_mu_sigma}")
 
-            best_score = np.inf
-            sigma_l = sigma_per_class[layer_idx]
-            mu_l = None
+        nb_sample_for_classes += 1
 
-            for clazz in all_classes:
-                mu_clazz = mean_per_class[layer_idx][clazz]
-                gap = m_features[layer_idx].detach().numpy()-mu_clazz
-                score_clazz = gap@np.linalg.pinv(sigma_l)@np.transpose(gap)
+    all_feature_indices = sorted(list(features_per_class.keys()))
+    logger.info(f"All indices for features are {all_feature_indices}")
+    all_classes = sorted(list(features_per_class[all_feature_indices[0]].keys()))
+    logger.info(f"All classes are {all_classes}")
 
-                if score_clazz < best_score:
-                    best_score = score_clazz[0, 0]
-                    mu_l = mu_clazz
+    for layer_idx in all_feature_indices:
+        mean_per_class[layer_idx] = dict()
+        sigma_per_class[layer_idx] = None
+        counters_per_class = 0
 
-            # OPT: Add perturbation on x to reduce its score
-            # (mainly useful for out-of-distribution ?)
-            if args.preproc_epsilon > 0:
-                # Let's forget about the past (attack, clamping)
-                # and make x a leaf with require grad
-                x = x.detach()
-                x.requires_grad = True
+        for clazz in all_classes:
 
-                inv_sigma_tensor = torch.from_numpy(np.linalg.pinv(sigma_l))
-                mu_tensor = torch.from_numpy(mu_l)
+            # Shortcut for the name
+            arr = features_per_class[layer_idx][clazz]
 
-                # Adding perturbation on x
-                f = archi.forward(
-                    x=x,
-                    store_for_graph=False,
-                    output="all_inner"
-                )[layer_idx]
+            # Computing mu_clazz
+            mu_clazz = sum(arr) / len(arr)
+            mean_per_class[layer_idx][clazz] = mu_clazz
 
-                live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
+            # Computing sigma_clazz
+            sigma_clazz = sum([np.transpose(v - mu_clazz) @ (v - mu_clazz) for v in arr])
+            if sigma_per_class[layer_idx] is None:
+                sigma_per_class[layer_idx] = sigma_clazz
+            else:
+                sigma_per_class[layer_idx] += sigma_clazz
+            counters_per_class += len(arr)
 
-                assert np.isclose(live_score.detach().numpy(), best_score)
+        sigma_per_class[layer_idx] = sigma_per_class[layer_idx] / counters_per_class
 
-                archi.zero_grad()
-                live_score.backward()
-                assert x.grad is not None
-                xhat = x - args.preproc_epsilon * x.grad.data.sign()
-                xhat = torch.clamp(xhat, -0.5, 0.5)
+    logger.info("Computing inverse of sigmas...")
+    sigma_per_class_inv = dict()
+    for layer_idx in sigma_per_class:
+        logger.info(f"Processing sigma for layer {layer_idx} (shape is {sigma_per_class[layer_idx].shape})")
+        sigma_per_class_inv[layer_idx] = np.linalg.pinv(sigma_per_class[layer_idx], hermitian=True)
 
-                # Computing new score
-                fhat = archi.archi.forward(
-                    x=xhat,
-                    store_for_graph=False,
-                    output="all_inner"
-                )[layer_idx]
-                new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
+    logger.info("Done.")
 
-                logger.info(f"Added perturbation to x {live_score.detach().numpy()[0,0]} "
-                            f"-> {new_score.detach().numpy()[0,0]}")
+    ################################################################
+    # Step 2: (OPT) Evaluate classifier based on confidence scores #
+    ################################################################
 
-                # Now we have to do a second pass of optimization
+    i = 0
+    corr = 0
+    while i < config.dataset_size:
+        x, y = dataset.test_and_val_dataset[i]
+        all_inner_activations = architecture.forward(
+            x=x,
+            store_for_graph=False,
+            output="all_inner"
+        )
+
+        # Assuming only one link to the softmax layer in the model
+        softmax_layer_idx = architecture.get_pre_softmax_idx()
+        m_features = all_inner_activations[softmax_layer_idx].reshape(1, -1).cpu().detach().numpy()
+
+        best_score = np.inf
+        best_class = -1
+
+        for clazz in all_classes:
+            mu_clazz = mean_per_class[softmax_layer_idx][clazz]
+            sigma_clazz_inv = sigma_per_class_inv[softmax_layer_idx]
+
+            score_clazz = (m_features - mu_clazz) @ sigma_clazz_inv @ np.transpose(m_features - mu_clazz)
+
+            if score_clazz < best_score:
+                best_score = score_clazz
+                best_class = clazz
+
+        if best_class == y:
+            corr += 1
+
+        i += 1
+
+    logger.info(f"Accuracy on test set = {corr / config.dataset_size}")
+
+    return mean_per_class, sigma_per_class_inv
+
+
+def get_feature_datasets(
+        config: Config,
+        dataset: Dataset,
+        architecture: Architecture,
+        mean_per_class: typing.Dict,
+        sigma_per_class_inv: typing.Dict,
+        epsilons: typing.List[float]
+):
+    assert architecture.is_trained
+
+    all_feature_indices = sorted(list(mean_per_class.keys()))
+    logger.info(f"All indices for features are {all_feature_indices}")
+    all_classes = sorted(list(mean_per_class[all_feature_indices[0]].keys()))
+    logger.info(f"All classes are {all_classes}")
+
+    train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
+        noise=config.noise,
+        dataset=dataset,
+        succ_adv=config.successful_adv > 0,
+        archi=architecture,
+        dataset_size=config.dataset_size,
+        attack_type=config.attack_type,
+        all_epsilons=epsilons
+    )
+
+    def create_dataset(
+            input_dataset: typing.List[DatasetLine]
+    ) -> typing.List:
+        ret = list()
+
+        for i, dataset_line in enumerate(input_dataset):
+            logger.debug(f"Processing {i}/{len(input_dataset)}")
+
+            x = dataset_line.x
+
+            m_features = architecture.forward(
+                x=x,
+                store_for_graph=False,
+                output="all_inner"
+            )
+
+            scores = list()
+
+            for layer_idx in all_feature_indices:
+
                 best_score = np.inf
-                fhat = fhat.detach().numpy()
+                sigma_l_inv = sigma_per_class_inv[layer_idx]
+                mu_l = None
 
                 for clazz in all_classes:
                     mu_clazz = mean_per_class[layer_idx][clazz]
-                    gap = fhat - mu_clazz
-                    score_clazz = gap @ np.linalg.pinv(sigma_l) @ np.transpose(gap)
+                    gap = m_features[layer_idx].reshape(1, -1).cpu().detach().numpy() - mu_clazz
+                    score_clazz = gap @ sigma_l_inv @ np.transpose(gap)
 
                     if score_clazz < best_score:
                         best_score = score_clazz[0, 0]
+                        mu_l = mu_clazz
 
-            scores.append(best_score)
+                # OPT: Add perturbation on x to reduce its score
+                # (mainly useful for out-of-distribution ?)
+                if config.preproc_epsilon > 0:
+                    # Let's forget about the past (attack, clamping)
+                    # and make x a leaf with require grad
+                    x = x.detach()
+                    x.requires_grad = True
 
-        ret.append(scores + [int(adv)])
-        i += 1
+                    inv_sigma_tensor = torch.from_numpy(sigma_l_inv).to(device)
+                    mu_tensor = torch.from_numpy(mu_l).to(device)
 
-    return pd.DataFrame(ret, columns=[f"layer_{idx}" for idx in all_feature_indices]+["label"])
+                    # Adding perturbation on x
+                    f = architecture.forward(
+                        x=x,
+                        store_for_graph=False,
+                        output="all_inner"
+                    )[layer_idx].reshape(1, -1)
 
+                    live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
 
-detector_train_dataset = create_dataset(start=0)
-logger.info("Generated train dataset for detector !")
+                    assert np.isclose(live_score.cpu().detach().numpy(), best_score)
 
-detector_test_dataset = detector_train_dataset # create_dataset(start=args.dataset_size)
-logger.info("Generated test dataset for detector !")
+                    architecture.zero_grad()
+                    live_score.backward()
+                    assert x.grad is not None
+                    xhat = x - config.preproc_epsilon * x.grad.data.sign()
+                    xhat = torch.clamp(xhat, -0.5, 0.5)
 
-detector = LogisticRegression(
-    fit_intercept=True,
-    verbose=1,
-    tol=1e-5,
-    max_iter=1000,
-    solver='lbfgs'
-)
+                    # Computing new score
+                    fhat = architecture.forward(
+                        x=xhat,
+                        store_for_graph=False,
+                        output="all_inner"
+                    )[layer_idx].reshape(1, -1)
+                    new_score = (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
 
-detector.fit(X=detector_train_dataset.iloc[:, :-1], y=detector_train_dataset.iloc[:, -1])
-coefs = list(detector.coef_.flatten())
-logger.info(f"Coefs of detector {coefs}")
+                    logger.debug(f"Added perturbation to x {live_score.cpu().detach().numpy()[0, 0]} "
+                                 f"-> {new_score.cpu().detach().numpy()[0, 0]}")
 
-test_predictions = detector.predict_proba(X=detector_test_dataset.iloc[:, :-1])[:, 1]
-auc = roc_auc_score(y_true=detector_test_dataset.iloc[:, -1], y_score=test_predictions)
-logger.info(f"AUC is {auc}")
+                    # Now we have to do a second pass of optimization
+                    best_score = np.inf
+                    fhat = fhat.detach().numpy()
 
+                    for clazz in all_classes:
+                        mu_clazz = mean_per_class[layer_idx][clazz]
+                        gap = fhat - mu_clazz
+                        score_clazz = gap @ sigma_l_inv @ np.transpose(gap)
 
-my_db.update_experiment(
-    experiment_id=args.experiment_id,
-    run_id=args.run_id,
-    metrics={
-        "time": time.time()-start_time,
-        "classifier_coefs": coefs,
-        "auc": auc
+                        if score_clazz < best_score:
+                            best_score = score_clazz[0, 0]
+
+                scores.append(best_score)
+
+            ret.append(scores)
+            i += 1
+
+        return ret
+
+    embeddings_train = create_dataset(train_clean)
+    embeddings_test = create_dataset(test_clean)
+
+    adv_embedding_train = {
+        epsilon: create_dataset(train_adv) for epsilon in epsilons
     }
-)
+
+    adv_embedding_test = {
+        epsilon: create_dataset(test_adv) for epsilon in epsilons
+    }
+
+    return embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test
+
+
+def run_experiment(config: Config):
+    logger.info(f"Starting experiment {config.experiment_id}_{config.run_id}")
+
+    if __name__ != "__main__":
+        my_db.add_experiment(
+            experiment_id=config.experiment_id,
+            run_id=config.run_id,
+            config=config._asdict()
+        )
+
+    dataset = Dataset(name=config.dataset)
+
+    logger.info(f"Getting deep model...")
+    architecture: Architecture = get_deep_model(
+        num_epochs=config.epochs,
+        dataset=dataset,
+        architecture=get_architecture(config.architecture),
+        train_noise=0.0
+    )
+
+    mean_per_class, sigma_per_class_inv = compute_means_and_sigmas_inv(
+        config=config,
+        dataset=dataset,
+        architecture=architecture
+    )
+
+    if config.attack_type in ["FGSM", "BIM"]:
+        # all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
+        all_epsilons = np.linspace(1e-2, 1.0, 10)
+    else:
+        all_epsilons = [1.0]  # Not used for DeepFool and CW
+
+    embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test = get_feature_datasets(
+        config=config,
+        epsilons=all_epsilons,
+        dataset=dataset,
+        architecture=architecture,
+        mean_per_class=mean_per_class,
+        sigma_per_class_inv=sigma_per_class_inv
+    )
+
+    auc, auc_unsupervised = evaluate_embeddings(
+        embeddings_train=list(embeddings_train),
+        embeddings_test=list(embeddings_test),
+        all_adv_embeddings_train=adv_embedding_train,
+        all_adv_embeddings_test=adv_embedding_test,
+        param_space=[{"gamma": gamma} for gamma in np.logspace(-3, 3, 6)],
+        kernel_type=KernelType.RBF
+    )
+
+    logger.info(auc)
+    logger.info(auc_unsupervised)
+
+    my_db.update_experiment(
+        experiment_id=config.experiment_id,
+        run_id=config.run_id,
+        metrics={
+            "time": time.time() - start_time,
+            "aucs": auc,
+            "aucs_unsupervised": auc_unsupervised
+        }
+    )
+
+
+if __name__ == "__main__":
+    my_config = get_config()
+    run_experiment(my_config)
