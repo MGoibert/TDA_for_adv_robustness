@@ -105,12 +105,12 @@ def get_all_embeddings(config: Config):
         raw_thresholds=config.thresholds,
         dataset=dataset,
         architecture=architecture,
-        dataset_size=5
+        dataset_size=100
     )
 
     if config.attack_type in ["FGSM", "BIM"]:
         # all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
-        all_epsilons = np.linspace(1e-2, 1.0, 10)
+        all_epsilons = np.linspace(1e-2, 1.0, 5)
         # all_epsilons = [0.0, 1.0]
     else:
         all_epsilons = [1.0]
@@ -156,12 +156,14 @@ def get_all_embeddings(config: Config):
         return ret
 
     # Clean train
-    logger.info(f"Clean train dataset !!")
     clean_embeddings_train = process(train_clean)
+    logger.info(f"Clean train dataset "
+                f"({len(clean_embeddings_train)} points) !!")
 
     # Clean test
-    logger.info(f"Clean test dataset !!")
     clean_embeddings_test = process(test_clean)
+    logger.info(f"Clean test dataset "
+                f"({len(clean_embeddings_test)} points) !!")
 
     adv_embeddings_train = dict()
     adv_embeddings_test = dict()
@@ -170,11 +172,14 @@ def get_all_embeddings(config: Config):
     stats_inf = dict()
 
     for epsilon in all_epsilons:
-        logger.info(f"Adversarial train dataset for espilon = {epsilon} !!")
-        adv_embeddings_train[epsilon] = process(train_adv[epsilon])
 
-        logger.info(f"Adversarial test dataset for espilon = {epsilon} !!")
+        adv_embeddings_train[epsilon] = process(train_adv[epsilon])
+        logger.info(f"Adversarial train dataset for espilon = {epsilon}"
+                    f"  ({len(adv_embeddings_train[epsilon])} points) !")
+
         adv_embeddings_test[epsilon] = process(test_adv[epsilon])
+        logger.info(f"Adversarial test dataset for espilon = {epsilon} "
+                    f"({len(adv_embeddings_test[epsilon])} points)  !")
 
         stats[epsilon] = [line.l2_norm for line in test_adv[epsilon]]
         stats_inf[epsilon] = [line.linf_norm for line in test_adv[epsilon]]

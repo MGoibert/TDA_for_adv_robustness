@@ -4,7 +4,7 @@ from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel, \
-    compute_dgm_from_graph
+    compute_dgm_from_graph, fast_wasserstein_gram
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
 from tda.logging import get_logger
@@ -143,7 +143,7 @@ def get_gram_matrix(
     n = len(embeddings_in)
     m = len(embeddings_out)
 
-    logger.info(f"Computing Gram matrix {n} x {m}...")
+    logger.info(f"Computing Gram matrix {n} x {m} (params {params})...")
 
     def compute_gram_chunk(my_slices):
         ret = list()
@@ -166,7 +166,7 @@ def get_gram_matrix(
                 )
         return ret
 
-    nb_jobs = 24
+    nb_jobs = 25
 
     p = Parallel(n_jobs=nb_jobs)
 
@@ -177,7 +177,7 @@ def get_gram_matrix(
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    my_chunks = chunks(all_indices, len(all_indices) // nb_jobs)
+    my_chunks = chunks(all_indices, max([len(all_indices) // nb_jobs, 1]))
 
     gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
     gram = [item for sublist in gram for item in sublist]
