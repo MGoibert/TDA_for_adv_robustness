@@ -318,11 +318,11 @@ def get_feature_datasets(
     embeddings_test = create_dataset(test_clean)
 
     adv_embedding_train = {
-        epsilon: create_dataset(train_adv) for epsilon in epsilons
+        epsilon: create_dataset(train_adv[epsilon]) for epsilon in epsilons
     }
 
     adv_embedding_test = {
-        epsilon: create_dataset(test_adv) for epsilon in epsilons
+        epsilon: create_dataset(test_adv[epsilon]) for epsilon in epsilons
     }
 
     return embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test
