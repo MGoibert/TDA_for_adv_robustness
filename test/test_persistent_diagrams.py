@@ -2,19 +2,21 @@ import numpy as np
 import torch
 from ripser import Rips
 
-from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, sliced_wasserstein_kernel, _helper_fast, _helper_slow
+from tda.embeddings import get_gram_matrix, KernelType
+from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, \
+    sliced_wasserstein_kernel, sliced_wasserstein_kernel_legacy, fast_wasserstein_gram
 from tda.graph import Graph
 from tda.models import Architecture
 from tda.models.architectures import LinearLayer, SoftMaxLayer
 
 simple_archi: Architecture = Architecture(
-        preprocess=lambda x: x,
-        layers=[
-            LinearLayer(4, 3),
-            LinearLayer(3, 2),
-            LinearLayer(2, 10),
-            SoftMaxLayer()
-        ])
+    preprocess=lambda x: x,
+    layers=[
+        LinearLayer(4, 3),
+        LinearLayer(3, 2),
+        LinearLayer(2, 10),
+        SoftMaxLayer()
+    ])
 
 ex1 = torch.ones(4) * 42
 ex2 = torch.ones(4) * 37
@@ -26,57 +28,63 @@ g2 = Graph.from_architecture_and_data_point(simple_archi, ex2, thresholds=dict()
 # Dionysus #
 ############
 
-dgm1 = compute_dgm_from_graph(g1)
-dgm2 = compute_dgm_from_graph(g2)
+dgm1 = compute_dgm_from_graph(g1, astuple=False)
+dgm2 = compute_dgm_from_graph(g2, astuple=False)
+
+dgm1_tuple = compute_dgm_from_graph(g1, astuple=True)
+dgm2_tuple = compute_dgm_from_graph(g2, astuple=True)
 
 
-def test_sliced_wassertstein_kernel(benchmark):
-
+def test_sliced_wassertstein_kernel_legacy(benchmark):
     def compute_dgm():
-        return sliced_wasserstein_kernel(dgm1, dgm2)
+        return sliced_wasserstein_kernel_legacy(dgm1, dgm2)
 
     k_dionysus = benchmark(compute_dgm)
     assert np.isclose(k_dionysus, 7.450580596923829e-10, rtol=1e-12)
 
-    rips = Rips(maxdim=1, coeff=2)
 
-    dgm1_ripser = rips.fit_transform(g1.get_adjacency_matrix(), distance_matrix=True)
-    dgm1_ripser_alt = rips.fit_transform(-g1.get_adjacency_matrix(), distance_matrix=False)
+def test_sliced_wassertstein_kernel(benchmark):
+    def compute_dgm():
+        return sliced_wasserstein_kernel(dgm1_tuple, dgm2_tuple)
 
-    print("Dionysus")
-    print(dgm1)
-    for pt in dgm1:
-        print(pt)
-
-    print("----")
-    print("Ripser")
-    print(dgm1_ripser)
-    print("##")
-    print(dgm1_ripser_alt)
+    k_dionysus = benchmark(compute_dgm)
+    assert np.isclose(k_dionysus, 7.450580596923829e-10, rtol=1e-12)
 
 
-def test_helper_slow(benchmark):
-    a = ((1.0, 34.0), (2.2, 33.2)) * 10
-    b = ((2.9, 22.6), (4.5, 46.3)) * 10
+def test_gram():
+    embeddings = [
+        dgm1_tuple,
+        dgm2_tuple,
+        ((1, 3), (2, 4), (5, 8))
+    ]
 
-    def f():
-        return _helper_slow(a, b, 10)
+    m = get_gram_matrix(
+        embeddings_in=embeddings,
+        embeddings_out=embeddings,
+        kernel_type=KernelType.SlicedWasserstein,
+        params={
+            'M': 10,
+            'sigma': 0.1
+        }
+    )
 
-    result = benchmark(f)
-
-    assert np.isclose(result, 195.56414268596455)
-
-
-def test_helper_fast(benchmark):
-    a = ((1.0, 34.0), (2.2, 33.2)) * 10
-    b = ((2.9, 22.6), (4.5, 46.3)) * 10
-
-    def f():
-        return _helper_fast(a, b, 10)
-
-    result = benchmark(f)
-
-    assert np.isclose(result, _helper_slow(a, b, 10))
-    assert np.isclose(result, 195.56414268596455)
+    print(m)
 
 
+def test_fast_wasserstein_gram(benchmark):
+    embeddings = [
+        dgm1_tuple,
+        dgm2_tuple,
+        ((1, 3), (2, 4), (5, 8))
+    ]
+
+    def b():
+        gram = fast_wasserstein_gram(
+            embeddings_in=embeddings * 10,
+            embeddings_out=embeddings * 50,
+            M=10,
+            sigma=0.1
+        )
+        return gram
+
+    benchmark(b)
