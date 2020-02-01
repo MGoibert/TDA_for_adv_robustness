@@ -14,6 +14,14 @@ except Exception as e:
     homology_persistence = None
     init_diagrams = None
 
+from ripser import Rips
+
+
+def compute_dgm_from_graph_ripser(
+        graph: Graph
+):
+    ret = Rips(maxdim=1, coeff=2)
+
 
 def compute_dgm_from_graph(
         graph: Graph
@@ -47,7 +55,7 @@ def compute_dgm_from_graph(
 
 
 def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
-    #logger.info(f"Sliced Wass. Kernel ")
+    # logger.info(f"Sliced Wass. Kernel ")
     vec1 = []
     vec2 = []
     for pt1 in dgm1:
@@ -59,7 +67,7 @@ def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
     sw = 0
     theta = -np.pi / 2
     s = np.pi / M
-    for i in range(M):
+    for _ in range(M):
         v1 = [np.dot(pt1, [theta, theta]) for pt1 in vec1]
         v2 = [np.dot(pt2, [theta, theta]) for pt2 in vec2]
         v1.sort()
@@ -67,7 +75,7 @@ def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
         val = np.nan_to_num(np.asarray(v1) - np.asarray(v2))
         sw = sw + s * np.linalg.norm(val, ord=1)
         theta = theta + s
-        #logger.info(f"End Sliced Wass. Kernel")
+        # logger.info(f"End Sliced Wass. Kernel")
         # print("Run :", i, " and sw =", (1/np.pi)*sw)
     return (1 / np.pi) * sw
 

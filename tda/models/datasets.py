@@ -14,6 +14,8 @@ from random import shuffle, seed
 
 from tda.logging import get_logger
 
+torch.set_default_tensor_type(torch.DoubleTensor)
+
 _root = './data'
 _trans = transforms.Compose(
     [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
@@ -27,6 +29,12 @@ logger = get_logger("Datasets")
 class Dataset(object):
 
     _datasets = dict()
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
 
     @classmethod
     def get_or_create(
@@ -119,6 +127,6 @@ class Dataset(object):
         shuffle(self.train_dataset)
         shuffle(self.test_and_val_dataset)
 
-        self.test_dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
-                                                                    self.test_loader.dataset)),
-                                      map(itemgetter(1), self.test_loader.dataset)))
+        #self.test_loader.dataset = tuple(zip(map(lambda x: x.double(), map(itemgetter(0),
+        #                                                                   self.test_loader.dataset)),
+        #                                     map(itemgetter(1), self.test_loader.dataset)))

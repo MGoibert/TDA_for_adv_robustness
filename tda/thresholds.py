@@ -2,7 +2,7 @@ import typing
 import numpy as np
 
 from tda.graph_stats import get_stats
-from tda.models import Architecture
+from tda.models import Architecture, Dataset
 from tda.logging import get_logger
 
 logger = get_logger("Thresholds")
@@ -10,11 +10,10 @@ logger = get_logger("Thresholds")
 
 def process_thresholds(
         raw_thresholds: str,
-        dataset: str,
+        dataset: Dataset,
         architecture: Architecture,
-        epochs: int,
         dataset_size: typing.Optional[int] = None
-) -> typing.List[float]:
+) -> typing.Dict:
     """
     Compute the actual thresholds to be used from a raw string like
 
@@ -68,8 +67,7 @@ def process_thresholds(
         dict_quant = get_stats(
                 dataset=dataset,
                 architecture=architecture,
-                dataset_size=dataset_size,
-                epochs=epochs
+                dataset_size=dataset_size
         )
 
     for key in thresholds:
