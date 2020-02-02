@@ -149,10 +149,10 @@ def get_gram_matrix(
         ret = list()
         for i, j in my_slices:
             if kernel_type == KernelType.Euclidean:
-                ret.append(np.transpose(embeddings_in[i]) @ embeddings_out[j])
+                ret.append(np.transpose(np.array(embeddings_in[i])) @ np.array(embeddings_out[j]))
             elif kernel_type == KernelType.RBF:
                 ret.append(np.exp(-np.linalg.norm(
-                    embeddings_in[i] - embeddings_out[j]
+                    np.array(embeddings_in[i]) - np.array(embeddings_out[j])
                 ) / 2 * params['gamma'] ** 2))
             elif kernel_type == KernelType.SlicedWasserstein:
                 sw = sliced_wasserstein_kernel(
