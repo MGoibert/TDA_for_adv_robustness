@@ -152,8 +152,8 @@ def fast_wasserstein_gram(
             theta = -np.pi / 2
             s = np.pi / M
             for k in range(M):
-                v1 = [(pt1[0] + pt1[1]) * theta for pt1 in vec1]
-                v2 = [(pt2[0] + pt2[1]) * theta for pt2 in vec2]
+                v1 = [np.dot(pt1, (theta, theta)) for pt1 in vec1]
+                v2 = [np.dot(pt2, (theta, theta)) for pt2 in vec2]
                 v1.sort()
                 v2.sort()
                 val = np.asarray(v1) - np.asarray(v2)
