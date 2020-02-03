@@ -1,4 +1,7 @@
 from typing import List, Optional, Dict
+
+import fwg
+import time
 import numpy as np
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
@@ -153,42 +156,56 @@ def get_gram_matrix(
     n = len(embeddings_in)
     m = len(embeddings_out)
 
-    logger.info(f"Computing Gram matrix {n} x {m}...")
+    logger.info(f"Computing Gram matrix {n} x {m} (params {params})...")
 
-    def compute_gram_chunk(my_slices):
-        ret = list()
-        for i, j in my_slices:
-            if kernel_type == KernelType.Euclidean:
-                ret.append(np.transpose(embeddings_in[i]) @ embeddings_out[j])
-            elif kernel_type == KernelType.RBF:
-                ret.append(np.exp(-np.linalg.norm(
-                    embeddings_in[i] - embeddings_out[j]
-                ) / 2 * params['gamma'] ** 2))
-            elif kernel_type == KernelType.SlicedWasserstein:
-                sw = sliced_wasserstein_kernel(
-                    embeddings_in[i],
-                    embeddings_out[j],
-                    M=params['M'])
-                ret.append(np.exp(-sw / (2 * params['sigma'] ** 2)))
-            else:
-                raise NotImplementedError(
-                    f"Unknown kernel {kernel_type}"
-                )
-        return ret
+    if kernel_type == KernelType.SlicedWasserstein:
+        logger.info("Using FWG !!!")
+        start = time.time()
+        distance_matrix = np.array(fwg.fwd(
+            embeddings_in,
+            embeddings_out,
+            50
+        ))
+        grams = [np.exp(- distance_matrix / (2 * a_param['sigma'] ** 2)) for a_param in params]
+        logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
+        return grams
 
-    p = Parallel(n_jobs=n_jobs)
+    grams = list()
 
-    all_indices = [(i, j) for i in range(n) for j in range(m)]
+    for a_param in params:
 
-    def chunks(lst, n):
-        """Yield successive n-sized chunks from lst."""
-        for i in range(0, len(lst), n):
-            yield lst[i:i + n]
+        def compute_gram_chunk(my_slices):
+            ret = list()
+            for i, j in my_slices:
+                if kernel_type == KernelType.Euclidean:
+                    ret.append(np.transpose(np.array(embeddings_in[i])) @ np.array(embeddings_out[j]))
+                elif kernel_type == KernelType.RBF:
+                    ret.append(np.exp(-np.linalg.norm(
+                        np.array(embeddings_in[i]) - np.array(embeddings_out[j])
+                    ) / 2 * a_param['gamma'] ** 2))
+                else:
+                    raise NotImplementedError(
+                        f"Unknown kernel {kernel_type}"
+                    )
+            return ret
 
-    my_chunks = chunks(all_indices, len(all_indices) // n_jobs)
+        nb_jobs = 25
 
-    gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
-    gram = [item for sublist in gram for item in sublist]
-    gram = np.reshape(gram, (n, m))
+        p = Parallel(n_jobs=nb_jobs)
 
-    return gram
+        all_indices = [(i, j) for i in range(n) for j in range(m)]
+
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield lst[i:i + n]
+
+        my_chunks = chunks(all_indices, max([len(all_indices) // nb_jobs, 1]))
+
+        gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
+        gram = [item for sublist in gram for item in sublist]
+        gram = np.reshape(gram, (n, m))
+
+        grams.append(gram)
+
+    return grams
