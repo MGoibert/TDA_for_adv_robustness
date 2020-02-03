@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from ripser import Rips
+import fwg
 
 from tda.embeddings import get_gram_matrix, KernelType
 from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, \
@@ -53,9 +53,9 @@ def test_sliced_wassertstein_kernel(benchmark):
 
 def test_gram():
     embeddings = [
-        dgm1_tuple,
-        dgm2_tuple,
-        ((1, 3), (2, 4), (5, 8))
+        list(dgm1_tuple),
+        list(dgm2_tuple),
+        [(1, 3), (2, 4), (5, 8)]
     ]
 
     m = get_gram_matrix(
@@ -87,4 +87,25 @@ def test_fast_wasserstein_gram(benchmark):
         )
         return gram
 
-    benchmark(b)
+    print(benchmark(b))
+
+
+def test_fast_wasserstein_gram_c_version(benchmark):
+    embeddings = [
+        list(dgm1_tuple),
+        list(dgm2_tuple),
+        [(1.0, 3.0), (2.0, 4.0), (5.0, np.inf)]
+    ]
+
+    print(list(dgm1_tuple))
+
+    def b():
+        gram = fwg.fwg(
+            embeddings * 2,
+            embeddings * 5,
+            10,
+            0.1
+        )
+        return gram
+
+    print(benchmark(b))

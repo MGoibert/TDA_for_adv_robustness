@@ -51,7 +51,7 @@ def compute_dgm_from_graph(
         return dgm
     else:
         # Keeping only a tuple with the list of the points
-        ret = tuple((pt.birth, pt.death) for pt in dgm)
+        ret = list((pt.birth, pt.death) for pt in dgm)
         return ret
 
 
@@ -101,15 +101,15 @@ def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
         v2 = [np.dot(pt2, (theta, theta)) for pt2 in vec2]
         v1.sort()
         v2.sort()
-        val = np.asarray(v1) - np.asarray(v2)
-        val[np.isnan(val)] = 0.0
-        #val[np.isposinf(val)] = max_float
-        #val[np.isneginf(val)] = -max_float
-        #val = np.nan_to_num(val)
-        sw = sw + s * np.linalg.norm(val, ord=1)
+        norm1 = 0
+        for l in range(n):
+            raw_diff = v1[l] - v2[l]
+            if np.isposinf(raw_diff) or np.isneginf(raw_diff):
+                norm1 += max_float
+            elif not np.isnan(raw_diff):
+                norm1 += abs(raw_diff)
+        sw = sw + s * norm1
         theta = theta + s
-        # logger.info(f"End Sliced Wass. Kernel")
-        # print("Run :", i, " and sw =", (1/np.pi)*sw)
     return (1 / np.pi) * sw
 
 
