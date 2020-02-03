@@ -1,4 +1,7 @@
 from typing import List, Optional, Dict
+
+import fwg
+import time
 import numpy as np
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
@@ -144,6 +147,18 @@ def get_gram_matrix(
     m = len(embeddings_out)
 
     logger.info(f"Computing Gram matrix {n} x {m} (params {params})...")
+
+    if kernel_type == KernelType.SlicedWasserstein:
+        logger.info("Using FWG !!!")
+        start = time.time()
+        ret = np.array(fwg.fwg(
+            embeddings_in,
+            embeddings_out,
+            int(params['M']),
+            float(params['sigma'])
+        ))
+        logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
+        return ret
 
     def compute_gram_chunk(my_slices):
         ret = list()

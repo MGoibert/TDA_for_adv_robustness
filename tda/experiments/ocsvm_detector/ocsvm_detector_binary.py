@@ -110,7 +110,7 @@ def get_all_embeddings(config: Config):
 
     if config.attack_type in ["FGSM", "BIM"]:
         # all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
-        all_epsilons = np.linspace(1e-2, 1.0, 5)
+        all_epsilons = np.linspace(1e-2, 1.0, 2)
         # all_epsilons = [0.0, 1.0]
     else:
         all_epsilons = [1.0]
