@@ -7,7 +7,7 @@ from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel, \
-    compute_dgm_from_graph, fast_wasserstein_gram
+    compute_dgm_from_graph
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
 from tda.logging import get_logger
@@ -151,14 +151,14 @@ def get_gram_matrix(
     if kernel_type == KernelType.SlicedWasserstein:
         logger.info("Using FWG !!!")
         start = time.time()
-        ret = np.array(fwg.fwg(
+        distance_matrix = np.array(fwg.fwd(
             embeddings_in,
             embeddings_out,
-            int(params['M']),
-            float(params['sigma'])
+            int(params['M'])
         ))
+        gram = np.exp(- distance_matrix / (2 * params['sigma'] ** 2))
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
-        return ret
+        return gram
 
     def compute_gram_chunk(my_slices):
         ret = list()
@@ -174,7 +174,7 @@ def get_gram_matrix(
                     embeddings_in[i],
                     embeddings_out[j],
                     M=params['M'])
-                ret.append(np.exp(-sw / (2 * params['sigma'] ** 2)))
+                ret.append(sw)
             else:
                 raise NotImplementedError(
                     f"Unknown kernel {kernel_type}"
