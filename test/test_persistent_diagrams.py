@@ -2,7 +2,9 @@ import numpy as np
 import torch
 from ripser import Rips
 
-from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, sliced_wasserstein_kernel
+from tda.embeddings.persistent_diagrams import (compute_dgm_from_graph_ripser,
+                                                compute_dgm_from_graph_ripser as compute_dgm_from_graph,
+                                                sliced_wasserstein_kernel)
 from tda.graph import Graph
 from tda.models import Architecture
 from tda.models.architectures import LinearLayer, SoftMaxLayer
@@ -40,8 +42,7 @@ def test_sliced_wassertstein_kernel(benchmark):
 
     rips = Rips(maxdim=1, coeff=2)
 
-    dgm1_ripser = rips.fit_transform(g1.get_adjacency_matrix(), distance_matrix=True)
-    dgm1_ripser_alt = rips.fit_transform(-g1.get_adjacency_matrix(), distance_matrix=False)
+    dgm1_ripser = compute_dgm_from_graph_ripser(g1)
 
     print("Dionysus")
     print(dgm1)
@@ -51,9 +52,6 @@ def test_sliced_wassertstein_kernel(benchmark):
     print("----")
     print("Ripser")
     print(dgm1_ripser)
-    print("##")
-    print(dgm1_ripser_alt)
-
 
 
 

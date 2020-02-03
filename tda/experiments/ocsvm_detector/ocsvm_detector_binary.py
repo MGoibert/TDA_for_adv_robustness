@@ -61,6 +61,10 @@ class Config(typing.NamedTuple):
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
     run_id: int = 0
+    # Number of processes to spawn
+    n_jobs: int=1
+
+    all_epsilons: typing.List[float]=None
 
 
 def get_config() -> Config:
@@ -84,9 +88,13 @@ def get_config() -> Config:
     parser.add_argument('--successful_adv', type=int, default=1)
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--num_iter', type=int, default=10)
+    parser.add_argument('--n_jobs', type=int, default=1)
+    parser.add_argument('--all_epsilons', type=str, default=None)
 
     args, _ = parser.parse_known_args()
 
+    if args.all_epsilons is not None:
+        args.all_epsilons = list(map(float, args.all_epsilons.split(";")))
     return Config(**args.__dict__)
 
 
@@ -108,12 +116,15 @@ def get_all_embeddings(config: Config):
         dataset_size=5
     )
 
-    if config.attack_type in ["FGSM", "BIM"]:
-        # all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
-        all_epsilons = np.linspace(1e-2, 1.0, 10)
-        # all_epsilons = [0.0, 1.0]
+    if config.all_epsilons is None:
+        if config.attack_type in ["FGSM", "BIM"]:
+            # all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
+            all_epsilons = np.linspace(1e-2, 1.0, 10)
+            # all_epsilons = [0.0, 1.0]
+        else:
+            all_epsilons = [1.0]
     else:
-        all_epsilons = [1.0]
+        all_epsilons = config.all_epsilons
 
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
@@ -147,11 +158,9 @@ def get_all_embeddings(config: Config):
             ))
         return ret
 
-    nb_jobs = 24
-
     def process(input_dataset):
-        my_chunks = chunks(input_dataset, len(input_dataset) // nb_jobs)
-        ret = Parallel(n_jobs=nb_jobs)(delayed(embedding_getter)(chunk) for chunk in my_chunks)
+        my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
+        ret = Parallel(n_jobs=config.n_jobs)(delayed(embedding_getter)(chunk) for chunk in my_chunks)
         ret = [item for sublist in ret for item in sublist]
         return ret
 
@@ -186,9 +195,6 @@ def get_all_embeddings(config: Config):
     return clean_embeddings_train, clean_embeddings_test, adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
 
 
-
-
-
 def run_experiment(config: Config):
     """
     Main entry point to run the experiment
@@ -203,8 +209,8 @@ def run_experiment(config: Config):
             config=config._asdict()
         )
 
-    embedding_train, embedding_test, adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf = get_all_embeddings(
-        config)
+    (embedding_train, embedding_test, adv_embeddings_train, adv_embeddings_test,
+     thresholds, stats, stats_inf) = get_all_embeddings(config)
 
     if config.kernel_type == KernelType.RBF:
         param_space = [
