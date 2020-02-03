@@ -478,7 +478,7 @@ class Architecture(nn.Module):
 
     def __init__(self,
                  layers: List[Layer],
-                 preprocess: Callable,
+                 preprocess: Callable=None,
                  layer_links: List[Tuple[int, int]] = None,
                  name: str = ""):
         """
@@ -570,7 +570,8 @@ class Architecture(nn.Module):
         # List to store intermediate results if needed
         if device.type == "cuda":
             x = x.to(device)
-        x = self.preprocess(x)
+        if self.preprocess is not None:
+            x = self.preprocess(x)
 
         outputs = {-1: x.double()}
 
