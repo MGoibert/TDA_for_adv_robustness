@@ -133,6 +133,8 @@ def evaluate_embeddings(
 
         best_auc = 0.0
         best_auc_supervised = 0.0
+        best_param = None
+        best_param_supervised = None
 
         adv_embeddings_test = all_adv_embeddings_test[key]
         adv_embeddings_train = all_adv_embeddings_train[key]
@@ -177,6 +179,7 @@ def evaluate_embeddings(
 
             if roc_auc_val > best_auc:
                 best_auc = roc_auc_val
+                best_param = param
 
             #######################
             # Supervised Learning #
@@ -219,8 +222,15 @@ def evaluate_embeddings(
 
             if roc_auc_val > best_auc_supervised:
                 best_auc_supervised = roc_auc_val
+                best_param_supervised = param
 
         aucs[key] = best_auc
         aucs_supervised[key] = best_auc_supervised
+
+        logger.info(f"Best param unsupervised {best_param}")
+        logger.info(f"Best param supervised {best_param_supervised}")
+
+        logger.info(f"Best auc unsupervised {best_auc}")
+        logger.info(f"Best auc supervised {best_auc_supervised}")
 
     return aucs, aucs_supervised
