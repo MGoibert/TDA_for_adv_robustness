@@ -223,7 +223,7 @@ def run_experiment(config: Config):
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
-    aucs, aucs_supervised = evaluate_embeddings(
+    aucs_unsupervised, aucs_supervised = evaluate_embeddings(
             embeddings_train=embedding_train,
             embeddings_test=embedding_test,
             all_adv_embeddings_train=adv_embeddings_train,
@@ -232,7 +232,7 @@ def run_experiment(config: Config):
             kernel_type=config.kernel_type
     )
 
-    logger.info(aucs)
+    logger.info(aucs_unsupervised)
     logger.info(aucs_supervised)
 
     end_time = time.time()
@@ -241,8 +241,8 @@ def run_experiment(config: Config):
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
-            "aucs": aucs,
             "aucs_supervised": aucs_supervised,
+            "aucs_unsupervised": aucs_unsupervised,
             "effective_thresholds": {
                 "_".join([str(v) for v in key]): thresholds[key]
                 for key in thresholds
