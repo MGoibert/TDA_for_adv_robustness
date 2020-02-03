@@ -1,3 +1,5 @@
+import typing
+
 import numpy as np
 
 from tda.graph import Graph
@@ -18,9 +20,35 @@ from ripser import Rips
 
 
 def compute_dgm_from_graph_ripser(
-        graph: Graph
-):
-    ret = Rips(maxdim=1, coeff=2)
+        graph: Graph,
+        maxdim: int=1,
+        n_perm: int=None,
+        debug: bool=False,
+        **kwargs):
+    """
+    Use `ripser` tool to compute persistent diagram from graph.
+    """
+    from scipy import sparse
+    adj_mat = sparse.csr_matrix(graph.get_adjacency_matrix()) # XXX convert from coo format
+    adj_mat *= -1  # XXX sign correction
+    rips = Rips(maxdim=maxdim, n_perm=n_perm, **kwargs)
+    import time
+    if False:
+        t0 = time.time()
+        dist_mat = sparse.csgraph.floyd_warshall(adj_mat, directed=True)
+        print(adj_mat.shape, adj_mat.count_nonzero())
+        print("Spent %gs computing dist_mat" % (time.time() - t0))
+    else:
+        dist_mat = adj_mat
+    t0 = time.time()    
+    dgms = rips.fit_transform(dist_mat, distance_matrix=True)
+    print("Spent %gs computing persistence diagrams" % (time.time() - t0))    
+    print(list(map(len, dgms)))
+    if debug:
+        import matplotlib.pyplot as plt
+        rips.plot()
+        plt.show()
+    return np.vstack(dgms)
 
 
 def compute_dgm_from_graph(
@@ -54,16 +82,24 @@ def compute_dgm_from_graph(
     return dgms[0]
 
 
+def get_birth_death(pt) -> typing.Tuple[float, float]:
+    if hasattr(pt, "birth"):
+        return pt1.birth, pt1.death
+    else:
+        return pt
+
 def sliced_wasserstein_kernel(dgm1, dgm2, M=10):
     # logger.info(f"Sliced Wass. Kernel ")
     vec1 = []
     vec2 = []
-    for pt1 in dgm1:
-        vec1.append([pt1.birth, pt1.death])
-        vec2.append([(pt1.birth + pt1.death) / 2.0, (pt1.birth + pt1.death) / 2.0])
-    for pt2 in dgm2:
-        vec2.append([pt2.birth, pt2.death])
-        vec1.append([(pt2.birth + pt2.death) / 2.0, (pt2.birth + pt2.death) / 2.0])
+    dgm1 = map(get_birth_death, dgm1)
+    dgm2 = map(get_birth_death, dgm2)
+    for birth, death in dgm1:
+        vec1.append([birth, death])
+        vec2.append([(birth + death) / 2.0, (birth + death) / 2.0])
+    for beath, death in dgm2:
+        vec2.append([birth, death])
+        vec1.append([(birth + death) / 2.0, (birth + death) / 2.0])
     sw = 0
     theta = -np.pi / 2
     s = np.pi / M
