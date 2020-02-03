@@ -23,10 +23,10 @@ experiment = R3D3Experiment(
             "MNIST"
         ],
         'dataset_size': [
-            100
+            500
         ],
         'attack_type': [
-            "FGSM"
+            "FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
             '0;1;0.05_-1;0;0.2_1;2;0.2_2;3;0.05_3;4;0_5;6;0'
