@@ -318,11 +318,11 @@ def get_feature_datasets(
     embeddings_test = create_dataset(test_clean)
 
     adv_embedding_train = {
-        epsilon: create_dataset(train_adv) for epsilon in epsilons
+        epsilon: create_dataset(train_adv[epsilon]) for epsilon in epsilons
     }
 
     adv_embedding_test = {
-        epsilon: create_dataset(test_adv) for epsilon in epsilons
+        epsilon: create_dataset(test_adv[epsilon]) for epsilon in epsilons
     }
 
     return embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test
@@ -369,7 +369,7 @@ def run_experiment(config: Config):
         sigma_per_class_inv=sigma_per_class_inv
     )
 
-    auc, auc_unsupervised = evaluate_embeddings(
+    aucs_unsupervised, auc_supervised = evaluate_embeddings(
         embeddings_train=list(embeddings_train),
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,
@@ -378,16 +378,16 @@ def run_experiment(config: Config):
         kernel_type=KernelType.RBF
     )
 
-    logger.info(auc)
-    logger.info(auc_unsupervised)
+    logger.info(aucs_unsupervised)
+    logger.info(auc_supervised)
 
     my_db.update_experiment(
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
             "time": time.time() - start_time,
-            "aucs": auc,
-            "aucs_unsupervised": auc_unsupervised
+            "auc_supervised": auc_supervised,
+            "aucs_unsupervised": aucs_unsupervised
         }
     )
 

@@ -115,15 +115,13 @@ def evaluate_embeddings(
     logger.info(f"Found {len(embeddings_train)} clean embeddings for train")
     logger.info(f"Found {len(embeddings_test)} clean embeddings for test")
 
-    gram_train_matrices = {
-        i: get_gram_matrix(
+    gram_train_matrices = get_gram_matrix(
             kernel_type=kernel_type,
             embeddings_in=embeddings_train,
             embeddings_out=None,
-            params=param
-        )
-        for i, param in enumerate(param_space)
-    }
+            params=param_space
+    )
+
     logger.info(f"Computed all unsupervised Gram train matrices !")
 
     aucs = dict()
@@ -133,9 +131,34 @@ def evaluate_embeddings(
 
         best_auc = 0.0
         best_auc_supervised = 0.0
+        best_param = None
+        best_param_supervised = None
 
         adv_embeddings_test = all_adv_embeddings_test[key]
         adv_embeddings_train = all_adv_embeddings_train[key]
+
+        start_time = time.time()
+        gram_test_and_bad = get_gram_matrix(
+            kernel_type=kernel_type,
+            embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
+            embeddings_out=list(embeddings_train),
+            params=param_space
+        )
+        logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
+
+        gram_train_supervised = get_gram_matrix(
+            kernel_type=kernel_type,
+            embeddings_in=list(embeddings_train) + list(adv_embeddings_train),
+            embeddings_out=None,
+            params=param_space
+        )
+
+        gram_test_supervised = get_gram_matrix(
+            kernel_type=kernel_type,
+            embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
+            embeddings_out=list(embeddings_train) + list(adv_embeddings_train),
+            params=param_space
+        )
 
         for i, param in enumerate(param_space):
 
@@ -154,16 +177,7 @@ def evaluate_embeddings(
             logger.info(f"Trained model in {time.time() - start_time} secs")
 
             # Testing model
-            start_time = time.time()
-            gram_test_and_bad = get_gram_matrix(
-                kernel_type=kernel_type,
-                embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
-                embeddings_out=list(embeddings_train),
-                params=param
-            )
-            logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
-
-            predictions = ocs.score_samples(gram_test_and_bad)
+            predictions = ocs.score_samples(gram_test_and_bad[i])
 
             labels = np.concatenate(
                 (
@@ -177,6 +191,7 @@ def evaluate_embeddings(
 
             if roc_auc_val > best_auc:
                 best_auc = roc_auc_val
+                best_param = param
 
             #######################
             # Supervised Learning #
@@ -196,31 +211,24 @@ def evaluate_embeddings(
                 )
             )
 
-            gram_train = get_gram_matrix(
-                kernel_type=kernel_type,
-                embeddings_in=list(embeddings_train) + list(adv_embeddings_train),
-                embeddings_out=None,
-                params=param
-            )
+            detector.fit(gram_train_supervised[i], labels_train)
 
-            detector.fit(gram_train, labels_train)
-
-            gram_test = get_gram_matrix(
-                kernel_type=kernel_type,
-                embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
-                embeddings_out=list(embeddings_train) + list(adv_embeddings_train),
-                params=param
-            )
-
-            predictions = detector.decision_function(gram_test)
+            predictions = detector.decision_function(gram_test_supervised[i])
 
             roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
             logger.info(f"Supervised AUC score for param = {param} : {roc_auc_val}")
 
             if roc_auc_val > best_auc_supervised:
                 best_auc_supervised = roc_auc_val
+                best_param_supervised = param
 
         aucs[key] = best_auc
         aucs_supervised[key] = best_auc_supervised
+
+        logger.info(f"Best param unsupervised {best_param}")
+        logger.info(f"Best param supervised {best_param_supervised}")
+
+        logger.info(f"Best auc unsupervised {best_auc}")
+        logger.info(f"Best auc supervised {best_auc_supervised}")
 
     return aucs, aucs_supervised
