@@ -14,14 +14,9 @@ logger =  get_logger("Graph")
 class Graph(object):
 
     def __init__(self,
-                 edge_dict: typing.Dict,
-                 layer_links: typing.List,
-                 final_logits: typing.List[float]
+                 edge_dict: typing.Dict
                  ):
         self._edge_dict = edge_dict
-        self._layer_links = layer_links
-
-        self.final_logits = final_logits
 
     @staticmethod
     def use_sigmoid(data, layer_link, file, k="auto", quant=0.9):
@@ -41,75 +36,71 @@ class Graph(object):
         val = 1/(1 + np.exp(-k * (np.asarray(data) - med[layer_link])))
         return list(val)
 
-    @classmethod
-    def from_architecture_and_data_point_raw_dict(cls,
-                                         architecture: Architecture,
-                                         x: Tensor
-                                         ):
-        raw_edge_dict = architecture.get_graph_values(x)
-        layer_links = list()
-
-        edge_dict = dict()
-        for layer_link in raw_edge_dict:
-            layer_links.append(layer_link)
-            v = raw_edge_dict[layer_link]
-            v = np.abs(v) * 10e5
-            edge_dict[layer_link] = v
-        #logger.info(f"check edge dict raw = {edge_dict[(5,6)].todense().sum()}")
-        return edge_dict, layer_links
-        
-
-    @classmethod
-    def from_architecture_and_data_point(cls,
-                                         edge_dict: typing.Dict,
-                                         layer_links: typing.List,
-                                         thresholds: typing.Optional[typing.Dict] = None
-                                         ):
-        for layer_link in layer_links:
-            if thresholds:
-                # Keeping only edges below a given threhsold
-                loc = edge_dict[layer_link].data < thresholds[layer_link]
-                edge_dict[layer_link] = coo_matrix((edge_dict[layer_link].data[loc],
-                                        (edge_dict[layer_link].row[loc],
-                                        edge_dict[layer_link].col[loc])),
-                                            np.shape(edge_dict[layer_link]))
-                # Changing the sign for the persistent diagram
-                edge_dict[layer_link] = -edge_dict[layer_link]
-        #logger.info(f"check edge dict = {edge_dict[(0,1)].todense().sum()}")
-
-        return cls(
-            edge_dict=edge_dict,
-            layer_links=layer_links,
-            final_logits=list()
-        )
-
     #@classmethod
-    #def from_architecture_and_data_point(cls,
+    #def from_architecture_and_data_point_raw_dict(cls,
     #                                     architecture: Architecture,
-    #                                     x: Tensor,
-    #                                     thresholds: typing.Optional[typing.Dict] = None
+    #                                     x: Tensor
     #                                     ):
     #    raw_edge_dict = architecture.get_graph_values(x)
+    #    layer_links = list()
 
     #    edge_dict = dict()
     #    for layer_link in raw_edge_dict:
+    #        layer_links.append(layer_link)
     #        v = raw_edge_dict[layer_link]
     #        v = np.abs(v) * 10e5
+    #        edge_dict[layer_link] = v
+    #    #logger.info(f"check edge dict raw = {edge_dict[(5,6)].todense().sum()}")
+    #    return edge_dict, layer_links
+        
+
+    #@classmethod
+    #def from_architecture_and_data_point(cls,
+    #                                     edge_dict: typing.Dict,
+    #                                     layer_links: typing.List,
+    #                                     thresholds: typing.Optional[typing.Dict] = None
+    #                                     ):
+    #    for layer_link in layer_links:
     #        if thresholds:
     #            # Keeping only edges below a given threhsold
-    #            loc = v.data < thresholds[layer_link]
-    #            v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
-                # Changing the sign for the persistent diagram
-    #            v = -v
-
-    #        edge_dict[layer_link] = v
-    #    logger.info(f"check edge dict = {edge_dict[(0,1)].todense().sum()}")
+    #            loc = edge_dict[layer_link].data < thresholds[layer_link]
+    #            edge_dict[layer_link] = coo_matrix((edge_dict[layer_link].data[loc],
+    #                                    (edge_dict[layer_link].row[loc],
+    #                                    edge_dict[layer_link].col[loc])),
+    #                                        np.shape(edge_dict[layer_link]))
+    #            # Changing the sign for the persistent diagram
+    #            edge_dict[layer_link] = -edge_dict[layer_link]
+    #    #logger.info(f"check edge dict = {edge_dict[(0,1)].todense().sum()}")
 
     #    return cls(
     #        edge_dict=edge_dict,
-    #        layer_links=architecture.layer_links,
+    #        layer_links=layer_links,
     #        final_logits=list()
     #    )
+
+    @classmethod
+    def from_architecture_and_data_point(cls,
+                                         architecture: Architecture,
+                                         x: Tensor,
+                                         thresholds: typing.Optional[typing.Dict] = None
+                                         ):
+        raw_edge_dict = architecture.get_graph_values(x)
+        edge_dict = dict()
+        for layer_link in raw_edge_dict:
+            v = raw_edge_dict[layer_link]
+            v = np.abs(v) * 10e5
+            if thresholds is not None:
+                # Keeping only edges below a given threhsold
+                loc = v.data < thresholds.get(layer_link, np.inf)
+                v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
+                # Changing the sign for the persistent diagram
+                v = -v
+
+            edge_dict[layer_link] = v
+
+        return cls(
+            edge_dict=edge_dict
+        )
 
     def _get_shapes(self):
         """
@@ -147,48 +138,27 @@ class Graph(object):
             offset_source = vertex_offset[source_layer+1]
             offset_target = vertex_offset[target_layer+1]
             mat = self._edge_dict[(source_layer, target_layer)]
-            target_idx, source_idx = mat.row, mat.col
-            weights = mat.data
-            source_idx += offset_source
-            target_idx += offset_target
 
-            for i in range(len(source_idx)):
-                source_vertex = source_idx[i]
-                target_vertex = target_idx[i]
-                weight = weights[i]
+            for i in range(len(mat.data)):
+                source_vertex = mat.col[i] + offset_source
+                target_vertex = mat.row[i] + offset_target
+                weight = mat.data[i]
                 ret.append(([source_vertex, target_vertex], weight))
         return ret
 
     def get_adjacency_matrix(
             self
     ) -> np.matrix:
-        """
-        Get the corresponding adjacency matrix
-        """
+        edges = self.get_edge_list()
 
-        shapes = self._get_shapes()
+        data = [e[1] for e in edges]
+        row = [e[0][0] for e in edges]
+        col = [e[0][1] for e in edges]
 
-        all_layer_indices = sorted(list(shapes.keys()))
+        N = sum(self._get_shapes().values())
+        mat = coo_matrix((data+data, (row+col, col+row)), shape=(N, N))
 
-        bmat_list = tuple()
-        for source_layer in all_layer_indices:
-            bmat_row = tuple()
-            for target_layer in all_layer_indices:
-                if (source_layer, target_layer) in self._edge_dict:
-                    # There is a connection between these layers
-                    mat = np.transpose(self._edge_dict[(source_layer, target_layer)])
-                elif (target_layer, source_layer) in self._edge_dict:
-                    mat = self._edge_dict[(target_layer, source_layer)]
-                else:
-                    # There is no connection, let's create a zero matrix
-                    # of the right shape !!
-                    mat = coo_matrix((shapes[source_layer], shapes[target_layer]))
-                bmat_row += (mat,)
-            bmat_list += (bmat_row,)
-
-        W = sparse_bmat(bmat_list, format="coo")
-
-        return W
+        return mat
 
     # TODO: Make it DAG-ready
     def get_layer_node_labels(self) -> typing.List[int]:

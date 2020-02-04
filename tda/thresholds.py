@@ -13,7 +13,7 @@ def process_thresholds(
         dataset: Dataset,
         architecture: Architecture,
         dataset_size: typing.Optional[int] = None
-) -> typing.List[float]:
+) -> typing.Dict:
     """
     Compute the actual thresholds to be used from a raw string like
 
