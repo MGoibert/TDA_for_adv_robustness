@@ -123,6 +123,8 @@ def get_all_embeddings(config: Config):
             # all_epsilons = [0.0, 1.0]
         else:
             all_epsilons = [1.0]
+    else:
+        all_epsilons = config.all_epsilons
 
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,

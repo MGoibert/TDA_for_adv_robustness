@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict
 
-import fwg
+# import fwg
 import time
 import numpy as np
 from tda.graph import Graph
@@ -189,9 +189,7 @@ def get_gram_matrix(
                     )
             return ret
 
-        nb_jobs = 25
-
-        p = Parallel(n_jobs=nb_jobs)
+        p = Parallel(n_jobs=n_jobs)
 
         all_indices = [(i, j) for i in range(n) for j in range(m)]
 
@@ -200,7 +198,7 @@ def get_gram_matrix(
             for i in range(0, len(lst), n):
                 yield lst[i:i + n]
 
-        my_chunks = chunks(all_indices, max([len(all_indices) // nb_jobs, 1]))
+        my_chunks = chunks(all_indices, max([len(all_indices) // n_jobs, 1]))
 
         gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
         gram = [item for sublist in gram for item in sublist]
