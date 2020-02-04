@@ -4,7 +4,7 @@ import fwg
 
 from tda.embeddings import get_gram_matrix, KernelType
 from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, \
-    sliced_wasserstein_distance
+    sliced_wasserstein_distance, sliced_wasserstein_distance_matrix
 from tda.graph import Graph
 from tda.models import Architecture
 from tda.models.architectures import LinearLayer, SoftMaxLayer
@@ -112,7 +112,27 @@ def test_fast_wasserstein_gram_c_version(benchmark):
     print(embeddings)
 
     def b():
-        gram = fwg.fwd(
+        gram = np.reshape(fwg.fwd(
+            embeddings,
+            embeddings,
+            50
+        ), (len(embeddings), len(embeddings)))
+        return gram
+
+    print(b())
+
+
+def test_fast_wasserstein_gram_python_version(benchmark):
+    embeddings = [
+        [(2.0, 4.0), (4.0, 8.0)],
+        [(1.0, 2.0), (8.0, 20.0), (34.0, 90.0)],
+        [(2.0, 4.0), (4.0, 8.0)]
+    ]
+
+    print(embeddings)
+
+    def b():
+        gram = sliced_wasserstein_distance_matrix(
             embeddings,
             embeddings,
             50

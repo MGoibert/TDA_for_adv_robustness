@@ -2,7 +2,7 @@ import numpy as np
 
 from tda.graph import Graph
 from tda.logging import get_logger
-from numba import njit, prange
+import typing
 
 logger = get_logger("PersistentDiagrams")
 max_float = np.finfo(np.float).max
@@ -83,3 +83,20 @@ def sliced_wasserstein_distance(dgm1, dgm2, M=10):
 def sliced_wasserstein_kernel(dgm1, dgm2, M=10, sigma=0.5):
     sw = sliced_wasserstein_distance(dgm1, dgm2, M)
     return np.exp(-sw / (2 * sigma ** 2))
+
+
+def sliced_wasserstein_distance_matrix(
+        embeddings_in: typing.List,
+        embeddings_out: typing.List,
+        M: int
+):
+    n = len(embeddings_in)
+    m = len(embeddings_out)
+    ret = np.zeros(n*m)
+
+    for i in range(n):
+        for j in range(m):
+            ret[i*n+j] = sliced_wasserstein_distance(embeddings_in[i], embeddings_out[j], M)
+    return np.reshape(ret, (n, m))
+
+
