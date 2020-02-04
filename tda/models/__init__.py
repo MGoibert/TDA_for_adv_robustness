@@ -87,6 +87,9 @@ def train_network(
     elif model.name == svhn_lenet.name:
         lr = 0.05
         patience = 8
+    elif model.name == mnist_mlp.name:
+        lr = 0.1
+        patience = 5
 
     optimizer = optim.SGD(model.parameters(), lr=lr)
     loss_history = []
@@ -164,14 +167,15 @@ def get_deep_model(
         train_noise: float = 0.0,
         with_details: bool = False,
         force_retrain: bool = False,
-        pretrained_pth: str = ""
+        pretrained_pth: str=None
 ) -> Architecture:
     loss_func = nn.CrossEntropyLoss()
 
-    if len(pretrained_pth) > 0:
+    if pretrained_pth is not None:
         # Experimental: to help loading an existing model
         # possibly trained outside of our framework
         # Can be used with tda/models/pretrained/lenet_mnist_model.pth
+        print(rootpath)
         state_dict = torch.load(
             f"{rootpath}/tda/models/pretrained/{pretrained_pth}",
             map_location=device
@@ -190,7 +194,7 @@ def get_deep_model(
     else:
         nprefix = ""
 
-    model_filename = f"{rootpath}/trained_models/{dataset.name}_" \
+        model_filename = f"{rootpath}/trained_models/{dataset.name}_" \
                      f"{architecture.name}_" \
                      f"{nprefix}" \
                      f"{num_epochs}_" \

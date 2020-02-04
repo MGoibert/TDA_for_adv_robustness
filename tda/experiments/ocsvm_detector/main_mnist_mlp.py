@@ -1,38 +1,37 @@
-import json
 from r3d3 import R3D3Experiment
 from tda.rootpath import rootpath, db_path
 from tda.embeddings import EmbeddingType, KernelType
-from tda.models.architectures import mnist_lenet
+from tda.models.architectures import mnist_mlp
 
 experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'embedding_type': [
             EmbeddingType.PersistentDiagram
-            ],
+        ],
         'kernel_type': [
             KernelType.SlicedWasserstein
         ],
         'architecture': [
-          mnist_lenet.name
+            mnist_mlp.name
+        ],
+        'epochs': [
+            25
         ],
         'dataset': [
-          "MNIST"
+            "MNIST"
+        ],
+        'dataset_size': [
+            500
         ],
         'attack_type': [
-          "FGSM"
+            "FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
-            '_'.join([str(0.99) for _ in range(mnist_lenet.get_nb_graph_layers())])
+            '0.2_0.2_0.2'
         ],
         'noise': [
             0.0
-        ],
-        'epochs': [
-            50
-        ],
-        'identical_train_samples': [
-            0, 1
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

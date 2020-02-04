@@ -1,19 +1,19 @@
 from r3d3 import R3D3Experiment
 
-from tda.models.architectures import mnist_lenet
+from tda.models.architectures import svhn_lenet
 from tda.rootpath import rootpath, db_path
 
 experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'architecture': [
-            mnist_lenet.name
+            svhn_lenet.name
         ],
         'epochs': [
-            50
+            200
         ],
         'dataset': [
-            "MNIST"
+            "SVHN"
         ],
         'attack_type': [
             "FGSM", "BIM", "CW", "DeepFool"
