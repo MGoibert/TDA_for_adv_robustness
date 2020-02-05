@@ -1,6 +1,6 @@
+import fwg
 import numpy as np
 import torch
-import fwg
 
 from tda.embeddings import get_gram_matrix, KernelType
 from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, \
@@ -8,7 +8,6 @@ from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, \
 from tda.graph import Graph
 from tda.models import Architecture
 from tda.models.architectures import LinearLayer, SoftMaxLayer
-from persim import sliced_wasserstein as persim_sw
 
 simple_archi: Architecture = Architecture(
     preprocess=lambda x: x,
@@ -65,11 +64,11 @@ def test__wasserstein_distances_c_vs_python():
 
     print(embeddings)
 
-    c_gram = np.reshape(fwg.fwd(
+    c_gram = fwg.fwd(
         embeddings,
         embeddings,
         50
-    ), (len(embeddings), len(embeddings)))
+    )
 
     print("c++", c_gram)
 
