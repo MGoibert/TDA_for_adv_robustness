@@ -15,6 +15,7 @@ from joblib import Parallel, delayed
 
 logger = get_logger("Embeddings")
 
+
 class EmbeddingType(object):
     AnonymousWalk = "AnonymousWalk"
     WeisfeilerLehman = "WeisfeilerLehman"

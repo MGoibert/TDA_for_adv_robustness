@@ -16,6 +16,11 @@ except Exception as e:
     homology_persistence = None
     init_diagrams = None
 
+try:
+    from persim import sliced_wasserstein as persim_sw
+except Exception as e:
+    persim_sw = None
+
 
 def compute_dgm_from_graph(
         graph: Graph,
@@ -88,7 +93,8 @@ def sliced_wasserstein_kernel(dgm1, dgm2, M=10, sigma=0.5):
 def sliced_wasserstein_distance_matrix(
         embeddings_in: typing.List,
         embeddings_out: typing.List,
-        M: int
+        M: int,
+        software="builtin"
 ):
     n = len(embeddings_in)
     m = len(embeddings_out)
@@ -96,7 +102,10 @@ def sliced_wasserstein_distance_matrix(
 
     for i in range(n):
         for j in range(m):
-            ret[i*n+j] = sliced_wasserstein_distance(embeddings_in[i], embeddings_out[j], M)
+            if software == "builtin":
+                ret[i*n+j] = sliced_wasserstein_distance(embeddings_in[i], embeddings_out[j], M)
+            elif software == "persim":
+                ret[i*n+j] = persim_sw(np.array(embeddings_in[i]), np.array(embeddings_out[j]), M)
     return np.reshape(ret, (n, m))
 
 
