@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict
 
-# import fwg
+import fwg
 import time
 import numpy as np
 from tda.graph import Graph
@@ -135,7 +135,7 @@ def get_gram_matrix(
         kernel_type: str,
         embeddings_in: List,
         embeddings_out: Optional[List] = None,
-        params: Dict = dict(),
+        params: List = [dict()],
         n_jobs: int=1
 ):
     """
