@@ -31,7 +31,7 @@ experiment = R3D3Experiment(
             0.0
         ],
         'successful_adv': [
-            0, 1
+            1
         ]
     },
     binary=f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary.py",

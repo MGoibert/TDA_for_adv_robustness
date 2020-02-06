@@ -193,9 +193,11 @@ def compute_means_and_sigmas_inv(
 
         i += 1
 
-    logger.info(f"Accuracy on test set = {corr / config.dataset_size}")
+    gaussian_accuracy = corr / config.dataset_size
 
-    return mean_per_class, sigma_per_class_inv
+    logger.info(f"Accuracy on test set = {gaussian_accuracy}")
+
+    return mean_per_class, sigma_per_class_inv, gaussian_accuracy
 
 
 def get_feature_datasets(
@@ -348,7 +350,7 @@ def run_experiment(config: Config):
         train_noise=0.0
     )
 
-    mean_per_class, sigma_per_class_inv = compute_means_and_sigmas_inv(
+    mean_per_class, sigma_per_class_inv, gaussian_accuracy = compute_means_and_sigmas_inv(
         config=config,
         dataset=dataset,
         architecture=architecture
@@ -387,8 +389,9 @@ def run_experiment(config: Config):
         metrics={
             "name": "Mahalanobis",
             "time": time.time() - start_time,
-            "auc_supervised": auc_supervised,
-            "aucs_unsupervised": aucs_unsupervised
+            "aucs_supervised": auc_supervised,
+            "aucs_unsupervised": aucs_unsupervised,
+            "gaussian_accuracy": gaussian_accuracy
         }
     )
 
