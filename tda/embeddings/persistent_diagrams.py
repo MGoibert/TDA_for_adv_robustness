@@ -1,3 +1,5 @@
+import typing
+
 import numpy as np
 
 from tda.graph import Graph
@@ -10,11 +12,46 @@ max_float = np.finfo(np.float).max
 try:
     from dionysus import Filtration, Simplex, homology_persistence, init_diagrams
 except Exception as e:
-    print("Unable to find dionysus")
+    logger.warn(e)
     Filtration = None
-    Simplex = None
-    homology_persistence = None
-    init_diagrams = None
+try:
+    from ripser import ripser
+except Exception as e:
+    logger.warn(e)
+
+from ripser import Rips
+
+
+def compute_dgm_from_graph_ripser(
+        graph: Graph,
+        maxdim: int=1,
+        n_perm: int=None,
+        debug: bool=False,
+        **kwargs):
+    """
+    Use `ripser` tool to compute persistent diagram from graph.
+    """
+    from scipy import sparse
+    adj_mat = sparse.csr_matrix(graph.get_adjacency_matrix()) # XXX convert from coo format
+    adj_mat *= -1  # XXX sign correction
+    rips = Rips(maxdim=maxdim, n_perm=n_perm, **kwargs)
+    import time
+    if False:
+        t0 = time.time()
+        dist_mat = sparse.csgraph.floyd_warshall(adj_mat, directed=True)
+        print(adj_mat.shape, adj_mat.count_nonzero())
+        print("Spent %gs computing dist_mat" % (time.time() - t0))
+    else:
+        dist_mat = adj_mat
+    t0 = time.time()    
+    dgms = rips.fit_transform(dist_mat, distance_matrix=True)
+    print("Spent %gs computing persistence diagrams" % (time.time() - t0))    
+    print(list(map(len, dgms)))
+    if debug:
+        import matplotlib.pyplot as plt
+        rips.plot()
+        plt.show()
+    return np.vstack(dgms)
 
 try:
     from persim import sliced_wasserstein as persim_sw

@@ -1,13 +1,14 @@
 from typing import List, Optional, Dict
 
-import fwg
+# import fwg
 import time
 import numpy as np
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
-from tda.embeddings.persistent_diagrams import sliced_wasserstein_kernel, \
-    compute_dgm_from_graph
+from tda.embeddings.persistent_diagrams import (sliced_wasserstein_kernel,
+                                                compute_dgm_from_graph,
+                                                compute_dgm_from_graph_ripser)
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
 from tda.logging import get_logger
@@ -21,8 +22,10 @@ class EmbeddingType(object):
     WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
     LastLayerSortedLogits = "LastLayerSortedLogits"
+    PersistentDiagramRipser = "PersistentDiagramRipser"
+    RawGraph = "RawGraph"
 
-
+    
 class KernelType(object):
     Euclidean = "Euclidean"
     RBF = "RBF"
@@ -58,8 +61,14 @@ def get_embedding(
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_graph(graph)
+    elif embedding_type == EmbeddingType.PersistentDiagramRipser:
+        return compute_dgm_from_graph_ripser(graph)
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
         return sorted(graph.final_logits)
+    elif embedding_type == EmbeddingType.RawGraph:
+        return graph
+    else:
+        raise NotImplementedError(embedding_type)
 
 
 def get_gram_matrix_legacy(
@@ -126,7 +135,8 @@ def get_gram_matrix(
         kernel_type: str,
         embeddings_in: List,
         embeddings_out: Optional[List] = None,
-        params: List[Dict] = [dict()]
+        params: Dict = dict(),
+        n_jobs: int=1
 ):
     """
     Compute the gram matrix of the given embeddings
@@ -180,9 +190,7 @@ def get_gram_matrix(
                     )
             return ret
 
-        nb_jobs = 25
-
-        p = Parallel(n_jobs=nb_jobs)
+        p = Parallel(n_jobs=n_jobs)
 
         all_indices = [(i, j) for i in range(n) for j in range(m)]
 
@@ -191,7 +199,7 @@ def get_gram_matrix(
             for i in range(0, len(lst), n):
                 yield lst[i:i + n]
 
-        my_chunks = chunks(all_indices, max([len(all_indices) // nb_jobs, 1]))
+        my_chunks = chunks(all_indices, max([len(all_indices) // n_jobs, 1]))
 
         gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
         gram = [item for sublist in gram for item in sublist]
