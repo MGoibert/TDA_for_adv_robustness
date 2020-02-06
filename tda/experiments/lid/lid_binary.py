@@ -222,6 +222,7 @@ def run_experiment(config: Config):
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
+            "name": "LID",
             "time": time.time() - start_time,
             "aucs_supervised": auc_supervised,
             "aucs_unsupervised": aucs_unsupervised
