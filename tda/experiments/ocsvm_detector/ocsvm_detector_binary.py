@@ -118,8 +118,7 @@ def get_all_embeddings(config: Config):
 
     if config.all_epsilons is None:
         if config.attack_type in ["FGSM", "BIM"]:
-            # all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
-            all_epsilons = np.linspace(1e-2, 1.0, 10)
+            all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]            
             # all_epsilons = [0.0, 1.0]
         else:
             all_epsilons = [1.0]
@@ -249,7 +248,7 @@ def run_experiment(config: Config):
     elif config.kernel_type == KernelType.SlicedWasserstein:
         param_space = [
             {'M': 20, 'sigma': sigma}
-            for sigma in np.logspace(-4, 4, 10)
+            for sigma in np.logspace(0, 4, 10)
         ]
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")

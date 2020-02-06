@@ -16,6 +16,7 @@ from joblib import Parallel, delayed
 
 logger = get_logger("Embeddings")
 
+
 class EmbeddingType(object):
     AnonymousWalk = "AnonymousWalk"
     WeisfeilerLehman = "WeisfeilerLehman"
@@ -161,11 +162,11 @@ def get_gram_matrix(
     if kernel_type == KernelType.SlicedWasserstein:
         logger.info("Using FWG !!!")
         start = time.time()
-        distance_matrix = np.array(fwg.fwd(
+        distance_matrix = np.reshape(fwg.fwd(
             embeddings_in,
             embeddings_out,
             50
-        ))
+        ), (n, m))
         grams = [np.exp(- distance_matrix / (2 * a_param['sigma'] ** 2)) for a_param in params]
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
         return grams
