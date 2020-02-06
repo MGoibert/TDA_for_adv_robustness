@@ -1,15 +1,13 @@
+import fwg
 import numpy as np
 import torch
-import fwg
 
 from tda.embeddings import get_gram_matrix, KernelType
 from tda.embeddings.persistent_diagrams import compute_dgm_from_graph, \
-    sliced_wasserstein_distance
+    sliced_wasserstein_distance_matrix
 from tda.graph import Graph
 from tda.models import Architecture
 from tda.models.architectures import LinearLayer, SoftMaxLayer
-import dionysus
-from persim import sliced_wasserstein as persim_sw, wasserstein as persim_w
 
 simple_archi: Architecture = Architecture(
     preprocess=lambda x: x,
@@ -37,22 +35,7 @@ dgm1_tuple = compute_dgm_from_graph(g1, astuple=True)
 dgm2_tuple = compute_dgm_from_graph(g2, astuple=True)
 
 
-def test_sliced_wassertstein_kernel():
-    approx_distance = sliced_wasserstein_distance(dgm1_tuple, dgm2_tuple, M=100)
-    real_distance = dionysus.wasserstein_distance(dgm1, dgm2, q=1)
-
-    gram = fwg.fwd(
-        [dgm1_tuple, dgm2_tuple],
-        [dgm1_tuple, dgm2_tuple],
-        100
-    )
-
-    print(gram)
-    print(approx_distance)
-    print(real_distance)
-
-
-def test_gram():
+def test_get_gram():
     embeddings = [
         list(dgm1_tuple),
         list(dgm2_tuple),
@@ -63,46 +46,16 @@ def test_gram():
         embeddings_in=embeddings,
         embeddings_out=embeddings,
         kernel_type=KernelType.SlicedWasserstein,
-        params={
+        params=[{
             'M': 10,
             'sigma': 0.1
-        }
+        }]
     )
 
     print(m)
 
 
-def test_exact_wasserstein_gram():
-    embeddings = [
-        [(2, 4), (4, 8)],
-        [(1, 2), (8, 20), (34, 90)],
-        [(2, 4), (4, 8)]
-    ]
-
-    distances_2 = [
-        [sliced_wasserstein_distance(
-            embeddings[i], embeddings[j], M=50
-        )
-            for j in range(3)]
-        for i in range(3)
-    ]
-
-    print(distances_2)
-
-    distances_3 = [
-        [(persim_sw(
-            np.array(np.nan_to_num(embeddings[i])), np.nan_to_num(np.array(embeddings[j])), M=50
-        ),
-            persim_w(np.array(np.nan_to_num(embeddings[i])), np.nan_to_num(np.array(embeddings[j])))
-        )
-            for j in range(3)]
-        for i in range(3)
-    ]
-
-    print(distances_3)
-
-
-def test_fast_wasserstein_gram_c_version(benchmark):
+def test__wasserstein_distances_c_vs_python():
     embeddings = [
         [(2.0, 4.0), (4.0, 8.0)],
         [(1.0, 2.0), (8.0, 20.0), (34.0, 90.0)],
@@ -111,12 +64,31 @@ def test_fast_wasserstein_gram_c_version(benchmark):
 
     print(embeddings)
 
-    def b():
-        gram = fwg.fwd(
-            embeddings,
-            embeddings,
-            50
-        )
-        return gram
+    c_gram = fwg.fwd(
+        embeddings,
+        embeddings,
+        50
+    )
 
-    print(b())
+    print("c++", c_gram)
+
+    python_gram = sliced_wasserstein_distance_matrix(
+        embeddings,
+        embeddings,
+        50,
+        software="builtin"
+    )
+
+    print("python", python_gram)
+
+    persim_python_gram = sliced_wasserstein_distance_matrix(
+        embeddings,
+        embeddings,
+        50,
+        software="persim"
+    )
+
+    print("persim", persim_python_gram)
+
+    assert np.isclose(np.linalg.norm(c_gram - python_gram), 0.0, atol=1e-7)
+    assert np.isclose(np.linalg.norm(c_gram - persim_python_gram), 0.0, atol=1e-7)

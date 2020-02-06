@@ -4,7 +4,7 @@ import numpy as np
 
 from tda.graph import Graph
 from tda.logging import get_logger
-from numba import njit, prange
+import typing
 
 logger = get_logger("PersistentDiagrams")
 max_float = np.finfo(np.float).max
@@ -52,6 +52,11 @@ def compute_dgm_from_graph_ripser(
         rips.plot()
         plt.show()
     return np.vstack(dgms)
+
+try:
+    from persim import sliced_wasserstein as persim_sw
+except Exception as e:
+    persim_sw = None
 
 
 def compute_dgm_from_graph(
@@ -120,3 +125,24 @@ def sliced_wasserstein_distance(dgm1, dgm2, M=10):
 def sliced_wasserstein_kernel(dgm1, dgm2, M=10, sigma=0.5):
     sw = sliced_wasserstein_distance(dgm1, dgm2, M)
     return np.exp(-sw / (2 * sigma ** 2))
+
+
+def sliced_wasserstein_distance_matrix(
+        embeddings_in: typing.List,
+        embeddings_out: typing.List,
+        M: int,
+        software="builtin"
+):
+    n = len(embeddings_in)
+    m = len(embeddings_out)
+    ret = np.zeros(n*m)
+
+    for i in range(n):
+        for j in range(m):
+            if software == "builtin":
+                ret[i*n+j] = sliced_wasserstein_distance(embeddings_in[i], embeddings_out[j], M)
+            elif software == "persim":
+                ret[i*n+j] = persim_sw(np.array(embeddings_in[i]), np.array(embeddings_out[j]), M)
+    return np.reshape(ret, (n, m))
+
+

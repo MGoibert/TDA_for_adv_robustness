@@ -126,10 +126,10 @@ def get_all_embeddings(config: Config):
             all_epsilons = [1.0]
 =======
     if config.attack_type in ["FGSM", "BIM"]:
-        # all_epsilons = list([0.0, 0.025, 0.05, 0.1, 0.4])
-        all_epsilons = [0.4, 1.0] # np.linspace(1e-2, 1.0, 5)
+        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]
+        # all_epsilons = np.linspace(1e-2, 1.0, 5)
         # all_epsilons = [0.0, 1.0]
->>>>>>> e42e4f5f68a7ed734b4ad3b54008d5234ad8c378
+>>>>>>> 1de5ecceb821da9fdbadd5144f90035f604fa9a5
     else:
         all_epsilons = config.all_epsilons
 
@@ -207,6 +207,30 @@ def get_all_embeddings(config: Config):
     return clean_embeddings_train, clean_embeddings_test, adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
 
 
+def evaluate_all_embeddings(
+        gram_train_matrices: typing.Dict,
+        embeddings_train: typing.List,
+        embeddings_test: typing.List,
+        adv_embeddings: typing.Dict[float, typing.List[float]],
+        param_space: typing.List,
+        config: Config) -> typing.Dict:
+    """
+    Evaluate embeddings all embeddings for all values of epsilon
+    """
+    epsilons = list(adv_embeddings.keys())
+    logger.info("Evaluating embeddings for epsilons %s using n_jobs=%i" % (
+        epsilons, config.n_jobs))
+    artifacts = Parallel(n_jobs=config.n_jobs)(delayed(evaluate_embeddings)(
+        gram_train_matrices=gram_train_matrices,
+        embeddings_train=embeddings_train,
+        embeddings_test=embeddings_test,
+        adv_embeddings=adv_embeddings[epsilon],
+        param_space=param_space,
+        kernel_type=config.kernel_type) for epsilon in epsilons)
+    assert len(epsilons) == len(artifacts)
+    return dict(zip(epsilons, artifacts))
+
+
 def run_experiment(config: Config):
     """
     Main entry point to run the experiment
@@ -232,7 +256,7 @@ def run_experiment(config: Config):
     elif config.kernel_type == KernelType.SlicedWasserstein:
         param_space = [
             {'M': 20, 'sigma': sigma}
-            for sigma in np.logspace(-4, 4, 10)
+            for sigma in np.logspace(0, 4, 10)
         ]
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
