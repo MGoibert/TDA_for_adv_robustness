@@ -385,6 +385,7 @@ def run_experiment(config: Config):
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
+            "name": "Mahalanobis",
             "time": time.time() - start_time,
             "auc_supervised": auc_supervised,
             "aucs_unsupervised": aucs_unsupervised

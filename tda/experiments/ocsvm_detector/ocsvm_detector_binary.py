@@ -247,6 +247,7 @@ def run_experiment(config: Config):
         experiment_id=config.experiment_id,
         run_id=config.run_id,
         metrics={
+            "name": "Graph",
             "aucs_supervised": aucs_supervised,
             "aucs_unsupervised": aucs_unsupervised,
             "effective_thresholds": {
