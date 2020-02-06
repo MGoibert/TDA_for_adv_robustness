@@ -355,8 +355,8 @@ def run_experiment(config: Config):
     )
 
     if config.attack_type in ["FGSM", "BIM"]:
-        # all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4]
-        all_epsilons = np.linspace(1e-2, 1.0, 10)
+        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]
+        # all_epsilons = np.linspace(1e-2, 1.0, 10)
     else:
         all_epsilons = [1.0]  # Not used for DeepFool and CW
 
