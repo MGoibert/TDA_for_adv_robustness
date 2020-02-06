@@ -33,6 +33,14 @@ This is a bit more tricky, we need two packages that have been recently added to
 Then just run `scl enable devtoolset-8 bash` and now you are ready for the `pip install -e .`.
 
 
+### ripser
+`ripser` is an alternative to `dionysus`. It has the advantage that it does need the user
+to provide manually precomputed filtrations. Installation of `ripser` via `pip` doesn't work, so we use `conda` for that. Viz
+
+```bash
+conda install -c conda-forge ripser
+```
+
 ### B) Setup
 
 *  Create a venv with python 3.6 and activate it
