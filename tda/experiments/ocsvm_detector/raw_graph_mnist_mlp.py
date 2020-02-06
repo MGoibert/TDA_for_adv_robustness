@@ -1,23 +1,22 @@
 from r3d3 import R3D3Experiment
-
-from tda.embeddings import EmbeddingType, KernelType
-from tda.models.architectures import mnist_lenet
 from tda.rootpath import rootpath, db_path
+from tda.embeddings import EmbeddingType, KernelType
+from tda.models.architectures import mnist_mlp
 
 experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'embedding_type': [
-            EmbeddingType.PersistentDiagram
+            EmbeddingType.RawGraph
         ],
         'kernel_type': [
-            KernelType.SlicedWasserstein
+            KernelType.RBF
         ],
         'architecture': [
-            mnist_lenet.name
+            mnist_mlp.name
         ],
         'epochs': [
-            50
+            25
         ],
         'dataset': [
             "MNIST"
@@ -29,7 +28,7 @@ experiment = R3D3Experiment(
             "FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
-            '0;1;0_-1;0;0.1_1;2;0.1_2;3;0.025_3;4;0_5;6;0'
+            '0.2_0.2_0.2'
         ],
         'noise': [
             0.0

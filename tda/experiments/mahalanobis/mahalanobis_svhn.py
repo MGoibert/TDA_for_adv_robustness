@@ -25,13 +25,13 @@ experiment = R3D3Experiment(
           500
         ],
         'preproc_epsilon': [
-            0.0, 1e-4, 1e-2
+            1e-2
         ],
         'noise': [
             0.0
         ],
         'successful_adv': [
-            0, 1
+            1
         ]
     },
     binary=f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary.py",

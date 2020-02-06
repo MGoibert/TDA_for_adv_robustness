@@ -9,6 +9,7 @@ from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import (sliced_wasserstein_kernel,
                                                 compute_dgm_from_graph,
                                                 compute_dgm_from_graph_ripser)
+from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
 from tda.logging import get_logger
@@ -66,7 +67,7 @@ def get_embedding(
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
         return sorted(graph.final_logits)
     elif embedding_type == EmbeddingType.RawGraph:
-        return graph
+        return to_sparse_vector(graph.get_adjacency_matrix())
     else:
         raise NotImplementedError(embedding_type)
 
