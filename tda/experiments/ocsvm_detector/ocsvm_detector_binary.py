@@ -8,11 +8,9 @@ import typing
 import numpy as np
 from joblib import delayed, Parallel
 from r3d3.experiment_db import ExperimentDB
-from sklearn.metrics import roc_auc_score
-from sklearn.svm import OneClassSVM, SVC
 
 from tda.embeddings import get_embedding, EmbeddingType, \
-    get_gram_matrix, KernelType
+    KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.logging import get_logger
 from tda.models import get_deep_model, Dataset
@@ -62,9 +60,9 @@ class Config(typing.NamedTuple):
     experiment_id: int = int(time.time())
     run_id: int = 0
     # Number of processes to spawn
-    n_jobs: int=1
+    n_jobs: int = 1
 
-    all_epsilons: typing.List[float]=None
+    all_epsilons: typing.List[float] = None
 
 
 def get_config() -> Config:
@@ -94,7 +92,7 @@ def get_config() -> Config:
     args, _ = parser.parse_known_args()
 
     if args.all_epsilons is not None:
-        args.all_epsilons = list(map(float, args.all_epsilons.split(";")))
+        args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
     return Config(**args.__dict__)
 
 
@@ -116,12 +114,10 @@ def get_all_embeddings(config: Config):
         dataset_size=100
     )
 
-    if config.all_epsilons is None:
-        if config.attack_type in ["FGSM", "BIM"]:
-            all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]            
-            # all_epsilons = [0.0, 1.0]
-        else:
-            all_epsilons = [1.0]
+    if config.attack_type not in ["FGSM", "BIM"]:
+        all_epsilons = [1.0]
+    elif config.all_epsilons is None:
+        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]
     else:
         all_epsilons = config.all_epsilons
 
@@ -180,7 +176,6 @@ def get_all_embeddings(config: Config):
     stats_inf = dict()
 
     for epsilon in all_epsilons:
-
         adv_embeddings_train[epsilon] = process(train_adv[epsilon])
         logger.info(f"Adversarial train dataset for espilon = {epsilon}"
                     f"  ({len(adv_embeddings_train[epsilon])} points) !")
@@ -194,33 +189,14 @@ def get_all_embeddings(config: Config):
 
         logger.debug(
             f"Stats for diff btw clean and adv: "
-            f"{np.quantile(stats[epsilon], 0.1), np.quantile(stats[epsilon], 0.25), np.median(stats[epsilon]), np.quantile(stats[epsilon], 0.75), np.quantile(stats[epsilon], 0.9)}")
+            f"{np.quantile(stats[epsilon], 0.1)}, "
+            f"{np.quantile(stats[epsilon], 0.25)}, "
+            f"{np.median(stats[epsilon])}, "
+            f"{np.quantile(stats[epsilon], 0.75)}, "
+            f"{np.quantile(stats[epsilon], 0.9)}")
 
-    return clean_embeddings_train, clean_embeddings_test, adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
-
-
-def evaluate_all_embeddings(
-        gram_train_matrices: typing.Dict,
-        embeddings_train: typing.List,
-        embeddings_test: typing.List,
-        adv_embeddings: typing.Dict[float, typing.List[float]],
-        param_space: typing.List,
-        config: Config) -> typing.Dict:
-    """
-    Evaluate embeddings all embeddings for all values of epsilon
-    """
-    epsilons = list(adv_embeddings.keys())
-    logger.info("Evaluating embeddings for epsilons %s using n_jobs=%i" % (
-        epsilons, config.n_jobs))
-    artifacts = Parallel(n_jobs=config.n_jobs)(delayed(evaluate_embeddings)(
-        gram_train_matrices=gram_train_matrices,
-        embeddings_train=embeddings_train,
-        embeddings_test=embeddings_test,
-        adv_embeddings=adv_embeddings[epsilon],
-        param_space=param_space,
-        kernel_type=config.kernel_type) for epsilon in epsilons)
-    assert len(epsilons) == len(artifacts)
-    return dict(zip(epsilons, artifacts))
+    return clean_embeddings_train, clean_embeddings_test, \
+        adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
 
 
 def run_experiment(config: Config):
@@ -254,12 +230,12 @@ def run_experiment(config: Config):
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
     aucs_unsupervised, aucs_supervised = evaluate_embeddings(
-            embeddings_train=embedding_train,
-            embeddings_test=embedding_test,
-            all_adv_embeddings_train=adv_embeddings_train,
-            all_adv_embeddings_test=adv_embeddings_test,
-            param_space=param_space,
-            kernel_type=config.kernel_type
+        embeddings_train=embedding_train,
+        embeddings_test=embedding_test,
+        all_adv_embeddings_train=adv_embeddings_train,
+        all_adv_embeddings_test=adv_embeddings_test,
+        param_space=param_space,
+        kernel_type=config.kernel_type
     )
 
     logger.info(aucs_unsupervised)
@@ -287,5 +263,5 @@ def run_experiment(config: Config):
 
 
 if __name__ == "__main__":
-    config = get_config()
-    run_experiment(config)
+    my_config = get_config()
+    print(my_config)

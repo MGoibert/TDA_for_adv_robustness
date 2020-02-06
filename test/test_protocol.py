@@ -27,5 +27,3 @@ def test_protocolar_datasets(dataset_size=10, epsilons=[0.01, 0.05],
         print(f"{key} => {len(train_adv[key])}")
     for key in test_adv:
         print(f"{key} => {len(test_adv[key])}")
-
-    return train_clean, test_clean, train_adv, test_adv, model
