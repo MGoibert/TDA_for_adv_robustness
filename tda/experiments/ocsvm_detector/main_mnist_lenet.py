@@ -33,6 +33,9 @@ experiment = R3D3Experiment(
         ],
         'noise': [
             0.0
+        ],
+        'n_jobs': [
+            24
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
