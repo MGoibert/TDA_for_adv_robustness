@@ -11,6 +11,7 @@ from r3d3.experiment_db import ExperimentDB
 
 from tda.embeddings import get_embedding, EmbeddingType, \
     KernelType
+from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.logging import get_logger
 from tda.models import get_deep_model, Dataset
@@ -195,6 +196,16 @@ def get_all_embeddings(config: Config):
             f"{np.quantile(stats[epsilon], 0.75)}, "
             f"{np.quantile(stats[epsilon], 0.9)}")
 
+    if config.embedding_type == EmbeddingType.RawGraph:
+        raw_graph_indices = identify_active_indices(clean_embeddings_train)
+
+        clean_embeddings_train = featurize_vectors(clean_embeddings_train, raw_graph_indices)
+        clean_embeddings_test = featurize_vectors(clean_embeddings_test, raw_graph_indices)
+
+        for epsilon in all_epsilons:
+            adv_embeddings_train[epsilon] = featurize_vectors(adv_embeddings_train[epsilon], raw_graph_indices)
+            adv_embeddings_test[epsilon] = featurize_vectors(adv_embeddings_test[epsilon], raw_graph_indices)
+
     return clean_embeddings_train, clean_embeddings_test, \
         adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
 
@@ -265,4 +276,4 @@ def run_experiment(config: Config):
 
 if __name__ == "__main__":
     my_config = get_config()
-    print(my_config)
+    run_experiment(my_config)
