@@ -13,3 +13,7 @@ r3d3-xp --experiment_file tda/experiments/lid/lid_svhn.py
 r3d3-xp --experiment_file tda/experiments/mahalanobis/mahalanobis_mnist_mlp.py
 r3d3-xp --experiment_file tda/experiments/mahalanobis/mahalanobis_mnist.py
 r3d3-xp --experiment_file tda/experiments/mahalanobis/mahalanobis_svhn.py
+
+r3d3-xp --experiment_file tda/experiments/ocsvm_detector/raw_graph_mnist_mlp.py
+r3d3-xp --experiment_file tda/experiments/ocsvm_detector/raw_graph_mnist_lenet.py
+r3d3-xp --experiment_file tda/experiments/ocsvm_detector/raw_graph_svhn.py
