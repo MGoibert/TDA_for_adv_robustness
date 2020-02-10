@@ -235,7 +235,7 @@ def run_experiment(config: Config):
     elif config.kernel_type == KernelType.SlicedWasserstein:
         param_space = [
             {'M': 20, 'sigma': sigma}
-            for sigma in np.logspace(0, 4, 10)
+            for sigma in np.logspace(1, 5, 20)
         ]
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
