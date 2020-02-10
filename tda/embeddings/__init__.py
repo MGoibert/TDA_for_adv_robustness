@@ -172,40 +172,39 @@ def get_gram_matrix(
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
         return grams
 
-    grams = list()
+    def compute_gram_chunk(my_slices):
+        ret = list()
+        for i, j in my_slices:
+            if kernel_type == KernelType.Euclidean:
+                ret.append(np.transpose(np.array(embeddings_in[i])) @ np.array(embeddings_out[j]))
+            elif kernel_type == KernelType.RBF:
+                ret.append(np.linalg.norm(
+                    np.array(embeddings_in[i]) - np.array(embeddings_out[j])
+                ))
+            else:
+                raise NotImplementedError(
+                    f"Unknown kernel {kernel_type}"
+                )
+        return ret
 
-    for a_param in params:
+    p = Parallel(n_jobs=n_jobs)
 
-        def compute_gram_chunk(my_slices):
-            ret = list()
-            for i, j in my_slices:
-                if kernel_type == KernelType.Euclidean:
-                    ret.append(np.transpose(np.array(embeddings_in[i])) @ np.array(embeddings_out[j]))
-                elif kernel_type == KernelType.RBF:
-                    ret.append(np.exp(-np.linalg.norm(
-                        np.array(embeddings_in[i]) - np.array(embeddings_out[j])
-                    ) / 2 * a_param['gamma'] ** 2))
-                else:
-                    raise NotImplementedError(
-                        f"Unknown kernel {kernel_type}"
-                    )
-            return ret
+    all_indices = [(i, j) for i in range(n) for j in range(m)]
 
-        p = Parallel(n_jobs=n_jobs)
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
 
-        all_indices = [(i, j) for i in range(n) for j in range(m)]
+    my_chunks = chunks(all_indices, max([len(all_indices) // n_jobs, 1]))
 
-        def chunks(lst, n):
-            """Yield successive n-sized chunks from lst."""
-            for i in range(0, len(lst), n):
-                yield lst[i:i + n]
+    gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
+    gram = [item for sublist in gram for item in sublist]
+    gram = np.reshape(gram, (n, m))
 
-        my_chunks = chunks(all_indices, max([len(all_indices) // n_jobs, 1]))
-
-        gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
-        gram = [item for sublist in gram for item in sublist]
-        gram = np.reshape(gram, (n, m))
-
-        grams.append(gram)
-
-    return grams
+    if kernel_type == KernelType.RBF:
+        return [
+            np.exp(-gram / 2 * a_param['gamma'] ** 2)
+            for a_param in params]
+    elif kernel_type == KernelType.Euclidean:
+        return [gram]
