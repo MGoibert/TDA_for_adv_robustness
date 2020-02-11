@@ -94,8 +94,45 @@ def compute_dgm_from_graph(
     else:
         ret = list()
         for pt in dgm:
-            ret.append((pt.birth, pt.death if not np.isposinf(pt.death) else 2**64))
+            #ret.append((pt.birth, pt.death if not np.isposinf(pt.death) else 2**64))
+            ret.append((pt.birth, pt.death))
         return ret
+
+
+def sliced_wasserstein_distance_old_version(dgm1, dgm2, M=10):
+    # logger.info(f"Sliced Wass. Kernel ")
+    n = len(dgm1) + len(dgm2)
+    vec1 = []
+    vec2 = []
+    #logger.info(f"Dgm = {dgm1}")
+    for i, pt1 in enumerate(dgm1):
+        #logger.info(f"Pt1 = {pt1}")
+        vec1.append((pt1[0], pt1[1]))
+        vec2.append(((pt1[0] + pt1[1]) / 2.0, (pt1[0] + pt1[1]) / 2.0))
+    for i, pt2 in enumerate(dgm2):
+        vec2.append((pt2[0], pt2[1]))
+        vec1.append(((pt2[0] + pt2[1]) / 2.0, (pt2[0] + pt2[1]) / 2.0))
+    sw = 0
+    theta = -np.pi / 2
+    s = np.pi / M
+    for _ in range(M):
+        v1 = [np.dot(pt1, (theta, theta)) for pt1 in vec1]
+        v2 = [np.dot(pt2, (theta, theta)) for pt2 in vec2]
+        li1 = sorted(zip(v1,vec1))
+        li2 = sorted(zip(v2,vec2))
+        v1, vec1 = map(list, zip(*li1))
+        v2, vec2 = map(list, zip(*li2))
+        #v1.sort()
+        #v2.sort()
+        val = np.nan_to_num(np.array(v1)-np.array(v2))
+        for idx, elem in enumerate(val):
+            if abs(elem) > 5*1e-11:
+                logger.info(f"Step M = {_} and theta = {theta}")
+                logger.info(f"elem > 0  for idx {idx} --> val: {val[idx]}, v1: {np.asarray(v1)[idx]} and vec1: {vec1[idx]}")
+                logger.info(f"Same for 2 v2: {np.asarray(v2)[idx]} and vec2: {vec2[idx]} \n")
+        sw = sw + s * np.linalg.norm(val, ord=1)
+        theta = theta + s
+    return (1 / np.pi) * sw
 
 
 def sliced_wasserstein_distance(dgm1, dgm2, M=10):
