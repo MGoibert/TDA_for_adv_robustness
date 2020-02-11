@@ -1,5 +1,6 @@
 import typing
 import time
+import pickle
 
 import numpy as np
 from sklearn.metrics import roc_auc_score
@@ -121,6 +122,8 @@ def evaluate_embeddings(
             embeddings_out=None,
             params=param_space
     )
+    with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_train.pickle', 'wb') as f:
+        pickle.dump(gram_train_matrices, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     logger.info(f"Computed all unsupervised Gram train matrices !")
 
@@ -144,6 +147,8 @@ def evaluate_embeddings(
             embeddings_out=list(embeddings_train),
             params=param_space
         )
+        with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_test_unsupervised_'+str(key)+'.pickle', 'wb') as f:
+            pickle.dump(gram_test_and_bad, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
 
         gram_train_supervised = get_gram_matrix(
@@ -178,6 +183,8 @@ def evaluate_embeddings(
 
             # Testing model
             predictions = ocs.score_samples(gram_test_and_bad[i])
+            with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
+                pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             labels = np.concatenate(
                 (

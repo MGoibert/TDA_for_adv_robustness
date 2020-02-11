@@ -7,6 +7,7 @@ from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import (sliced_wasserstein_kernel,
+                                                sliced_wasserstein_distance_old_version,
                                                 compute_dgm_from_graph,
                                                 compute_dgm_from_graph_ripser)
 from tda.embeddings.raw_graph import to_sparse_vector
@@ -30,7 +31,8 @@ class EmbeddingType(object):
 class KernelType(object):
     Euclidean = "Euclidean"
     RBF = "RBF"
-    SlicedWasserstein = "SlicedWasserstein"
+    SlicedWasserstein = "SlicedWasserstein",
+    SlicedWassersteinOldVersion = "SlicedWassersteinOldVersion"
 
 
 def get_embedding(
@@ -159,6 +161,22 @@ def get_gram_matrix(
     m = len(embeddings_out)
 
     logger.info(f"Computing Gram matrix {n} x {m} (params {params})...")
+
+    if kernel_type == KernelType.SlicedWassersteinOldVersion:
+        logger.info("Old (incorrect) version for SW kernel !!")
+        start = time.time()
+        distance_matrix = np.zeros((n,m))
+        for i in range(n):
+            for j in range(m):
+                logger.info(f"Row {i} and col {j}")
+                distance_matrix[i,j] = sliced_wasserstein_distance_old_version(
+                    embeddings_in[i],
+                    embeddings_out[j],
+                    M=20)
+        grams = [np.exp(- distance_matrix / (2 * a_param['sigma'] ** 2)) for a_param in params]
+        #grams = [distance_matrix for a_param in params]
+        logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
+        return grams
 
     if kernel_type == KernelType.SlicedWasserstein:
         logger.info("Using FWG !!!")
