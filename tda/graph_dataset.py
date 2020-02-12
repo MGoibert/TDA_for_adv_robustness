@@ -5,7 +5,7 @@ import typing
 import numpy as np
 import torch
 
-from tda.cache import cached
+from tda.cache import cached, hdfs_cached
 from tda.devices import device
 from tda.graph import Graph
 from tda.logging import get_logger
@@ -223,6 +223,7 @@ def get_sample_dataset(
     return ret
 
 
+@hdfs_cached
 def get_graph_dataset(
         epsilon: float,
         noise: float,
@@ -237,7 +238,7 @@ def get_graph_dataset(
         start: int = 0,
         per_class: bool = False,
         train: bool = True
-) -> typing.Generator[DatasetLine, None, None]:
+) -> typing.List[DatasetLine]:
 
     logger.warn(f"This function is deprecated !! Please use {get_sample_dataset.__name__}")
 
@@ -257,6 +258,7 @@ def get_graph_dataset(
     )
 
     yielded_lines = 0
+    ret = list()
 
     for line in sample_dataset:
 
@@ -271,4 +273,5 @@ def get_graph_dataset(
         if yielded_lines % 10 == 0:
             logger.info(f"Computing graph {yielded_lines}/{dataset_size}")
 
-        yield line._replace(graph=x_graph)
+        ret.append(line._replace(graph=x_graph))
+    return ret
