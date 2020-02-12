@@ -26,7 +26,7 @@ experiment = R3D3Experiment(
             500
         ],
         'attack_type': [
-            "FGSM", "BIM", "CW", "DeepFool"
+            "FGSM"
         ],
         'threshold': [
             '0;1;0_-1;0;0.1_1;2;0.1_2;3;0.025_3;4;0_5;6;0'

@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tda.devices import device
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 from tda.models.layers import Layer, ConvLayer, MaxPool2dLayer, DropOut, LinearLayer, SoftMaxLayer, BatchNorm2d, \
     ReluLayer, AvgPool2dLayer
 

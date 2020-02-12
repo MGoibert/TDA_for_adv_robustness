@@ -12,7 +12,7 @@ from tda.embeddings.persistent_diagrams import (sliced_wasserstein_kernel,
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 from joblib import Parallel, delayed
 
 logger = get_logger("Embeddings")
@@ -43,9 +43,16 @@ def get_embedding(
         thresholds: Dict,
         params: Dict = dict()
 ):
-    graph = Graph.from_architecture_and_data_point(
-        architecture=architecture,
-        x=line.x.double(),
+
+    if line.graph is None:
+        graph = Graph.from_architecture_and_data_point(
+            architecture=architecture,
+            x=line.x.double()
+        )
+    else:
+        graph = line.graph
+
+    graph.thresholdize(
         thresholds=thresholds
     )
 
@@ -128,11 +135,10 @@ def get_gram_matrix_legacy(
                     embeddings_in[i] - embeddings_out[j]
                 ) / 2 * params['gamma'] ** 2)
             elif kernel_type == KernelType.SlicedWasserstein:
-                sw = sliced_wasserstein_kernel(
+                gram[i, j] = sliced_wasserstein_kernel(
                     embeddings_in[i],
                     embeddings_out[j],
                     M=params['M'])
-                gram[i, j] = np.exp(-sw / (2 * params['sigma'] ** 2))
             else:
                 raise NotImplementedError(
                     f"Unknown kernel {kernel_type}"

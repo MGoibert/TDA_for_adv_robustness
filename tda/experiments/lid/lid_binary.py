@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import euclidean_distances
 
 from tda.embeddings import KernelType
 from tda.graph_dataset import DatasetLine
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture

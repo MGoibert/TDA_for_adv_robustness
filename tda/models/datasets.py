@@ -12,7 +12,7 @@ import torchvision.datasets as dset
 from operator import itemgetter
 from random import shuffle, seed
 
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
