@@ -14,4 +14,4 @@ qgrid
 numba>=0.47.0
 cached-property>=1.5.1
 pandas
-tensorflow==2.1
+tensorflow>=1.14

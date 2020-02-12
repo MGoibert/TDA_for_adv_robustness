@@ -3,7 +3,7 @@ import typing
 import numpy as np
 
 from tda.graph import Graph
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 import typing
 
 logger = get_logger("PersistentDiagrams")
@@ -33,7 +33,7 @@ def compute_dgm_from_graph_ripser(
     """
     from scipy import sparse
     adj_mat = sparse.csr_matrix(graph.get_adjacency_matrix()) # XXX convert from coo format
-    adj_mat *= -1  # XXX sign correction
+    # adj_mat *= -1  # XXX sign correction
     rips = Rips(maxdim=maxdim, n_perm=n_perm, **kwargs)
     import time
     if False:
@@ -70,9 +70,9 @@ def compute_dgm_from_graph(
     for edge, weight in all_edges_for_diagrams:
         src, tgt = edge
         if weight < timing_by_vertex.get(src, max_float):
-            timing_by_vertex[src] = weight
+            timing_by_vertex[src] = -weight
         if weight < timing_by_vertex.get(tgt, max_float):
-            timing_by_vertex[tgt] = weight
+            timing_by_vertex[tgt] = -weight
 
     all_edges_for_diagrams += [
         ([vertex], timing_by_vertex[vertex])

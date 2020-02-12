@@ -10,7 +10,7 @@ import torch.nn as nn
 from numba import njit
 from scipy.sparse import coo_matrix, bmat as sparse_bmat
 
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 logger = get_logger("Layers")

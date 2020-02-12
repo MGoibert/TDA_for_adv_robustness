@@ -8,7 +8,7 @@ import torch
 from tda.cache import cached, hdfs_cached
 from tda.devices import device
 from tda.graph import Graph
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 from tda.models.architectures import Architecture, mnist_mlp
 from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
@@ -136,6 +136,7 @@ def get_sample_dataset(
         num_iter: int = 10,
         offset: int = 0,
         per_class: bool = False,
+        compute_graph: bool = False
 ) -> typing.List[DatasetLine]:
     logger.info(f"Using source dataset {dataset.name}")
 
@@ -203,8 +204,15 @@ def get_sample_dataset(
         elif per_class and all(np.asarray(per_class_nb_samples) >= dataset_size):
             nb_samples = dataset_size + 1
 
+        if compute_graph:
+            graph = Graph.from_architecture_and_data_point(
+                architecture=archi,
+                x=processed_sample[0].double())
+        else:
+            graph = None
+
         ret.append(DatasetLine(
-            graph=None,
+            graph=graph,
             x=processed_sample[0],
             y=processed_sample[1],
             y_pred=y_pred,
@@ -220,58 +228,4 @@ def get_sample_dataset(
         logger.warn(f"I was only able to generate {nb_samples} points even if {dataset_size} was requested. "
                     f"This is probably a lack of adversarial points.")
 
-    return ret
-
-
-@hdfs_cached
-def get_graph_dataset(
-        epsilon: float,
-        noise: float,
-        adv: bool,
-        dataset: Dataset,
-        architecture: Architecture = mnist_mlp,
-        dataset_size: int = 100,
-        thresholds: typing.Optional[typing.List[float]] = None,
-        only_successful_adversaries: bool = True,
-        attack_type: str = "FGSM",
-        num_iter: int = 10,
-        start: int = 0,
-        per_class: bool = False,
-        train: bool = True
-) -> typing.List[DatasetLine]:
-
-    logger.warn(f"This function is deprecated !! Please use {get_sample_dataset.__name__}")
-
-    sample_dataset: typing.List[DatasetLine] = get_sample_dataset(
-        epsilon=epsilon,
-        noise=noise,
-        adv=adv,
-        dataset=dataset,
-        archi=architecture,
-        dataset_size=dataset_size,
-        succ_adv=only_successful_adversaries,
-        attack_type=attack_type,
-        num_iter=num_iter,
-        offset=start,
-        per_class=per_class,
-        train=train
-    )
-
-    yielded_lines = 0
-    ret = list()
-
-    for line in sample_dataset:
-
-        yielded_lines += 1
-
-        x_graph = Graph.from_architecture_and_data_point(
-            architecture=architecture,
-            x=line.x.double(),
-            thresholds=thresholds
-        )
-
-        if yielded_lines % 10 == 0:
-            logger.info(f"Computing graph {yielded_lines}/{dataset_size}")
-
-        ret.append(line._replace(graph=x_graph))
     return ret

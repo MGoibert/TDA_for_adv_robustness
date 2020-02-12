@@ -1,5 +1,5 @@
 from tda.cache import cached
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 logger = get_logger("TestCache")
 
