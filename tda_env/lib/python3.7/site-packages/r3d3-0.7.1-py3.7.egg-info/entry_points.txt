@@ -1,0 +1,3 @@
+[console_scripts]
+r3d3-xp = r3d3.experiment_launcher:main_cli
+

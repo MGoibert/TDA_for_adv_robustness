@@ -139,7 +139,8 @@ def get_gram_matrix(
         embeddings_in: List,
         embeddings_out: Optional[List] = None,
         params: List = [dict()],
-        n_jobs: int=1
+        n_jobs: int=1,
+        verbatim: bool = False
 ):
     """
     Compute the gram matrix of the given embeddings
@@ -168,11 +169,14 @@ def get_gram_matrix(
         distance_matrix = np.zeros((n,m))
         for i in range(n):
             for j in range(m):
-                logger.info(f"Row {i} and col {j}")
+                if verbatim:
+                    logger.info(f"Row {i} and col {j}")
                 distance_matrix[i,j] = sliced_wasserstein_distance_old_version(
                     embeddings_in[i],
                     embeddings_out[j],
-                    M=20)
+                    M=20,
+                    verbatim=verbatim,
+                    row=i)
         grams = [np.exp(- distance_matrix / (2 * a_param['sigma'] ** 2)) for a_param in params]
         #grams = [distance_matrix for a_param in params]
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")

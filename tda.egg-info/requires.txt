@@ -1,0 +1,12 @@
+numpy
+scipy
+seaborn
+torch
+torchvision
+ipython
+tqdm
+dionysus
+scikit-learn
+networkx==1.11
+r3d3
+qgrid

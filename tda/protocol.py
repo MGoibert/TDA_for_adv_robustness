@@ -122,8 +122,8 @@ def evaluate_embeddings(
             embeddings_out=None,
             params=param_space
     )
-    with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_train.pickle', 'wb') as f:
-        pickle.dump(gram_train_matrices, f, protocol=pickle.HIGHEST_PROTOCOL)
+    #with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_train.pickle', 'wb') as f:
+    #    pickle.dump(gram_train_matrices, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     logger.info(f"Computed all unsupervised Gram train matrices !")
 
@@ -141,14 +141,16 @@ def evaluate_embeddings(
         adv_embeddings_train = all_adv_embeddings_train[key]
 
         start_time = time.time()
+        logger.info(f"\n \n UNSUPERVISED MATRIX HERE \n \n")
         gram_test_and_bad = get_gram_matrix(
             kernel_type=kernel_type,
             embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
             embeddings_out=list(embeddings_train),
-            params=param_space
+            params=param_space,
+            verbatim=False
         )
-        with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_test_unsupervised_'+str(key)+'.pickle', 'wb') as f:
-            pickle.dump(gram_test_and_bad, f, protocol=pickle.HIGHEST_PROTOCOL)
+        #with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_test_unsupervised_'+str(key)+'.pickle', 'wb') as f:
+        #    pickle.dump(gram_test_and_bad, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
 
         gram_train_supervised = get_gram_matrix(
@@ -183,8 +185,8 @@ def evaluate_embeddings(
 
             # Testing model
             predictions = ocs.score_samples(gram_test_and_bad[i])
-            with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
-                pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
+            #with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
+            #    pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             labels = np.concatenate(
                 (
