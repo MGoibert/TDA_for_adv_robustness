@@ -10,7 +10,7 @@ experiment = R3D3Experiment(
             EmbeddingType.PersistentDiagram
         ],
         'kernel_type': [
-            KernelType.SlicedWasserstein
+            KernelType.SlicedWassersteinOldVersion
         ],
         'architecture': [
             mnist_mlp.name
@@ -22,10 +22,10 @@ experiment = R3D3Experiment(
             "MNIST"
         ],
         'dataset_size': [
-            500
+            50
         ],
         'attack_type': [
-            "FGSM", "BIM", "CW", "DeepFool"
+            "FGSM"#"FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
             '0.2_0.2_0.2'
@@ -34,7 +34,7 @@ experiment = R3D3Experiment(
             0.0
         ],
         'n_jobs': [
-            24
+            1
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

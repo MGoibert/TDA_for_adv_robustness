@@ -1,6 +1,7 @@
 import typing
 
 import numpy as np
+import pickle
 
 from tda.graph import Graph
 from tda.logging import get_logger
@@ -99,7 +100,7 @@ def compute_dgm_from_graph(
         return ret
 
 
-def sliced_wasserstein_distance_old_version(dgm1, dgm2, M=10):
+def sliced_wasserstein_distance_old_version(dgm1, dgm2, M=10, verbatim=False, row=-1):
     # logger.info(f"Sliced Wass. Kernel ")
     n = len(dgm1) + len(dgm2)
     vec1 = []
@@ -115,6 +116,9 @@ def sliced_wasserstein_distance_old_version(dgm1, dgm2, M=10):
     sw = 0
     theta = -np.pi / 2
     s = np.pi / M
+    if verbatim:
+        c_tot = 0
+        points1 = list()
     for _ in range(M):
         v1 = [np.dot(pt1, (theta, theta)) for pt1 in vec1]
         v2 = [np.dot(pt2, (theta, theta)) for pt2 in vec2]
@@ -125,13 +129,24 @@ def sliced_wasserstein_distance_old_version(dgm1, dgm2, M=10):
         #v1.sort()
         #v2.sort()
         val = np.nan_to_num(np.array(v1)-np.array(v2))
-        for idx, elem in enumerate(val):
-            if abs(elem) > 5*1e-11:
-                logger.info(f"Step M = {_} and theta = {theta}")
-                logger.info(f"elem > 0  for idx {idx} --> val: {val[idx]}, v1: {np.asarray(v1)[idx]} and vec1: {vec1[idx]}")
-                logger.info(f"Same for 2 v2: {np.asarray(v2)[idx]} and vec2: {vec2[idx]} \n")
+        if verbatim:
+            c = 0
+            for idx, elem in enumerate(val):
+                if abs(elem) > 1*1e-20:
+                    c += 1
+                    if vec1[idx] not in points1:
+                        points1.append(vec1[idx])
+                    #logger.info(f"Step M = {_}")
+                    #logger.info(f"Step M = {_} --> Val: {val[idx]}, vec1: {vec1[idx]},  vec2: {vec2[idx]}")
+                    #logger.info(f"Same for 2 v2: {np.asarray(v2)[idx]} and vec2: {vec2[idx]} \n")
+            c_tot += c
+            logger.info(f"Step M={_} --> c = {c}")
         sw = sw + s * np.linalg.norm(val, ord=1)
         theta = theta + s
+    if verbatim:
+        logger.info(f"Total positives = {c_tot}")
+        with open('/Users/m.goibert/Documents/temp/gram_mat/points1_'+str(row)+'.pickle', 'wb') as f:
+                pickle.dump(points1, f, protocol=pickle.HIGHEST_PROTOCOL)
     return (1 / np.pi) * sw
 
 

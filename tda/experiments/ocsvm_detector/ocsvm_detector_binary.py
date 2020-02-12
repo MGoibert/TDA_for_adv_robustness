@@ -4,6 +4,7 @@
 import argparse
 import time
 import typing
+import pickle
 
 import numpy as np
 from joblib import delayed, Parallel
@@ -118,7 +119,8 @@ def get_all_embeddings(config: Config):
     if config.attack_type not in ["FGSM", "BIM"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
-        all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        #all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        all_epsilons = [0.01, 0.1, 0.4]
     else:
         all_epsilons = config.all_epsilons
 
@@ -226,12 +228,13 @@ def run_experiment(config: Config):
 
     (embedding_train, embedding_test, adv_embeddings_train, adv_embeddings_test,
      thresholds, stats, stats_inf) = get_all_embeddings(config)
-    with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean.pickle', 'wb') as f:
-                pickle.dump(embedding_test, f, protocol=pickle.HIGHEST_PROTOCOL)
-    eps_to_save = 0.1
-    with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_adv_'+str(eps_to_save)'.pickle', 'wb') as f:
-                pickle.dump(adv_embeddings_test[eps_to_save], f, protocol=pickle.HIGHEST_PROTOCOL)
+    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean.pickle', 'wb') as f:
+    #            pickle.dump(embedding_test, f, protocol=pickle.HIGHEST_PROTOCOL)
+    #eps_to_save = 0.1
+    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_adv_'+str(eps_to_save)+'.pickle', 'wb') as f:
+    #            pickle.dump(adv_embeddings_test[eps_to_save], f, protocol=pickle.HIGHEST_PROTOCOL)
 
+    logger.info(f"Kernel? {config.kernel_type == KernelType.SlicedWasserstein}")
     if config.kernel_type == KernelType.RBF:
         param_space = [
             {'gamma': gamma}
@@ -239,7 +242,7 @@ def run_experiment(config: Config):
         ]
     elif config.kernel_type in [KernelType.SlicedWasserstein, KernelType.SlicedWassersteinOldVersion]:
         param_space = [
-            {'M': 20, 'sigma': 100}
+            {'M': 20, 'sigma': 1e-3}
             #for sigma in np.logspace(0, 4, 10)
         ]
     else:

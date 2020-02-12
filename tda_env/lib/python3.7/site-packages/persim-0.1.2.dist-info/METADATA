@@ -1,0 +1,78 @@
+Metadata-Version: 2.1
+Name: persim
+Version: 0.1.2
+Summary: Distances and representations of persistence diagrams
+Home-page: https://persim.scikit-tda.org
+Author: Nathaniel Saul, Chris Tralie
+Author-email: nat@riverasaul.com, chris.tralie@gmail.com
+License: MIT
+Keywords: persistent homology,persistence images,persistence diagrams,topology data analysis,algebraic topology,unsupervised learning,sliced wasserstein distance,bottleneck distance
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=2.7,!=3.1,!=3.2,!=3.3
+Description-Content-Type: text/markdown
+Requires-Dist: scikit-learn
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: scipy
+Requires-Dist: hopcroftkarp
+Provides-Extra: docs
+Requires-Dist: sktda-docs-config ; extra == 'docs'
+Provides-Extra: testing
+Requires-Dist: pytest ; extra == 'testing'
+
+[![PyPI version](https://badge.fury.io/py/persim.svg)](https://badge.fury.io/py/persim)
+[![Downloads](https://pypip.in/download/persim/badge.svg)](https://pypi.python.org/pypi/persim/) 
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/persim.svg)](https://anaconda.org/conda-forge/persim)
+[![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/persim.svg)](https://anaconda.org/conda-forge/persim)
+[![Build Status](https://travis-ci.org/scikit-tda/persim.svg?branch=master)](https://travis-ci.org/scikit-tda/persim)
+[![codecov](https://codecov.io/gh/scikit-tda/persim/branch/master/graph/badge.svg)](https://codecov.io/gh/scikit-tda/persim)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
+<img align="right" width="40" height="40" src="https://imgur.com/8p6VwFm.jpg">
+
+Persim is a Python package for many tools used in analyzing Persistence Diagrams.  It currently houses implementations of 
+
+- Persistence Images
+- Bottleneck distance
+- Modified Gromov&ndash;Hausdorff distance
+- Sliced Wasserstein Kernel
+- Heat Kernel
+- Diagram plotting
+
+
+## Setup
+
+The latest version of persim can be found on Pypi and installed with pip:
+
+```
+pip install persim
+```
+
+## Documentation and Usage
+
+Documentation about the library, it's API, and examples of how to use it can be found at [persim.scikit-tda.org](http://persim.scikit-tda.org).
+
+## Contributions
+
+We welcome contributions of all shapes and sizes. There are lots of opportunities for potential projects, so please get in touch if you would like to help out. Everything from an implementation of your favorite distance, notebooks, examples, and documentation are all equally valuable so please don't feel you can't contribute. 
+
+To contribute please fork the project make your changes and submit a pull request. We will do our best to work through any issues with you and get your code merged into the main branch.
+
+
+
+

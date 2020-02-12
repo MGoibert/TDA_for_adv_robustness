@@ -10,7 +10,7 @@ experiment = R3D3Experiment(
             EmbeddingType.PersistentDiagram
         ],
         'kernel_type': [
-            KernelType.SlicedWassersteinOldVersion
+            KernelType.SlicedWasserstein
         ],
         'architecture': [
             svhn_lenet.name
@@ -22,14 +22,15 @@ experiment = R3D3Experiment(
             "SVHN"
         ],
         'dataset_size': [
-            24
+            4
         ],
         'attack_type': [
             "FGSM" #"FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
-            #'0.3_0.03_0.5_0.05_0_0_0'
-            "0.4_0.05_0.4_0.05_0_0_0"
+            '0.3_0.03_0.5_0.05_0.5_0.5_0'
+            #"0.4_0_0_0_0_0_0"
+            #'inf_0_inf_0_inf_inf_inf'
         ],
         'noise': [
             0.0
