@@ -1,43 +1,40 @@
 from r3d3 import R3D3Experiment
 from tda.rootpath import rootpath, db_path
 from tda.embeddings import EmbeddingType, KernelType
-from tda.models.architectures import svhn_lenet
+from tda.models.architectures import mnist_lenet
 
 experiment = R3D3Experiment(
     db_path=db_path,
     configs={
         'embedding_type': [
-            EmbeddingType.PersistentDiagram
+            EmbeddingType.RawGraphWithPCA
         ],
         'kernel_type': [
-            KernelType.SlicedWasserstein
+            KernelType.RBF
         ],
         'architecture': [
-            svhn_lenet.name
+            mnist_lenet.name
         ],
         'epochs': [
-            200
+            50
         ],
         'dataset': [
-            "SVHN"
+            "MNIST"
         ],
         'dataset_size': [
-            4
+            500
         ],
         'attack_type': [
-            "FGSM" #"FGSM", "BIM", "CW", "DeepFool"
+            "FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
-            x'0.3_0.03_0.5_0.05_0.5_0.5_0'
-            #"0.4_0_0_0_0_0_0"
-            #'inf_0_inf_0_inf_inf_inf'
-            '0.3_0.03_0.5_0.05_0.5_0.5_0'  #  '0.3_0.03_0.5_0.05_0_0_0'
+            '0.2_0.2_0.2'
         ],
         'noise': [
             0.0
         ],
         'n_jobs': [
-            1
+            24
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

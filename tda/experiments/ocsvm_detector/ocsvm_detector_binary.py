@@ -9,6 +9,7 @@ import pickle
 import numpy as np
 from joblib import delayed, Parallel
 from r3d3.experiment_db import ExperimentDB
+from sklearn.decomposition import PCA
 
 from tda.embeddings import get_embedding, EmbeddingType, \
     KernelType
@@ -198,15 +199,26 @@ def get_all_embeddings(config: Config):
             f"{np.quantile(stats[epsilon], 0.75)}, "
             f"{np.quantile(stats[epsilon], 0.9)}")
 
-    if config.embedding_type == EmbeddingType.RawGraph:
+    if config.embedding_type in [EmbeddingType.RawGraph, EmbeddingType.RawGraphWithPCA]:
         raw_graph_indices = identify_active_indices(clean_embeddings_train)
 
         clean_embeddings_train = featurize_vectors(clean_embeddings_train, raw_graph_indices)
         clean_embeddings_test = featurize_vectors(clean_embeddings_test, raw_graph_indices)
 
+        if config.embedding_type == EmbeddingType.RawGraphWithPCA:
+            logger.info("Fitting PCA...")
+            pca = PCA(n_components=20, random_state=int(config.experiment_id))
+            clean_embeddings_train = pca.fit_transform(clean_embeddings_train)
+            logger.info("Done fitting PCA...")
+            clean_embeddings_test = pca.transform(clean_embeddings_test)
+
         for epsilon in all_epsilons:
             adv_embeddings_train[epsilon] = featurize_vectors(adv_embeddings_train[epsilon], raw_graph_indices)
             adv_embeddings_test[epsilon] = featurize_vectors(adv_embeddings_test[epsilon], raw_graph_indices)
+
+            if config.embedding_type == EmbeddingType.RawGraphWithPCA:
+                adv_embeddings_train[epsilon] = pca.transform(adv_embeddings_train[epsilon])
+                adv_embeddings_test[epsilon] = pca.transform(adv_embeddings_test[epsilon])
 
     return clean_embeddings_train, clean_embeddings_test, \
         adv_embeddings_train, adv_embeddings_test, thresholds, stats, stats_inf
@@ -234,7 +246,6 @@ def run_experiment(config: Config):
     #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_adv_'+str(eps_to_save)+'.pickle', 'wb') as f:
     #            pickle.dump(adv_embeddings_test[eps_to_save], f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    logger.info(f"Kernel? {config.kernel_type == KernelType.SlicedWasserstein}")
     if config.kernel_type == KernelType.RBF:
         param_space = [
             {'gamma': gamma}

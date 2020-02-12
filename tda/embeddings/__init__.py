@@ -23,9 +23,12 @@ class EmbeddingType(object):
     AnonymousWalk = "AnonymousWalk"
     WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
+    PersistentDiagramTop100 = "PersistentDiagramTop100"
+    PersistentDiagramTopLifetimes = "PersistentDiagramTopLifetimes"
     LastLayerSortedLogits = "LastLayerSortedLogits"
     PersistentDiagramRipser = "PersistentDiagramRipser"
     RawGraph = "RawGraph"
+    RawGraphWithPCA = "RawGraphWithPCA"
 
     
 class KernelType(object):
@@ -64,11 +67,18 @@ def get_embedding(
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_graph(graph)
+    elif embedding_type == EmbeddingType.PersistentDiagramTop100:
+        dgm = compute_dgm_from_graph(graph)
+        return sorted(dgm, key=lambda x: x[1]-x[0])[-100:]
+    elif embedding_type == EmbeddingType.PersistentDiagramTopLifetimes:
+        dgm = compute_dgm_from_graph(graph)
+        lifetimes = [pt[1]-pt[0] for pt in dgm]
+        return sorted(lifetimes)[-10:]
     elif embedding_type == EmbeddingType.PersistentDiagramRipser:
         return compute_dgm_from_graph_ripser(graph)
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
         return sorted(graph.final_logits)
-    elif embedding_type == EmbeddingType.RawGraph:
+    elif embedding_type in [EmbeddingType.RawGraph, EmbeddingType.RawGraphWithPCA]:
         return to_sparse_vector(graph.get_adjacency_matrix())
     else:
         raise NotImplementedError(embedding_type)
@@ -194,40 +204,39 @@ def get_gram_matrix(
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
         return grams
 
-    grams = list()
+    def compute_gram_chunk(my_slices):
+        ret = list()
+        for i, j in my_slices:
+            if kernel_type == KernelType.Euclidean:
+                ret.append(np.transpose(np.array(embeddings_in[i])) @ np.array(embeddings_out[j]))
+            elif kernel_type == KernelType.RBF:
+                ret.append(np.linalg.norm(
+                    np.array(embeddings_in[i]) - np.array(embeddings_out[j])
+                ))
+            else:
+                raise NotImplementedError(
+                    f"Unknown kernel {kernel_type}"
+                )
+        return ret
 
-    for a_param in params:
+    p = Parallel(n_jobs=n_jobs)
 
-        def compute_gram_chunk(my_slices):
-            ret = list()
-            for i, j in my_slices:
-                if kernel_type == KernelType.Euclidean:
-                    ret.append(np.transpose(np.array(embeddings_in[i])) @ np.array(embeddings_out[j]))
-                elif kernel_type == KernelType.RBF:
-                    ret.append(np.exp(-np.linalg.norm(
-                        np.array(embeddings_in[i]) - np.array(embeddings_out[j])
-                    ) / 2 * a_param['gamma'] ** 2))
-                else:
-                    raise NotImplementedError(
-                        f"Unknown kernel {kernel_type}"
-                    )
-            return ret
+    all_indices = [(i, j) for i in range(n) for j in range(m)]
 
-        p = Parallel(n_jobs=n_jobs)
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
 
-        all_indices = [(i, j) for i in range(n) for j in range(m)]
+    my_chunks = chunks(all_indices, max([len(all_indices) // n_jobs, 1]))
 
-        def chunks(lst, n):
-            """Yield successive n-sized chunks from lst."""
-            for i in range(0, len(lst), n):
-                yield lst[i:i + n]
+    gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
+    gram = [item for sublist in gram for item in sublist]
+    gram = np.reshape(gram, (n, m))
 
-        my_chunks = chunks(all_indices, max([len(all_indices) // n_jobs, 1]))
-
-        gram = p([delayed(compute_gram_chunk)(chunk) for chunk in my_chunks])
-        gram = [item for sublist in gram for item in sublist]
-        gram = np.reshape(gram, (n, m))
-
-        grams.append(gram)
-
-    return grams
+    if kernel_type == KernelType.RBF:
+        return [
+            np.exp(-gram / 2 * a_param['gamma'] ** 2)
+            for a_param in params]
+    elif kernel_type == KernelType.Euclidean:
+        return [gram]
