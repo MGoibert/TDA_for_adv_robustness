@@ -26,7 +26,7 @@ from tda.models.architectures import mnist_mlp, get_architecture, Architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
 from tda.models import get_deep_model, Dataset
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 #logging.basicConfig(level=logging.INFO)
 logger = get_logger("Visualization PCA")

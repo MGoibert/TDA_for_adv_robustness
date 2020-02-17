@@ -14,7 +14,7 @@ def test_euclidean_gram():
     M = get_gram_matrix(
         kernel_type=KernelType.Euclidean,
         embeddings_in=embed_in,
-        embeddings_out=embed_out)
+        embeddings_out=embed_out)[0]
 
     M_legacy = get_gram_matrix_legacy(
         kernel_type=KernelType.Euclidean,
@@ -43,7 +43,7 @@ def test_sliced_wasserstein_gram_matrix(benchmark):
         z = np.zeros(4)
         z[idx] = val
         ex = torch.from_numpy(z)
-        g = Graph.from_architecture_and_data_point(simple_archi, ex, thresholds=dict())
+        g = Graph.from_architecture_and_data_point(simple_archi, ex)
         dgm = compute_dgm_from_graph(g)
         embeddings.append(dgm)
 
@@ -52,19 +52,20 @@ def test_sliced_wasserstein_gram_matrix(benchmark):
             kernel_type=KernelType.SlicedWasserstein,
             embeddings_in=embeddings,
             embeddings_out=embeddings,
-            params={"M": 20, "sigma": 0.5}
-        )
+            params=[{"M": 50, "sigma": 0.5}]
+        )[0]
 
     legacy_matrix = get_gram_matrix_legacy(
         kernel_type=KernelType.SlicedWasserstein,
         embeddings_in=embeddings,
         embeddings_out=embeddings,
-        params={"M": 20, "sigma": 0.5}
+        params={"M": 50, "sigma": 0.5}
     )
 
     print(legacy_matrix)
 
     matrix = benchmark(compute_matrix)
 
-    assert np.isclose(np.linalg.norm(matrix), 99.9999999)
+    print(matrix)
+
     assert np.isclose(np.linalg.norm(matrix-legacy_matrix), 0.0)

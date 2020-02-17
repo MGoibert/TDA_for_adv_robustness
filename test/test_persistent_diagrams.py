@@ -21,8 +21,8 @@ simple_archi: Architecture = Architecture(
 ex1 = torch.ones(4) * 42
 ex2 = torch.ones(4) * 37
 
-g1 = Graph.from_architecture_and_data_point(simple_archi, ex1, thresholds=dict())
-g2 = Graph.from_architecture_and_data_point(simple_archi, ex2, thresholds=dict())
+g1 = Graph.from_architecture_and_data_point(simple_archi, ex1)
+g2 = Graph.from_architecture_and_data_point(simple_archi, ex2)
 
 ############
 # Dionysus #

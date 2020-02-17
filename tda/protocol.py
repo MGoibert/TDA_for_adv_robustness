@@ -10,7 +10,7 @@ from sklearn.svm import OneClassSVM, SVC
 from tda.embeddings import get_gram_matrix
 from tda.graph_dataset import get_sample_dataset
 from tda.models import Architecture, Dataset
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 logger = get_logger("C3PO")
 
@@ -22,7 +22,8 @@ def get_protocolar_datasets(
         archi: Architecture,
         dataset_size: int,
         attack_type: str,
-        all_epsilons: typing.List
+        all_epsilons: typing.List,
+        compute_graph: bool = False
 ):
     logger.info("I will produce for you the protocolar datasets !")
 
@@ -35,10 +36,11 @@ def get_protocolar_datasets(
         succ_adv=succ_adv,
         archi=archi,
         dataset_size=dataset_size // 2,
-        offset=0
+        offset=0,
+        compute_graph=compute_graph
     )
 
-    if False:  # noise > 0.0:
+    if noise > 0.0:
         train_clean += get_sample_dataset(
             adv=False,
             epsilon=0.0,
@@ -48,7 +50,8 @@ def get_protocolar_datasets(
             succ_adv=succ_adv,
             archi=archi,
             dataset_size=dataset_size // 2,
-            offset=0
+            offset=0,
+            compute_graph=compute_graph
         )
 
     test_clean = get_sample_dataset(
@@ -60,10 +63,11 @@ def get_protocolar_datasets(
         succ_adv=succ_adv,
         archi=archi,
         dataset_size=dataset_size // 2,
-        offset=dataset_size // 2
+        offset=dataset_size // 2,
+        compute_graph=compute_graph
     )
 
-    if False:  # noise > 0.0:
+    if noise > 0.0:
         test_clean += get_sample_dataset(
             adv=False,
             epsilon=0.0,
@@ -73,7 +77,8 @@ def get_protocolar_datasets(
             succ_adv=succ_adv,
             archi=archi,
             dataset_size=dataset_size // 2,
-            offset=dataset_size // 2
+            offset=dataset_size // 2,
+            compute_graph=compute_graph
         )
 
     train_adv = dict()
@@ -91,7 +96,8 @@ def get_protocolar_datasets(
             epsilon=epsilon,
             num_iter=50,
             dataset_size=dataset_size,
-            offset=dataset_size
+            offset=dataset_size,
+            compute_graph=compute_graph
         )
 
         train_adv[epsilon], test_adv[epsilon] = train_test_split(adv, test_size=0.5, random_state=37)

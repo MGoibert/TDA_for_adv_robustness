@@ -10,7 +10,7 @@ from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 from tda.devices import device
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 logger = get_logger("Models")
 

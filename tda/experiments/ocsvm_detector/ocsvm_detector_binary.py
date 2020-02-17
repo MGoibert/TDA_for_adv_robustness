@@ -15,7 +15,7 @@ from tda.embeddings import get_embedding, EmbeddingType, \
     KernelType
 from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
@@ -132,7 +132,8 @@ def get_all_embeddings(config: Config):
         archi=architecture,
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
-        all_epsilons=all_epsilons
+        all_epsilons=all_epsilons,
+        compute_graph=True
     )
 
     def chunks(lst, n):

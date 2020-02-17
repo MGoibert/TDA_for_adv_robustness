@@ -10,7 +10,7 @@ import copy
 import numpy as np
 import torch
 from torch.autograd import Variable
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 logger = get_logger("Attacks")
 
