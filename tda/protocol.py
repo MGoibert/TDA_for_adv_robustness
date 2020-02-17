@@ -147,7 +147,7 @@ def evaluate_embeddings(
         adv_embeddings_train = all_adv_embeddings_train[key]
 
         start_time = time.time()
-        logger.info(f"\n \n UNSUPERVISED MATRIX HERE \n \n")
+        #logger.info(f"\n \n UNSUPERVISED MATRIX HERE \n \n")
         gram_test_and_bad = get_gram_matrix(
             kernel_type=kernel_type,
             embeddings_in=list(embeddings_test) + list(adv_embeddings_test),

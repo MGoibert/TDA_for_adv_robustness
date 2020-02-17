@@ -22,22 +22,21 @@ experiment = R3D3Experiment(
             "SVHN"
         ],
         'dataset_size': [
-            4
+            500
         ],
         'attack_type': [
             "FGSM" #"FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
-            x'0.3_0.03_0.5_0.05_0.5_0.5_0'
+            '0.4_0.02_0.4_0.02_0_0_0'
             #"0.4_0_0_0_0_0_0"
             #'inf_0_inf_0_inf_inf_inf'
-            '0.3_0.03_0.5_0.05_0.5_0.5_0'  #  '0.3_0.03_0.5_0.05_0_0_0'
         ],
         'noise': [
             0.0
         ],
         'n_jobs': [
-            1
+            24
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
