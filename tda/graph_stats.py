@@ -9,8 +9,8 @@ import typing
 import numpy as np
 
 from tda.graph import Graph
-from tda.graph_dataset import get_graph_dataset
-from tda.logging import get_logger
+from tda.graph_dataset import get_sample_dataset
+from tda.tda_logging import get_logger
 from tda.models import Dataset
 from tda.models.architectures import Architecture
 from tda.rootpath import rootpath
@@ -37,15 +37,16 @@ def get_stats(
 
     weights_per_layer = dict()
 
-    for line in get_graph_dataset(
+    for line in get_sample_dataset(
             epsilon=0.0,
             noise=0.0,
             adv=False,
-            architecture=architecture,
+            archi=architecture,
             dataset_size=dataset_size,
-            thresholds=None,
-            only_successful_adversaries=False,
-            dataset=dataset
+            succ_adv=False,
+            dataset=dataset,
+            compute_graph=True,
+            train=False
     ):
 
         graph: Graph = line.graph

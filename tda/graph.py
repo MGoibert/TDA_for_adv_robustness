@@ -7,7 +7,7 @@ from torch import Tensor
 from scipy.sparse import coo_matrix, bmat as sparse_bmat
 
 from tda.models.architectures import Architecture
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 logger = get_logger("GraphComputation")
 
 import os
@@ -53,72 +53,48 @@ class Graph(object):
                  ):
         self._edge_dict = edge_dict    
 
-    #@classmethod
-    #def from_architecture_and_data_point_raw_dict(cls,
-    #                                     architecture: Architecture,
-    #                                     x: Tensor
-    #                                     ):
-    #    raw_edge_dict = architecture.get_graph_values(x)
-    #    layer_links = list()
-
-    #    edge_dict = dict()
-    #    for layer_link in raw_edge_dict:
-    #        layer_links.append(layer_link)
-    #        v = raw_edge_dict[layer_link]
-    #        v = np.abs(v) * 10e5
-    #        edge_dict[layer_link] = v
-    #    #logger.info(f"check edge dict raw = {edge_dict[(5,6)].todense().sum()}")
-    #    return edge_dict, layer_links
-        
-
-    #@classmethod
-    #def from_architecture_and_data_point(cls,
-    #                                     edge_dict: typing.Dict,
-    #                                     layer_links: typing.List,
-    #                                     thresholds: typing.Optional[typing.Dict] = None
-    #                                     ):
-    #    for layer_link in layer_links:
-    #        if thresholds:
-    #            # Keeping only edges below a given threhsold
-    #            loc = edge_dict[layer_link].data < thresholds[layer_link]
-    #            edge_dict[layer_link] = coo_matrix((edge_dict[layer_link].data[loc],
-    #                                    (edge_dict[layer_link].row[loc],
-    #                                    edge_dict[layer_link].col[loc])),
-    #                                        np.shape(edge_dict[layer_link]))
-    #            # Changing the sign for the persistent diagram
-    #            edge_dict[layer_link] = -edge_dict[layer_link]
-    #    #logger.info(f"check edge dict = {edge_dict[(0,1)].todense().sum()}")
-
-    #    return cls(
-    #        edge_dict=edge_dict,
-    #        layer_links=layer_links,
-    #        final_logits=list()
-    #    )
-
     @classmethod
     def from_architecture_and_data_point(cls,
                                          architecture: Architecture,
-                                         x: Tensor,
-                                         thresholds: typing.Optional[typing.Dict] = None
+                                         x: Tensor
                                          ):
         raw_edge_dict = architecture.get_graph_values(x)
         edge_dict = dict()
         for layer_link in raw_edge_dict:
             v = raw_edge_dict[layer_link]
             v = np.abs(v) * 10e5
-            if thresholds is not None:
-                # Keeping only edges below a given threhsold
-                loc = v.data < thresholds.get(layer_link, np.inf)
-                v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
-                # Changing the sign for the persistent diagram
-                #v = -v
-                v = use_sigmoid(v, layer_link, "false_file")
-
             edge_dict[layer_link] = v
 
         return cls(
             edge_dict=edge_dict
         )
+
+    def thresholdize(self, thresholds):
+        for layer_link in self._edge_dict:
+            v = self._edge_dict[layer_link]
+            # Keeping only edges below a given threhsold
+            loc = v.data < thresholds.get(layer_link, np.inf)
+            v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
+            # Changing the sign for the persistent diagram
+            self._edge_dict[layer_link] = v
+
+    def sigmoidize(self, file=False, quant=0.99):
+        dict_quant = {(-1,0): {0.5: 32476, 0.9: 147831, 0.99: 304033},
+                        (0,1): {0.5: 792848, 0.9: 2538853, 0.99: 5852197},
+                        (1,2): {0.5: 100556, 0.9: 580880, 0.99: 1958327},
+                        (2,3): {0.5: 2549860, 0.9: 8806744, 0.99: 18652663},
+                        (3,4): {0.5: 111805, 0.9: 656135, 0.99: 2082124},
+                        (4,5): {0.5: 253505, 0.9: 1483325, 0.99: 4708494},
+                        (5,6): {0.5: 1061315, 0.9: 7107406, 0.99: 22761988}}
+        for layer_link in self._edge_dict:
+            v = self._edge_dict[layer_link]
+            # Take median and "good" quantile to scale sigmoid
+            med, qu = dict_quant[layer_link][0.5], dict_quant[layer_link][quant]
+            k = -1 / (qu - med) * np.log(0.00001 / 0.99999)
+            # Apply sigmoid
+            val = 1/(1 + np.exp(-k * (v.data - med)))
+            v = coo_matrix((val, (v.row, v.col)), np.shape(v))
+            self._edge_dict[layer_link] = v
 
     def _get_shapes(self):
         """

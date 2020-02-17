@@ -3,7 +3,7 @@ import numpy as np
 
 from tda.graph_stats import get_stats
 from tda.models import Architecture, Dataset
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 
 logger = get_logger("Thresholds")
 

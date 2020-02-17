@@ -14,7 +14,7 @@ from tda.graph_dataset import process_sample
 from tda.models import Dataset, get_deep_model
 from tda.models.architectures import Architecture
 from tda.models.architectures import get_architecture, svhn_lenet
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 from tda.rootpath import db_path, rootpath
 
 start_time = time.time()

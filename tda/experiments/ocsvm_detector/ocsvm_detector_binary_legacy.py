@@ -14,7 +14,7 @@ from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.graph_dataset import get_graph_dataset
-from tda.logging import get_logger
+from tda.tda_logging import get_logger
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture, Architecture
 from tda.rootpath import db_path
