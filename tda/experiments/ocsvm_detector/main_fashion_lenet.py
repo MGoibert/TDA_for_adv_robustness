@@ -1,7 +1,8 @@
 from r3d3 import R3D3Experiment
-from tda.rootpath import rootpath, db_path
+
 from tda.embeddings import EmbeddingType, KernelType
-from tda.models.architectures import svhn_lenet
+from tda.models.architectures import fashion_mnist_lenet
+from tda.rootpath import rootpath, db_path
 
 experiment = R3D3Experiment(
     db_path=db_path,
@@ -13,25 +14,23 @@ experiment = R3D3Experiment(
             KernelType.SlicedWasserstein
         ],
         'architecture': [
-            svhn_lenet.name
+            fashion_mnist_lenet.name
         ],
         'epochs': [
-            200
+            50
         ],
         'dataset': [
-            "SVHN"
+            "FashionMNIST"
         ],
         'dataset_size': [
-            4
+            50
         ],
         'attack_type': [
-            "FGSM" #"FGSM", "BIM", "CW", "DeepFool"
+            "FGSM"
         ],
         'threshold': [
-            #'0.3_0.03_0.5_0.05_0.5_0.5_0'
-            #"0.4_0_0_0_0_0_0"
-            #'inf_0_inf_0_inf_inf_inf'
-            '0.5_0.03_0.5_0.03_inf_inf_inf'  #  '0.3_0.03_0.5_0.05_0_0_0'
+            #'0.1_0.01_0.1_0_0_0'
+            '0.5_0_0_0_0_0'
         ],
         'noise': [
             0.0

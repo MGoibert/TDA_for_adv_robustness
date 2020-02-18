@@ -57,8 +57,8 @@ def get_embedding(
     graph.thresholdize(
         thresholds=thresholds
     )
-    if True:
-        graph.sigmoidize()
+    #if True:
+    #    graph.sigmoidize()
 
     if embedding_type == EmbeddingType.AnonymousWalk:
         walk = AnonymousWalks(G=graph.to_nx_graph())

@@ -803,6 +803,42 @@ svhn_resnet_test = Architecture(
         (1,6)
     ])
 
+#########################
+# CIFAR10 Architectures #
+#########################
+
+cifar_lenet = Architecture(
+    name="cifar_lenet",
+    preprocess=svhn_preprocess,
+    layers=[
+        ConvLayer(3, 6, 5, activ=F.relu),  # output 6 * 28 * 28
+        MaxPool2dLayer(2),
+        ConvLayer(6, 16, 5, activ=F.relu),
+        MaxPool2dLayer(2),  # output 16 * 5 * 5
+        LinearLayer(16 * 5 * 5, 120, activ=F.relu),
+        LinearLayer(120, 84, activ=F.relu),
+        LinearLayer(84, 10),
+        SoftMaxLayer()
+    ])
+
+###############################
+# Fashion MNIST Architectures #
+###############################
+
+fashion_mnist_lenet = Architecture(
+    name="fashion_mnist_lenet",
+    preprocess=mnist_preprocess2,
+    layers=[
+        ConvLayer(1, 10, 5, activ=F.relu, bias=True, name="conv1"),  # output 6 * 28 * 28
+        MaxPool2dLayer(2),
+        ConvLayer(10, 20, 5, activ=F.relu, bias=True, name="conv2"),  # output 6 * 28 * 28
+        MaxPool2dLayer(2),
+        LinearLayer(320, 50, activ=F.relu, name="fc1"),
+        #DropOut(),
+        LinearLayer(50, 10, name="fc2"),
+        SoftMaxLayer()
+    ])
+
 known_architectures: List[Architecture] = [
     mnist_mlp,
     svhn_cnn_simple,
@@ -810,7 +846,9 @@ known_architectures: List[Architecture] = [
     svhn_resnet,
     mnist_lenet,
     mnist_small_mlp,
-    svhn_resnet_test
+    svhn_resnet_test,
+    cifar_lenet,
+    fashion_mnist_lenet
 ]
 
 
