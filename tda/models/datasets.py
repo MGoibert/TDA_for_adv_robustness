@@ -96,6 +96,18 @@ class Dataset(object):
                 train=False,
                 transform=_trans,
                 download=True)
+        elif name == "FashionMNIST":
+            self.train_dataset = dset.FashionMNIST(
+                root=_root,
+                train=True,
+                transform=_trans,
+                download=True)
+
+            self.test_and_val_dataset = dset.FashionMNIST(
+                root=_root,
+                train=False,
+                transform=_trans,
+                download=True)
         else:
             raise NotImplementedError(
                 f"Unknown dataset {name}"

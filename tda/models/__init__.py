@@ -6,7 +6,7 @@ import pathlib
 import os
 import copy
 import typing
-from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet
+from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet, cifar_lenet, fashion_mnist_lenet
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 from tda.devices import device
@@ -81,10 +81,10 @@ def train_network(
     if prune_percentile != 0.0:
         init_weight_dict = copy.deepcopy(model.state_dict())
 
-    if model.name == mnist_lenet.name:
+    if model.name in [mnist_lenet.name, fashion_mnist_lenet.name]:
         lr = 0.1
         patience = 12
-    elif model.name == svhn_lenet.name:
+    elif model.name in [svhn_lenet.name, cifar_lenet.name]:
         lr = 0.05
         patience = 8
     elif model.name == mnist_mlp.name:
@@ -139,7 +139,7 @@ def train_network(
                 y_val = y_val.to(device)
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
-            print("Validation loss = ", np.around(val_loss.item(), decimals=4))
+            logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")
             loss_history.append(val_loss.item())
         if True:#epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
             scheduler.step(val_loss)
