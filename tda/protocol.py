@@ -141,6 +141,7 @@ def evaluate_embeddings(
         best_auc = 0.0
         best_auc_supervised = 0.0
         best_param = None
+        best_nu_param = None
         best_param_supervised = None
 
         adv_embeddings_test = all_adv_embeddings_test[key]
@@ -179,34 +180,37 @@ def evaluate_embeddings(
             # Unsupervised Learning #
             #########################
 
-            ocs = OneClassSVM(
-                tol=1e-5,
-                kernel="precomputed")
+            for nu in np.linspace(0.1, 0.9, 9):
+                ocs = OneClassSVM(
+                    tol=1e-5,
+                    nu=nu,
+                    kernel="precomputed")
 
-            # Training model
-            start_time = time.time()
-            logger.info(f"sum gram matrix train = {gram_train_matrices[i].sum()}")
-            ocs.fit(gram_train_matrices[i])
-            logger.info(f"Trained model in {time.time() - start_time} secs")
+                # Training model
+                start_time = time.time()
+                logger.info(f"sum gram matrix train = {gram_train_matrices[i].sum()}")
+                ocs.fit(gram_train_matrices[i])
+                logger.info(f"Trained model in {time.time() - start_time} secs")
 
-            # Testing model
-            predictions = ocs.score_samples(gram_test_and_bad[i])
-            #with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
-            #    pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
+                # Testing model
+                predictions = ocs.score_samples(gram_test_and_bad[i])
+                # with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
+                #    pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-            labels = np.concatenate(
-                (
-                    np.ones(len(embeddings_test)),
-                    np.zeros(len(adv_embeddings_test))
+                labels = np.concatenate(
+                    (
+                        np.ones(len(embeddings_test)),
+                        np.zeros(len(adv_embeddings_test))
+                    )
                 )
-            )
 
-            roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
-            logger.info(f"AUC score for param = {param} : {roc_auc_val}")
+                roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
+                logger.info(f"[nu={nu}] AUC score for param = {param} : {roc_auc_val}")
 
-            if roc_auc_val > best_auc:
-                best_auc = roc_auc_val
-                best_param = param
+                if roc_auc_val > best_auc:
+                    best_auc = roc_auc_val
+                    best_nu_param = nu
+                    best_param = param
 
             #######################
             # Supervised Learning #
@@ -241,6 +245,7 @@ def evaluate_embeddings(
         aucs_supervised[key] = best_auc_supervised
 
         logger.info(f"Best param unsupervised {best_param}")
+        logger.info(f"Best nu param unsupervised {best_nu_param}")
         logger.info(f"Best param supervised {best_param_supervised}")
 
         logger.info(f"Best auc unsupervised {best_auc}")
