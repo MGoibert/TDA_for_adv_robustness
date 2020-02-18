@@ -15,12 +15,12 @@ try:
 except Exception as e:
     logger.warn(e)
     Filtration = None
-try:
-    from ripser import ripser
-except Exception as e:
-    logger.warn(e)
+#try:
+#    from ripser import ripser
+#except Exception as e:
+#    logger.warn(e)
 
-from ripser import Rips
+#from ripser import Rips
 
 
 def compute_dgm_from_graph_ripser(
