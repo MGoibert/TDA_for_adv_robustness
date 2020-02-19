@@ -30,7 +30,6 @@ class EmbeddingType(object):
     LastLayerSortedLogits = "LastLayerSortedLogits"
     PersistentDiagramRipser = "PersistentDiagramRipser"
     RawGraph = "RawGraph"
-    RawGraphWithPCA = "RawGraphWithPCA"
 
     
 class KernelType(object):
@@ -107,7 +106,7 @@ def get_embedding(
         return compute_dgm_from_graph_ripser(graph)
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
         return sorted(graph.final_logits)
-    elif embedding_type in [EmbeddingType.RawGraph, EmbeddingType.RawGraphWithPCA]:
+    elif embedding_type == EmbeddingType.RawGraph:
         return to_sparse_vector(graph.get_adjacency_matrix())
     else:
         raise NotImplementedError(embedding_type)
