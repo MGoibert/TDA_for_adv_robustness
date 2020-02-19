@@ -84,12 +84,15 @@ def train_network(
     if model.name in [mnist_lenet.name, fashion_mnist_lenet.name]:
         lr = 0.1
         patience = 12
-    elif model.name in [svhn_lenet.name, cifar_lenet.name]:
+    elif model.name == svhn_lenet.name:
         lr = 0.05
         patience = 8
     elif model.name == mnist_mlp.name:
         lr = 0.1
         patience = 5
+    elif model.name == cifar_lenet.name:
+        lr = 0.2
+        patience = 15
 
     optimizer = optim.SGD(model.parameters(), lr=lr)
     loss_history = []
