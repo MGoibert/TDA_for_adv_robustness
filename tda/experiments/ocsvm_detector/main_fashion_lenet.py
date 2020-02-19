@@ -23,20 +23,20 @@ experiment = R3D3Experiment(
             "FashionMNIST"
         ],
         'dataset_size': [
-            50
+            100
         ],
         'attack_type': [
-            "FGSM"
+            "CW"
         ],
         'threshold': [
             #'0.1_0.01_0.1_0_0_0'
-            '0.5_0_0_0_0_0'
+            '0.5_0.03_0.3_0_0_0'
         ],
         'noise': [
             0.0
         ],
         'n_jobs': [
-            1
+            24
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
