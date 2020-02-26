@@ -148,13 +148,15 @@ def evaluate_embeddings(
         adv_embeddings_train = all_adv_embeddings_train[key]
 
         start_time = time.time()
-        #logger.info(f"\n \n UNSUPERVISED MATRIX HERE \n \n")
+        logger.info(f"\n \n UNSUPERVISED MATRIX HERE \n \n")
+        #logger.info(f"Emb train = {len(list(embeddings_train))} and test = {len(list(embeddings_test))} and adv {len(list(adv_embeddings_test))}")
         gram_test_and_bad = get_gram_matrix(
             kernel_type=kernel_type,
             embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
             embeddings_out=list(embeddings_train),
             params=param_space,
-            verbatim=False
+            verbatim="clean_test_and_adv",
+            save=True
         )
         #with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_test_unsupervised_'+str(key)+'.pickle', 'wb') as f:
         #    pickle.dump(gram_test_and_bad, f, protocol=pickle.HIGHEST_PROTOCOL)
