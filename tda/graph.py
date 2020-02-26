@@ -16,6 +16,7 @@ import pickle
 import typing
 
 import numpy as np
+from operator import itemgetter
 
 def use_sigmoid(v, layer_link, file, k="auto", quant=0.9):
     #dict_quant = torch.load("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/cache/get_stats/architecture=svhn_lenet_dataset=svhn_dataset_size=100.cached")
@@ -72,10 +73,25 @@ class Graph(object):
     def thresholdize(self, thresholds):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
+            #logger.info(f"layer link {layer_link} and shape of v = {v.todense().shape}")
             # Keeping only edges below a given threhsold
             loc = v.data < thresholds.get(layer_link, np.inf)
-            v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
+            v = coo_matrix((v.data[loc].round(2), (v.row[loc], v.col[loc])), np.shape(v))
             # Changing the sign for the persistent diagram
+            self._edge_dict[layer_link] = v
+
+    def thresholdize_underopt(self, underoptimized_dict_file):
+        with open(underoptimized_dict_file, "rb") as f:
+            ud = pickle.load(f)
+        for layer_link in self._edge_dict:
+            v = self._edge_dict[layer_link]
+            if layer_link in ud.keys():
+                v2 = np.zeros(np.shape(v))
+                loc = tuple([list(map(itemgetter(0), ud[layer_link])), list(map(itemgetter(1), ud[layer_link]))])
+                v2[loc] = v.todense()[loc]
+                v = coo_matrix(v2)
+            else:
+                v = coo_matrix(np.zeros(np.shape(v)))
             self._edge_dict[layer_link] = v
 
     def sigmoidize(self, file=False, quant=0.99):
@@ -149,6 +165,7 @@ class Graph(object):
         row = [e[0][0] for e in edges]
         col = [e[0][1] for e in edges]
 
+        #logger.info(f"Shape = {self._get_shapes().values()}")
         N = sum(self._get_shapes().values())
         mat = coo_matrix((data+data, (row+col, col+row)), shape=(N, N))
 
