@@ -5,7 +5,7 @@ import typing
 import numpy as np
 import torch
 
-from tda.cache import cached, hdfs_cached
+from tda.cache import cached
 from tda.devices import device
 from tda.graph import Graph
 from tda.tda_logging import get_logger
