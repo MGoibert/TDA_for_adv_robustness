@@ -193,6 +193,7 @@ def get_deep_model(
         architecture.load_state_dict(state_dict)
         if device.type == "cuda":
             architecture.cuda(device)
+        architecture.epochs = "custom"
         return architecture, loss_func
 
     if not os.path.exists(f"{rootpath}/trained_models"):
@@ -246,6 +247,7 @@ def get_deep_model(
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
     architecture.is_trained = True
+    architecture.epochs = num_epochs
     return architecture
 
 
