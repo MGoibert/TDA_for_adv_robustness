@@ -13,7 +13,7 @@ experiment = R3D3Experiment(
             svhn_lenet.name
         ],
         'epochs': [
-            1
+            200
         ],
         'dataset': [
             "SVHN"

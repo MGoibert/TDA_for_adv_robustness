@@ -15,12 +15,12 @@ try:
 except Exception as e:
     logger.warn(e)
     Filtration = None
-#try:
-#    from ripser import ripser
-#except Exception as e:
-#    logger.warn(e)
+try:
+    from ripser import ripser
+except Exception as e:
+    logger.warn(e)
 
-#from ripser import Rips
+from ripser import Rips
 
 
 def compute_dgm_from_graph_ripser(
@@ -86,7 +86,7 @@ def compute_dgm_from_graph(
 
     f = Filtration()
     for vertices, weight in all_edges_for_diagrams:
-        timing = -weight
+        timing = -weight.round(2)
         f.append(Simplex(vertices, timing))
     f.sort()
     m = homology_persistence(f)
@@ -99,57 +99,51 @@ def compute_dgm_from_graph(
         ret = list()
         for pt in dgm:
             #ret.append((pt.birth, pt.death if not np.isposinf(pt.death) else 2**64))
-            ret.append((pt.birth, pt.death))
+            ret.append((round(pt.birth,2), round(pt.death, 2)))
         return ret
 
 
-def sliced_wasserstein_distance_old_version(dgm1, dgm2, M=10, verbatim=False, row=-1):
+def sliced_wasserstein_distance_old_version(dgm1, dgm2, M=10, verbatim=False, save=False):
     # logger.info(f"Sliced Wass. Kernel ")
     n = len(dgm1) + len(dgm2)
-    vec1 = []
-    vec2 = []
-    #logger.info(f"Dgm = {dgm1}")
+    vec1 = [(0.0, 0.0) for _ in range(n)]
+    vec2 = [(0.0, 0.0) for _ in range(n)]
     for i, pt1 in enumerate(dgm1):
-        #logger.info(f"Pt1 = {pt1}")
-        vec1.append((pt1[0], pt1[1]))
-        vec2.append(((pt1[0] + pt1[1]) / 2.0, (pt1[0] + pt1[1]) / 2.0))
+        vec1[i] = (pt1[0], pt1[1])
+        vec2[i] = ((pt1[0] + pt1[1]) / 2.0, (pt1[0] + pt1[1]) / 2.0)
     for i, pt2 in enumerate(dgm2):
-        vec2.append((pt2[0], pt2[1]))
-        vec1.append(((pt2[0] + pt2[1]) / 2.0, (pt2[0] + pt2[1]) / 2.0))
+        vec2[i + len(dgm1)] = (pt2[0], pt2[1])
+        vec1[i + len(dgm1)] = ((pt2[0] + pt2[1]) / 2.0, (pt2[0] + pt2[1]) / 2.0)
     sw = 0
     theta = -np.pi / 2
     s = np.pi / M
-    if verbatim:
-        c_tot = 0
-        points1 = list()
+    max_diff = np.repeat(0,10)
+    pt1 = list(np.repeat(0,10))
+    pt2 = list(np.repeat(0,10))
     for _ in range(M):
-        v1 = [np.dot(pt1, (theta, theta)) for pt1 in vec1]
-        v2 = [np.dot(pt2, (theta, theta)) for pt2 in vec2]
-        li1 = sorted(zip(v1,vec1))
-        li2 = sorted(zip(v2,vec2))
-        v1, vec1 = map(list, zip(*li1))
-        v2, vec2 = map(list, zip(*li2))
+        v1 = [np.dot(pt1, (np.cos(theta), np.sin(theta))) for pt1 in vec1]
+        v2 = [np.dot(pt2, (np.cos(theta), np.sin(theta))) for pt2 in vec2]
+        v1 = np.nan_to_num(v1)
+        v2 = np.nan_to_num(v2)
+        v1, vec1 = (list(t) for t in zip(*sorted(zip(v1, vec1))))
+        v2, vec2 = (list(t) for t in zip(*sorted(zip(v2, vec2))))
         #v1.sort()
         #v2.sort()
-        val = np.nan_to_num(np.array(v1)-np.array(v2))
-        if verbatim:
-            c = 0
-            for idx, elem in enumerate(val):
-                if abs(elem) > 1*1e-20:
-                    c += 1
-                    if vec1[idx] not in points1:
-                        points1.append(vec1[idx])
-                    #logger.info(f"Step M = {_}")
-                    #logger.info(f"Step M = {_} --> Val: {val[idx]}, vec1: {vec1[idx]},  vec2: {vec2[idx]}")
-                    #logger.info(f"Same for 2 v2: {np.asarray(v2)[idx]} and vec2: {vec2[idx]} \n")
-            c_tot += c
-            logger.info(f"Step M={_} --> c = {c}")
-        sw = sw + s * np.linalg.norm(val, ord=1)
+        diff = np.nan_to_num(np.array(v1)-np.array(v2))
+        for i in range(len(max_diff)):
+            if max(np.abs(diff)) > max_diff[i]:
+                max_diff[i] = max(np.abs(diff))
+                idx = np.argmax(np.abs(diff))
+                pt1[i] = vec1[idx]
+                pt2[i] = vec2[idx]
+                break
+        sw = sw + s * np.linalg.norm(diff, ord=1)
         theta = theta + s
-    if verbatim:
-        logger.info(f"Total positives = {c_tot}")
-        with open('/Users/m.goibert/Documents/temp/gram_mat/points1_'+str(row)+'.pickle', 'wb') as f:
-                pickle.dump(points1, f, protocol=pickle.HIGHEST_PROTOCOL)
+    if save:
+        save_dict = {"dgm1": dgm1, "dgm2": dgm2, "sw": sw, "max_diff": max_diff, "pt1": pt1, "pt2": pt2}
+        with open('/Users/m.goibert/Documents/temp/gram_mat/pt_diff_'+verbatim+'.pickle', 'wb') as f:
+            pickle.dump(save_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+    #logger.info(f"Max diff = {max_diff} (/ {sw}) and pt1 = {pt1} and pt2 = {pt2}")
     return (1 / np.pi) * sw
 
 

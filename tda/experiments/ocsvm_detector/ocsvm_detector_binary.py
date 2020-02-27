@@ -121,7 +121,7 @@ def get_all_embeddings(config: Config):
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
-        #all_epsilons = [0.01, 0.1, 0.4]
+        #all_epsilons = [0.01]
     else:
         all_epsilons = config.all_epsilons
 
@@ -141,9 +141,11 @@ def get_all_embeddings(config: Config):
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    def embedding_getter(line_chunk):
+    def embedding_getter(line_chunk, save=False):
         ret = list()
+        c = 0
         for line in line_chunk:
+            save2 = save + "_" + str(c) if save else False
             ret.append(get_embedding(
                 embedding_type=config.embedding_type,
                 line=line,
@@ -154,23 +156,25 @@ def get_all_embeddings(config: Config):
                     "steps": config.steps
                 },
                 architecture=architecture,
-                thresholds=thresholds
+                thresholds=thresholds,
+                save=save2
             ))
+            c += 1
         return ret
 
-    def process(input_dataset):
+    def process(input_dataset, save=False):
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
-        ret = Parallel(n_jobs=config.n_jobs)(delayed(embedding_getter)(chunk) for chunk in my_chunks)
+        ret = Parallel(n_jobs=config.n_jobs)(delayed(embedding_getter)(chunk, save) for chunk in my_chunks)
         ret = [item for sublist in ret for item in sublist]
         return ret
 
     # Clean train
-    clean_embeddings_train = process(train_clean)
+    clean_embeddings_train = process(train_clean, save="clean_train")
     logger.info(f"Clean train dataset "
                 f"({len(clean_embeddings_train)} points) !!")
 
     # Clean test
-    clean_embeddings_test = process(test_clean)
+    clean_embeddings_test = process(test_clean, save="clean_test")
     logger.info(f"Clean test dataset "
                 f"({len(clean_embeddings_test)} points) !!")
 
@@ -185,7 +189,7 @@ def get_all_embeddings(config: Config):
         logger.info(f"Adversarial train dataset for espilon = {epsilon}"
                     f"  ({len(adv_embeddings_train[epsilon])} points) !")
 
-        adv_embeddings_test[epsilon] = process(test_adv[epsilon])
+        adv_embeddings_test[epsilon] = process(test_adv[epsilon], save="adv_test")
         logger.info(f"Adversarial test dataset for espilon = {epsilon} "
                     f"({len(adv_embeddings_test[epsilon])} points)  !")
 
@@ -241,7 +245,9 @@ def run_experiment(config: Config):
 
     (embedding_train, embedding_test, adv_embeddings_train, adv_embeddings_test,
      thresholds, stats, stats_inf) = get_all_embeddings(config)
-    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean.pickle', 'wb') as f:
+    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_train.pickle', 'wb') as f:
+    #            pickle.dump(embedding_train, f, protocol=pickle.HIGHEST_PROTOCOL)
+    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_test.pickle', 'wb') as f:
     #            pickle.dump(embedding_test, f, protocol=pickle.HIGHEST_PROTOCOL)
     #eps_to_save = 0.1
     #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_adv_'+str(eps_to_save)+'.pickle', 'wb') as f:
