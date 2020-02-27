@@ -40,11 +40,17 @@ class KernelType(object):
     SlicedWassersteinOldVersion = "SlicedWassersteinOldVersion"
 
 
+class ThresholdStrategy(object):
+    ActivationValue = "ActivationValue"
+    UnderoptimizedEdgeMovement = "UnderoptimizedEdgeMovement"
+
+
 def get_embedding(
         embedding_type: str,
         line: DatasetLine,
         architecture: Architecture,
         thresholds: Dict,
+        threshold_strategy: str = ThresholdStrategy.UnderoptimizedEdgeMovement,
         params: Dict = dict(),
         save=None
 ):
@@ -57,21 +63,21 @@ def get_embedding(
     else:
         graph = line.graph
 
-    #graph.thresholdize(
-    #    thresholds=thresholds
-    #)
-    
-    if True:
+    if threshold_strategy == ThresholdStrategy.ActivationValue:
+        graph.thresholdize(
+            thresholds=thresholds
+        )
+    elif threshold_strategy == ThresholdStrategy.UnderoptimizedEdgeMovement:
         logger.info(f"Using underoptimized threshold...")
         graph.thresholdize_underopt(
             f"{rootpath}/underoptimized_edges/{architecture}.pickle"
-            )
+        )
 
-    #if save:
+    # if save is not None:
     #    m = graph.get_adjacency_matrix()
-    #    #logger.info(f"m = {m[:3,:3]} and type = {type(m)} and shape = {m.shape}")
-    #    #new_m = np.zeros([m.shape[0], m.shape[1]])
-    #    with open('/Users/m.goibert/Documents/temp/gram_mat/graph_'+save+'.pickle', 'wb') as f:
+    #    logger.info(f"m = {m[:3,:3]} and type = {type(m)} and shape = {m.shape}")
+    #    new_m = np.zeros([m.shape[0], m.shape[1]])
+    #    with open(f'{rootpath}/graph_'+save+'.pickle', 'wb') as f:
     #        pickle.dump(m, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     if embedding_type == EmbeddingType.AnonymousWalk:

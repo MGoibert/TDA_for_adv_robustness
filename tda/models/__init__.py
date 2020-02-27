@@ -72,13 +72,11 @@ def train_network(
     Helper function to train an arbitrary model
     """
     # Save model initial values
-    if True:
-        filename = f"{rootpath}/trained_models/init_svhn_" \
-                     f"svhn_lenet_" \
-                     f"103_" \
-                     f"epochs.model"
-        torch.save(model.state_dict(), filename)
-        logger.info(f"Saved initial model in {filename}")
+    model.epochs = num_epochs
+
+    filename = f"{rootpath}/trained_models/{str(model)}_initial.model"
+    torch.save(model.state_dict(), filename)
+    logger.info(f"Saved initial model in {filename}")
 
     if device.type == "cuda":
         logger.info(f"Learning on GPU {device}")
