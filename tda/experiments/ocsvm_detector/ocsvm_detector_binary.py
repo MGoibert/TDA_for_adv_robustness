@@ -92,7 +92,7 @@ def get_config() -> Config:
     parser.add_argument('--successful_adv', type=int, default=1)
     parser.add_argument('--raw_graph_pca', type=int, default=-1)
     parser.add_argument('--attack_type', type=str, default="FGSM")
-    parser.add_argument('--threshold_strategy', type=str, default=ThresholdStrategy.ActivationValue)
+    parser.add_argument('--threshold_strategy', type=str, default=ThresholdStrategy.ActivationValue_LP)
     parser.add_argument('--num_iter', type=int, default=10)
     parser.add_argument('--n_jobs', type=int, default=1)
     parser.add_argument('--all_epsilons', type=str, default=None)

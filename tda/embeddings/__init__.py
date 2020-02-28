@@ -8,10 +8,12 @@ from tda.rootpath import rootpath
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
-from tda.embeddings.persistent_diagrams import (sliced_wasserstein_kernel,
-                                                sliced_wasserstein_distance_old_version,
-                                                compute_dgm_from_graph,
-                                                compute_dgm_from_graph_ripser)
+from tda.embeddings.persistent_diagrams import (
+    sliced_wasserstein_kernel,
+    sliced_wasserstein_distance_old_version,
+    compute_dgm_from_graph,
+    compute_dgm_from_graph_ripser,
+)
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
@@ -31,7 +33,7 @@ class EmbeddingType(object):
     PersistentDiagramRipser = "PersistentDiagramRipser"
     RawGraph = "RawGraph"
 
-    
+
 class KernelType(object):
     Euclidean = "Euclidean"
     RBF = "RBF"
@@ -40,32 +42,35 @@ class KernelType(object):
 
 
 class ThresholdStrategy(object):
-    ActivationValue = "ActivationValue"
+    # Based on activation value (high-pass filter)
+    ActivationValue_HP = "ActivationValue_HP"
+    # Based on activation value (low-pass filter)
+    ActivationValue_LP = "ActivationValue_LP"
+    # Based on EdgeMovement during optimization (low-pass filter)
     UnderoptimizedEdgeMovement = "UnderoptimizedEdgeMovement"
 
 
 def get_embedding(
-        embedding_type: str,
-        line: DatasetLine,
-        architecture: Architecture,
-        thresholds: Dict,
-        threshold_strategy: str = ThresholdStrategy.UnderoptimizedEdgeMovement,
-        params: Dict = dict(),
-        save=None
+    embedding_type: str,
+    line: DatasetLine,
+    architecture: Architecture,
+    thresholds: Dict,
+    threshold_strategy: str,
+    params: Dict = dict(),
+    save=None,
 ):
 
     if line.graph is None:
         graph = Graph.from_architecture_and_data_point(
-            architecture=architecture,
-            x=line.x.double()
+            architecture=architecture, x=line.x.double()
         )
     else:
         graph = line.graph
 
-    if threshold_strategy == ThresholdStrategy.ActivationValue:
-        graph.thresholdize(
-            thresholds=thresholds
-        )
+    if threshold_strategy == ThresholdStrategy.ActivationValue_LP:
+        graph.thresholdize(thresholds=thresholds, low_pass=True)
+    elif threshold_strategy == ThresholdStrategy.ActivationValue_HP:
+        graph.thresholdize(thresholds=thresholds, low_pass=False)
     elif threshold_strategy == ThresholdStrategy.UnderoptimizedEdgeMovement:
         logger.info(f"Using underoptimized threshold...")
         graph.thresholdize_underopt(
@@ -81,26 +86,25 @@ def get_embedding(
 
     if embedding_type == EmbeddingType.AnonymousWalk:
         walk = AnonymousWalks(G=graph.to_nx_graph())
-        embedding = walk.embed(
-            steps=params['steps'],
-            method="sampling",
-            verbose=False)[0]
+        embedding = walk.embed(steps=params["steps"], method="sampling", verbose=False)[
+            0
+        ]
         return embedding
     elif embedding_type == EmbeddingType.WeisfeilerLehman:
         return get_wl_embedding(
             graph=graph,
-            height=params['height'],
-            hash_size=params['hash_size'],
-            node_labels=params["node_labels"]
+            height=params["height"],
+            hash_size=params["hash_size"],
+            node_labels=params["node_labels"],
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_graph(graph)
     elif embedding_type == EmbeddingType.PersistentDiagramTop100:
         dgm = compute_dgm_from_graph(graph)
-        return sorted(dgm, key=lambda x: x[1]-x[0])[-100:]
+        return sorted(dgm, key=lambda x: x[1] - x[0])[-100:]
     elif embedding_type == EmbeddingType.PersistentDiagramTopLifetimes:
         dgm = compute_dgm_from_graph(graph)
-        lifetimes = [pt[1]-pt[0] for pt in dgm]
+        lifetimes = [pt[1] - pt[0] for pt in dgm]
         return sorted(lifetimes)[-10:]
     elif embedding_type == EmbeddingType.PersistentDiagramRipser:
         return compute_dgm_from_graph_ripser(graph)
@@ -113,10 +117,10 @@ def get_embedding(
 
 
 def get_gram_matrix_legacy(
-        kernel_type: str,
-        embeddings_in: List,
-        embeddings_out: Optional[List] = None,
-        params: Dict = dict()
+    kernel_type: str,
+    embeddings_in: List,
+    embeddings_out: Optional[List] = None,
+    params: Dict = dict(),
 ):
     """
     Compute the gram matrix of the given embeddings
@@ -154,31 +158,30 @@ def get_gram_matrix_legacy(
             if kernel_type == KernelType.Euclidean:
                 gram[i, j] = np.transpose(embeddings_in[i]) @ embeddings_out[j]
             elif kernel_type == KernelType.RBF:
-                gram[i, j] = np.exp(-np.linalg.norm(
-                    embeddings_in[i] - embeddings_out[j]
-                ) / 2 * params['gamma'] ** 2)
+                gram[i, j] = np.exp(
+                    -np.linalg.norm(embeddings_in[i] - embeddings_out[j])
+                    / 2
+                    * params["gamma"] ** 2
+                )
             elif kernel_type == KernelType.SlicedWasserstein:
                 gram[i, j] = sliced_wasserstein_kernel(
-                    embeddings_in[i],
-                    embeddings_out[j],
-                    M=params['M'])
-            else:
-                raise NotImplementedError(
-                    f"Unknown kernel {kernel_type}"
+                    embeddings_in[i], embeddings_out[j], M=params["M"]
                 )
+            else:
+                raise NotImplementedError(f"Unknown kernel {kernel_type}")
             if sym:
                 gram[j, i] = gram[i, j]
     return gram
 
 
 def get_gram_matrix(
-        kernel_type: str,
-        embeddings_in: List,
-        embeddings_out: Optional[List] = None,
-        params: List = [dict()],
-        n_jobs: int=1,
-        verbatim = False,
-        save=False
+    kernel_type: str,
+    embeddings_in: List,
+    embeddings_out: Optional[List] = None,
+    params: List = [dict()],
+    n_jobs: int = 1,
+    verbatim=False,
+    save=False,
 ):
     """
     Compute the gram matrix of the given embeddings
@@ -204,31 +207,32 @@ def get_gram_matrix(
     if kernel_type == KernelType.SlicedWassersteinOldVersion:
         logger.info("Old (incorrect) version for SW kernel !!")
         start = time.time()
-        distance_matrix = np.zeros((n,m))
+        distance_matrix = np.zeros((n, m))
         for i in range(n):
             for j in range(m):
-                #if verbatim:
+                # if verbatim:
                 #    logger.info(f"Row {i} and col {j}")
-                distance_matrix[i,j] = sliced_wasserstein_distance_old_version(
+                distance_matrix[i, j] = sliced_wasserstein_distance_old_version(
                     embeddings_in[i],
                     embeddings_out[j],
                     M=20,
                     verbatim=f"row{i}_col{j}",
-                    save=save)
-        grams = [np.exp(- distance_matrix / (2 * a_param['sigma'] ** 2)) for a_param in params]
-        #grams = [distance_matrix for a_param in params]
+                    save=save,
+                )
+        grams = [
+            np.exp(-distance_matrix / (2 * a_param["sigma"] ** 2)) for a_param in params
+        ]
+        # grams = [distance_matrix for a_param in params]
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
         return grams
 
     if kernel_type == KernelType.SlicedWasserstein:
         logger.info("Using FWG !!!")
         start = time.time()
-        distance_matrix = np.reshape(fwg.fwd(
-            embeddings_in,
-            embeddings_out,
-            50
-        ), (n, m))
-        grams = [np.exp(- distance_matrix / (2 * a_param['sigma'] ** 2)) for a_param in params]
+        distance_matrix = np.reshape(fwg.fwd(embeddings_in, embeddings_out, 50), (n, m))
+        grams = [
+            np.exp(-distance_matrix / (2 * a_param["sigma"] ** 2)) for a_param in params
+        ]
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
         return grams
 
@@ -236,15 +240,18 @@ def get_gram_matrix(
         ret = list()
         for i, j in my_slices:
             if kernel_type == KernelType.Euclidean:
-                ret.append(np.transpose(np.array(embeddings_in[i])) @ np.array(embeddings_out[j]))
-            elif kernel_type == KernelType.RBF:
-                ret.append(np.linalg.norm(
-                    np.array(embeddings_in[i]) - np.array(embeddings_out[j])
-                ))
-            else:
-                raise NotImplementedError(
-                    f"Unknown kernel {kernel_type}"
+                ret.append(
+                    np.transpose(np.array(embeddings_in[i]))
+                    @ np.array(embeddings_out[j])
                 )
+            elif kernel_type == KernelType.RBF:
+                ret.append(
+                    np.linalg.norm(
+                        np.array(embeddings_in[i]) - np.array(embeddings_out[j])
+                    )
+                )
+            else:
+                raise NotImplementedError(f"Unknown kernel {kernel_type}")
         return ret
 
     p = Parallel(n_jobs=n_jobs)
@@ -254,7 +261,7 @@ def get_gram_matrix(
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
         for i in range(0, len(lst), n):
-            yield lst[i:i + n]
+            yield lst[i : i + n]
 
     my_chunks = chunks(all_indices, max([len(all_indices) // n_jobs, 1]))
 
@@ -263,8 +270,6 @@ def get_gram_matrix(
     gram = np.reshape(gram, (n, m))
 
     if kernel_type == KernelType.RBF:
-        return [
-            np.exp(-gram / 2 * a_param['gamma'] ** 2)
-            for a_param in params]
+        return [np.exp(-gram / 2 * a_param["gamma"] ** 2) for a_param in params]
     elif kernel_type == KernelType.Euclidean:
         return [gram]

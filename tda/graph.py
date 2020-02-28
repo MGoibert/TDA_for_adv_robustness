@@ -70,17 +70,29 @@ class Graph(object):
             edge_dict=edge_dict
         )
 
-    def thresholdize(self, thresholds):
+    def thresholdize(self,
+                     thresholds: typing.Dict,
+                     low_pass: bool):
+        """
+        Apply thresholds on the activation graph
+
+        :param thresholds: a dict layer_link -> threshold
+        :param low_pass: Should we keep below the threshold (low-pass filter)
+                or above the threshold (high-pass filter)
+        :return:
+        """
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
-            #logger.info(f"layer link {layer_link} and shape of v = {v.todense().shape}")
-            # Keeping only edges below a given threhsold
-            loc = v.data < thresholds.get(layer_link, np.inf)
+            if low_pass:
+                loc = v.data < thresholds.get(layer_link, np.inf)
+            else:
+                loc = v.data >= thresholds.get(layer_link, np.inf)
             v = coo_matrix((v.data[loc].round(2), (v.row[loc], v.col[loc])), np.shape(v))
-            # Changing the sign for the persistent diagram
             self._edge_dict[layer_link] = v
 
-    def thresholdize_underopt(self, underoptimized_dict_file):
+    def thresholdize_underopt(
+            self,
+            underoptimized_dict_file):
         with open(underoptimized_dict_file, "rb") as f:
             ud = pickle.load(f)
         for layer_link in self._edge_dict:
