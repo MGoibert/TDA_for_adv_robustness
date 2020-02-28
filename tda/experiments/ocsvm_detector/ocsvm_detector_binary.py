@@ -4,7 +4,6 @@
 import argparse
 import time
 import typing
-import pickle
 
 import numpy as np
 from joblib import delayed, Parallel
@@ -12,14 +11,14 @@ from r3d3.experiment_db import ExperimentDB
 from sklearn.decomposition import PCA
 
 from tda.embeddings import get_embedding, EmbeddingType, \
-    KernelType
+    KernelType, ThresholdStrategy
 from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.tda_logging import get_logger
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
+from tda.tda_logging import get_logger
 from tda.thresholds import process_thresholds
 
 logger = get_logger("Detector")
@@ -60,6 +59,8 @@ class Config(typing.NamedTuple):
     num_iter: int
     # PCA Parameter for RawGraph (-1 = No PCA)
     raw_graph_pca: int
+    # Method to compute threshold on the graph
+    threshold_strategy: str
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -91,6 +92,7 @@ def get_config() -> Config:
     parser.add_argument('--successful_adv', type=int, default=1)
     parser.add_argument('--raw_graph_pca', type=int, default=-1)
     parser.add_argument('--attack_type', type=str, default="FGSM")
+    parser.add_argument('--threshold_strategy', type=str, default=ThresholdStrategy.ActivationValue)
     parser.add_argument('--num_iter', type=int, default=10)
     parser.add_argument('--n_jobs', type=int, default=1)
     parser.add_argument('--all_epsilons', type=str, default=None)
@@ -161,6 +163,7 @@ def get_all_embeddings(config: Config):
                 },
                 architecture=architecture,
                 thresholds=thresholds,
+                threshold_strategy=config.threshold_strategy,
                 save=save2
             ))
             c += 1
