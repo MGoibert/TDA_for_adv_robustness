@@ -25,7 +25,7 @@ experiment = R3D3Experiment(
             500
         ],
         'attack_type': [
-            "FGSM"  # , "BIM", "CW", "DeepFool"
+            "FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
             '0.5_0.03_0.5_0_0_0_0'
@@ -37,7 +37,7 @@ experiment = R3D3Experiment(
             24
         ],
         'raw_graph_pca': [
-            20, 50, 100
+            -1, 20, 50, 100
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

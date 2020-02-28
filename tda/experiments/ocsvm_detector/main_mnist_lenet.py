@@ -17,7 +17,7 @@ experiment = R3D3Experiment(
             mnist_lenet.name
         ],
         'epochs': [
-            53
+            50
         ],
         'dataset': [
             "MNIST"

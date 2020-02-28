@@ -10,7 +10,7 @@ experiment = R3D3Experiment(
             EmbeddingType.PersistentDiagram
         ],
         'kernel_type': [
-            KernelType.SlicedWasserstein  # OldVersion
+            KernelType.SlicedWasserstein
         ],
         'architecture': [
             mnist_mlp.name
@@ -25,7 +25,7 @@ experiment = R3D3Experiment(
             30
         ],
         'attack_type': [
-            "FGSM"  # "FGSM", "BIM", "CW", "DeepFool"
+            "FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
             '0.1_0.1_0'
