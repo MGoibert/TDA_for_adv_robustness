@@ -58,6 +58,8 @@ class Config(typing.NamedTuple):
     attack_type: str
     # Parameter used by DeepFool and CW
     num_iter: int
+    # PCA Parameter for RawGraph (-1 = No PCA)
+    raw_graph_pca: int
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -87,6 +89,7 @@ def get_config() -> Config:
     parser.add_argument('--train_noise', type=float, default=0.0)
     parser.add_argument('--dataset_size', type=int, default=100)
     parser.add_argument('--successful_adv', type=int, default=1)
+    parser.add_argument('--raw_graph_pca', type=int, default=-1)
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--num_iter', type=int, default=10)
     parser.add_argument('--n_jobs', type=int, default=1)
@@ -153,7 +156,8 @@ def get_all_embeddings(config: Config):
                     "hash_size": int(config.hash_size),
                     "height": int(config.height),
                     "node_labels": config.node_labels,
-                    "steps": config.steps
+                    "steps": config.steps,
+                    "raw_graph_pca": config.raw_graph_pca
                 },
                 architecture=architecture,
                 thresholds=thresholds,
@@ -204,15 +208,15 @@ def get_all_embeddings(config: Config):
             f"{np.quantile(stats[epsilon], 0.75)}, "
             f"{np.quantile(stats[epsilon], 0.9)}")
 
-    if config.embedding_type in [EmbeddingType.RawGraph, EmbeddingType.RawGraphWithPCA]:
+    if config.embedding_type == EmbeddingType.RawGraph:
         raw_graph_indices = identify_active_indices(clean_embeddings_train)
 
         clean_embeddings_train = featurize_vectors(clean_embeddings_train, raw_graph_indices)
         clean_embeddings_test = featurize_vectors(clean_embeddings_test, raw_graph_indices)
 
-        if config.embedding_type == EmbeddingType.RawGraphWithPCA:
+        if config.raw_graph_pca > 0:
             logger.info("Fitting PCA...")
-            pca = PCA(n_components=20, random_state=int(config.experiment_id))
+            pca = PCA(n_components=config.raw_graph_pca, random_state=int(config.experiment_id))
             clean_embeddings_train = pca.fit_transform(clean_embeddings_train)
             logger.info("Done fitting PCA...")
             clean_embeddings_test = pca.transform(clean_embeddings_test)
@@ -221,7 +225,7 @@ def get_all_embeddings(config: Config):
             adv_embeddings_train[epsilon] = featurize_vectors(adv_embeddings_train[epsilon], raw_graph_indices)
             adv_embeddings_test[epsilon] = featurize_vectors(adv_embeddings_test[epsilon], raw_graph_indices)
 
-            if config.embedding_type == EmbeddingType.RawGraphWithPCA:
+            if config.raw_graph_pca > 0:
                 adv_embeddings_train[epsilon] = pca.transform(adv_embeddings_train[epsilon])
                 adv_embeddings_test[epsilon] = pca.transform(adv_embeddings_test[epsilon])
 

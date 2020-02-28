@@ -16,7 +16,7 @@ experiment = R3D3Experiment(
             svhn_lenet.name
         ],
         'epochs': [
-            205
+            200
         ],
         'dataset': [
             "SVHN"
@@ -25,7 +25,7 @@ experiment = R3D3Experiment(
             30
         ],
         'attack_type': [
-            "FGSM" #"FGSM", "BIM", "CW", "DeepFool"
+            "FGSM", "FGSM", "BIM", "CW", "DeepFool"
         ],
         'threshold': [
             '0.5_0.03_0.5_0.03_inf_inf_inf'
