@@ -12,7 +12,7 @@ from r3d3.experiment_db import ExperimentDB
 from sklearn.decomposition import PCA
 
 from tda.embeddings import get_embedding, EmbeddingType, \
-    KernelType
+    KernelType, ThresholdStrategy
 from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
 from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.tda_logging import get_logger
@@ -21,6 +21,7 @@ from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
+from tda.threshold_underoptimized_edges import process_thresholds_underopt
 
 logger = get_logger("Detector")
 start_time = time.time()
@@ -36,6 +37,8 @@ class Config(typing.NamedTuple):
     # High threshold for the edges of the activation graph
     thresholds: str
     # Parameters used only for Weisfeiler-Lehman embedding
+    threshold_strategy: str
+    # Underoptimized threshold or normal threshold?
     height: int
     hash_size: int
     node_labels: str
@@ -78,6 +81,7 @@ def get_config() -> Config:
     parser.add_argument('--embedding_type', type=str, default=EmbeddingType.PersistentDiagram)
     parser.add_argument('--kernel_type', type=str, default=KernelType.SlicedWasserstein)
     parser.add_argument('--thresholds', type=str, default='0')
+    parser.add_argument('--threshold_strategy', type=str, default=ThresholdStrategy.ActivationValue)
     parser.add_argument('--height', type=int, default=1)
     parser.add_argument('--hash_size', type=int, default=100)
     parser.add_argument('--node_labels', type=str, default=NodeLabels.NONE)
@@ -113,12 +117,20 @@ def get_all_embeddings(config: Config):
         train_noise=config.train_noise
     )
 
-    thresholds = process_thresholds(
-        raw_thresholds=config.thresholds,
-        dataset=dataset,
-        architecture=architecture,
-        dataset_size=100
-    )
+    if config.threshold_strategy == ThresholdStrategy.ActivationValue:
+        thresholds = process_thresholds(
+            raw_thresholds=config.thresholds,
+            dataset=dataset,
+            architecture=architecture,
+            dataset_size=100
+        )
+    elif config.threshold_strategy == ThresholdStrategy.UnderoptimizedEdgeMovement:
+        thresholds = process_thresholds_underopt(
+            raw_thresholds=config.thresholds,
+            dataset=dataset,
+            architecture=architecture,
+        )
+
 
     if config.attack_type not in ["FGSM", "BIM"]:
         all_epsilons = [1.0]

@@ -80,9 +80,7 @@ class Graph(object):
             # Changing the sign for the persistent diagram
             self._edge_dict[layer_link] = v
 
-    def thresholdize_underopt(self, underoptimized_dict_file):
-        with open(underoptimized_dict_file, "rb") as f:
-            ud = pickle.load(f)
+    def thresholdize_underopt(self, ud):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
             if layer_link in ud.keys():

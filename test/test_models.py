@@ -7,6 +7,7 @@ from collections import OrderedDict
 from tda.models import get_deep_model
 from tda.models.datasets import Dataset
 from tda.models.architectures import * #mnist_mlp, svhn_cnn_simple, Architecture, mnist_lenet
+from tda.threshold_underoptimized_edges import process_thresholds_underopt
 
 
 def test_get_mnist_model():
@@ -109,7 +110,28 @@ def test_conv():
     logger.info(f"out = {out}")
     logger.info(f"{np.round(cnn.get_graph_values(x)[(0,1)].todense(),2)}")
 
+def test_new_threshold():
+    architecture = get_architecture(mnist_lenet.name)
+    dataset = Dataset.get_or_create(name="MNIST")
+
+    architecture = get_deep_model(
+        num_epochs=53,
+        dataset=dataset,
+        architecture=architecture,
+        train_noise=0.0
+    )
+
+    thresholds = process_thresholds_underopt(
+        raw_thresholds="0.1_0.1_0.1_0.1_0.1",
+        dataset=dataset,
+        architecture=architecture,
+        dataset_size=10
+    )
 
 
 if __name__ == "__main__":
-    resave_model("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/trained_models/init_svhn_svhn_lenet_205_epochs.model")
+    #resave_model("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/trained_models/init_svhn_svhn_lenet_205_epochs.model")
+    test_new_threshold()
+
+
+
