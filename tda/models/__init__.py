@@ -6,7 +6,7 @@ import pathlib
 import os
 import copy
 import typing
-from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet, cifar_lenet, fashion_mnist_lenet
+from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet, cifar_lenet, fashion_mnist_lenet, fashion_mnist_mlp
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 from tda.devices import device
@@ -92,15 +92,16 @@ def train_network(
         patience = 12
     elif model.name == svhn_lenet.name:
         lr = 0.05
-        patience = 8
-    elif model.name == mnist_mlp.name:
+        patience = 40
+    elif model.name in [mnist_mlp.name, fashion_mnist_mlp.name]:
         lr = 0.1
         patience = 5
     elif model.name == cifar_lenet.name:
         lr = 0.2
         patience = 15
 
-    optimizer = optim.SGD(model.parameters(), lr=lr)
+    #optimizer = optim.SGD(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', patience=patience, verbose=True,
@@ -108,7 +109,7 @@ def train_network(
     t = time()
 
     for epoch in range(num_epochs):
-        logger.info(f"Starting epoch {epoch} ({time()-t} secs)")
+        logger.info(f"Starting epoch {epoch} ({time()-t} secs) and lr = {[param['lr'] for param in optimizer.param_groups]}")
         t = time()
         model.set_train_mode()
 
@@ -152,6 +153,8 @@ def train_network(
             loss_history.append(val_loss.item())
         if True:#epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
             scheduler.step(val_loss)
+        if epoch % 10 == 0:
+            logger.info(f"Val acc = {compute_val_acc(model, val_loader)}")
 
         if epoch % first_pruned_iter == 0 \
                 and epoch != 0 \
