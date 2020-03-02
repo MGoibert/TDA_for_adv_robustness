@@ -21,12 +21,12 @@ from sklearn.decomposition import KernelPCA
 from tda.embeddings import get_embedding, EmbeddingType, \
     get_gram_matrix, KernelType
 from tda.embeddings.weisfeiler_lehman import NodeLabels
-from tda.graph_dataset import get_graph_dataset
 from tda.models.architectures import mnist_mlp, get_architecture, Architecture
 from tda.rootpath import db_path
 from tda.thresholds import process_thresholds
 from tda.models import get_deep_model, Dataset
 from tda.tda_logging import get_logger
+from tda.graph_dataset import get_sample_dataset
 
 #logging.basicConfig(level=logging.INFO)
 logger = get_logger("Visualization PCA")
@@ -119,41 +119,47 @@ def get_embeddings(
         architecture: Architecture,
         noise: float,
         thresholds: typing.List[float],
+        adv: bool,
         epsilon: float,
         dataset: Dataset,
-        start: int = 0,
-        train: bool = True,
-        attack: str = "FGSM"
-) -> typing.List:
+        offset: int = 0,
+        train: bool = False,
+        attack_type: str = "FGSM",
+        succ_adv: bool = True
+    ) -> typing.List:
     """
     Compute the embeddings used for the detection
     """
 
+    data = get_sample_dataset(
+        adv=adv,
+        attack_type=attack_type,
+        epsilon=epsilon,
+        num_iter=config.num_iter,
+        noise=noise,
+        dataset=dataset,
+        train=train,
+        succ_adv=succ_adv,
+        archi=architecture,
+        dataset_size=config.dataset_size,
+        offset=offset,
+        compute_graph=True
+    )
+
     my_embeddings = list()
-    for line in get_graph_dataset(
-            epsilon=epsilon,
-            noise=noise,
-            adv=epsilon > 0.0,
-            architecture=architecture,
-            dataset=dataset,
-            dataset_size=config.dataset_size,
-            thresholds=thresholds,
-            only_successful_adversaries=config.successful_adv > 0,
-            attack_type=attack,
-            num_iter=config.num_iter,
-            start=start,
-            train=train
-    ):
+    for line in data:
         my_embeddings.append(get_embedding(
-            embedding_type=config.embedding_type,
-            graph=line.graph,
-            params={
-                "hash_size": int(config.hash_size),
-                "height": int(config.height),
-                "node_labels": config.node_labels,
-                "steps": config.steps
-            }
-        ))
+                embedding_type=config.embedding_type,
+                line=line,
+                params={
+                    "hash_size": int(config.hash_size),
+                    "height": int(config.height),
+                    "node_labels": config.node_labels,
+                    "steps": config.steps
+                },
+                architecture=architecture,
+                thresholds=thresholds
+            ))
     logger.info(
         f"Computed embeddings for (attack = {config.attack_type}, "
         f"eps={epsilon}, noise={noise}), "
@@ -176,36 +182,32 @@ def get_all_embeddings(config: Config):
         raw_thresholds=config.thresholds,
         dataset=dataset,
         architecture=architecture,
-        dataset_size=500 if config.dataset == "MNIST" else 300
+        dataset_size=50 if config.dataset == "MNIST" else 30
     )
 
     if config.attack_type in ["FGSM", "BIM", "All"]:
-        all_epsilons = list([0.025, 0.05, 0.1])
+        all_epsilons = list([0.1, 0.2, 0.4])
     else:
         all_epsilons = [1.0]
-    all_noises = list([0.025, 0.05, 0.1])
+    all_noises = list([0.1, 0.2, 0.4])
 
-    start = 0
+    offset = 0
 
     # Clean examples
     logger.info(f"Clean dataset !!")
     clean_embeddings = get_embeddings(
-        config=config, dataset=dataset, noise=0.0,
-        architecture=architecture, thresholds=thresholds,
-        epsilon=0.0, start=start,
-        train=False)
-    start += config.dataset_size
+        config=config, dataset=dataset, architecture=architecture, thresholds=thresholds,
+        adv=False, epsilon=0.0, noise=0.0, offset=offset)
+    offset += config.dataset_size
 
     # Noisy examples
     logger.info(f"Noisy dataset !!")
     noisy_embeddings = list()
     for noise in all_noises:
         noisy_embeddings += [item for item in get_embeddings(
-        config=config, dataset=dataset, noise=noise,
-        architecture=architecture, thresholds=thresholds,
-        epsilon=0.0, start=start,
-        train=False)]
-    start += config.dataset_size
+        config=config, dataset=dataset, architecture=architecture, thresholds=thresholds,
+        adv=False, epsilon=0.0, noise=noise, offset=offset)]
+    offset += config.dataset_size
 
     # Adv examples
     adv_embeddings = dict()
@@ -215,10 +217,8 @@ def get_all_embeddings(config: Config):
         for epsilon in all_epsilons[:]:
             logger.info(f"Adversarial dataset for espilon = {epsilon} !!")
             adv_embeddings[epsilon] = get_embeddings(
-                                        config=config, dataset=dataset, noise=0.0,
-                                        architecture=architecture, thresholds=thresholds,
-                                        epsilon=epsilon, start=start,
-                                        train=False, attack=config.attack_type)
+                    config=config, dataset=dataset, architecture=architecture, thresholds=thresholds,
+                    adv=True, attack_type=config.attack_type, epsilon=0.0, noise=0.0, offset=offset)
             adv_embeddings_all += [item for item in adv_embeddings[epsilon]]
     else:
         logger.info(f"All attacks")
@@ -227,16 +227,14 @@ def get_all_embeddings(config: Config):
             if att in ["FGSM", "BIM"]:
                 for epsilon in all_epsilons:
                     logger.info(f"Attack type = {att} and epsilon = {epsilon}")
-                    adv_embeddings[att][epsilon] = get_embeddings(config=config, dataset=dataset,
-                                                                epsilon=epsilon, noise=0.0, architecture=architecture,
-                                                                start=start, thresholds=thresholds,
-                                                                train=False, attack=att)
+                    adv_embeddings[att][epsilon] = get_embeddings(
+                        config=config, dataset=dataset, architecture=architecture, thresholds=thresholds,
+                        adv=True, attack_type=att, epsilon=0.0, noise=0.0, offset=offset)
                     adv_embeddings_all += [item for item in adv_embeddings[att][epsilon]]
             else:
-                adv_embeddings[att][1] = get_embeddings(config=config, dataset=dataset,
-                                                        epsilon=1, noise=0.0, architecture=architecture,
-                                                        thresholds=thresholds, start=start,
-                                                        train=False, attack=att)
+                adv_embeddings[att][1] = get_embeddings(
+                    config=config, dataset=dataset, architecture=architecture, thresholds=thresholds,
+                    adv=True, attack_type=att, epsilon=0.0, noise=0.0, offset=offset)
                 adv_embeddings_all += [item for item in adv_embeddings[att][1]]
 
     return clean_embeddings, noisy_embeddings, adv_embeddings, adv_embeddings_all, thresholds, all_noises, all_epsilons
@@ -252,32 +250,33 @@ def process(config, embedding, fit=True, kpca0=None, embedding_init=None):
         ]
     elif config.kernel_type == KernelType.SlicedWasserstein:
         param_space = [
-            {'M': 20, 'sigma': 5 * 10 ** (-1)},
+            {'M': 100, 'sigma': 7000},
         ]
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
-    for i, param in enumerate(param_space):
-        if fit == True:
-            logger.info(f"In fit")
-            gram_matrix = get_gram_matrix(
-            kernel_type=config.kernel_type,
-            embeddings_in=embedding,
-            embeddings_out=None,
-            params=param
-            )
-            kpca = KernelPCA(2, kernel="precomputed")
-            transform_input = kpca.fit_transform(gram_matrix)
-        else:
-            logger.info(f"Not in fit")
-            other_gram_matrix = get_gram_matrix(
-            kernel_type=config.kernel_type,
-            embeddings_in=embedding,
-            embeddings_out=embedding_init,
-            params=param
-            )
-            transform_input = kpca0.transform(other_gram_matrix)
-        logger.info(f"Trained model in {time.time() - start_time} secs")        
+    if fit == True:
+        logger.info(f"In fit")
+        gram_matrix = get_gram_matrix(
+        kernel_type=config.kernel_type,
+        embeddings_in=embedding,
+        embeddings_out=None,
+        params=param_space
+        )[0]
+        logger.info(f"embedding = {embedding}")
+        logger.info(f"gram matrix = {gram_matrix}")
+        kpca = KernelPCA(2, kernel="precomputed")
+        transform_input = kpca.fit_transform(gram_matrix)
+    else:
+        logger.info(f"Not in fit")
+        other_gram_matrix = get_gram_matrix(
+        kernel_type=config.kernel_type,
+        embeddings_in=embedding,
+        embeddings_out=embedding_init,
+        params=param_space
+        )[0]
+        transform_input = kpca0.transform(other_gram_matrix)
+    logger.info(f"Trained model in {time.time() - start_time} secs")        
 
     if fit == True:
         return transform_input, kpca
@@ -325,8 +324,9 @@ def plot_kernel_pca(config):
         pal = sns.color_palette(["#0F0F0F", "#C9C9C9", "#A0A0A0", "#757575"] + sns.color_palette("Blues", le) + sns.color_palette("Greens", le) + ["#FEB307"] + ["#C50000"])
 
     logger.info(f"Plotting figure...")
+    logger.info(f"Transfo = {transform_input}")
     p = sns.scatterplot(x=[1000*item[0] for item in transform_input], y=[1000*item[1] for item in transform_input],
-        hue=labels, palette=pal, alpha=0.8)
+        hue=labels, palette=pal, alpha=0.8, s=25, style=labels, linewidth=0)
     plt.savefig(filename, dpi=600)
     plt.clf()
     logger.info(f"Closing figure")
@@ -365,7 +365,7 @@ def plot_kernel_pca(config):
                 labels2 = copy.deepcopy(labs) + len(adv_embeddings[att][1])*list([f"Adv {att} {1}"])
             logger.info(f"Plotting figure for all attacks...")
             p2 = sns.scatterplot(x=[1000*item[0] for item in other_transform_input], y=[1000*item[1] for item in other_transform_input],
-                hue=labels2, palette=pal2, alpha=0.8)
+                hue=labels2, palette=pal2, alpha=0.8, s=15, style=labels2)
             plt.savefig(filename2, dpi=600)
             plt.clf()
             logger.info(f"Closing figure")
