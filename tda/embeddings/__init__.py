@@ -68,9 +68,7 @@ def get_embedding(
         )
     elif threshold_strategy == ThresholdStrategy.UnderoptimizedEdgeMovement:
         logger.info(f"Using underoptimized threshold...")
-        graph.thresholdize_underopt(
-            f"{rootpath}/underoptimized_edges/{architecture}.pickle"
-        )
+        graph.thresholdize_underopt(thresholds)
 
     # if save is not None:
     #    m = graph.get_adjacency_matrix()
