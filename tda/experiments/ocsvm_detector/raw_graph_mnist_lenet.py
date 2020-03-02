@@ -35,6 +35,9 @@ experiment = R3D3Experiment(
         ],
         'n_jobs': [
             24
+        ],
+        'raw_graph_pca': [
+            -1, 20, 50, 100
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

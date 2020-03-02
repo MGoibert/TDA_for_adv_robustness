@@ -1,8 +1,10 @@
 from typing import List, Optional, Dict
+import pickle
 
 import fwg
 import time
 import numpy as np
+from tda.rootpath import rootpath
 from tda.graph import Graph
 from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
@@ -28,7 +30,6 @@ class EmbeddingType(object):
     LastLayerSortedLogits = "LastLayerSortedLogits"
     PersistentDiagramRipser = "PersistentDiagramRipser"
     RawGraph = "RawGraph"
-    RawGraphWithPCA = "RawGraphWithPCA"
 
     
 class KernelType(object):
@@ -38,12 +39,19 @@ class KernelType(object):
     SlicedWassersteinOldVersion = "SlicedWassersteinOldVersion"
 
 
+class ThresholdStrategy(object):
+    ActivationValue = "ActivationValue"
+    UnderoptimizedEdgeMovement = "UnderoptimizedEdgeMovement"
+
+
 def get_embedding(
         embedding_type: str,
         line: DatasetLine,
         architecture: Architecture,
         thresholds: Dict,
-        params: Dict = dict()
+        threshold_strategy: str = ThresholdStrategy.UnderoptimizedEdgeMovement,
+        params: Dict = dict(),
+        save=None
 ):
 
     if line.graph is None:
@@ -54,11 +62,22 @@ def get_embedding(
     else:
         graph = line.graph
 
-    graph.thresholdize(
-        thresholds=thresholds
-    )
-    #if True:
-    #    graph.sigmoidize()
+    if threshold_strategy == ThresholdStrategy.ActivationValue:
+        graph.thresholdize(
+            thresholds=thresholds
+        )
+    elif threshold_strategy == ThresholdStrategy.UnderoptimizedEdgeMovement:
+        logger.info(f"Using underoptimized threshold...")
+        graph.thresholdize_underopt(
+            f"{rootpath}/underoptimized_edges/{architecture}.pickle"
+        )
+
+    # if save is not None:
+    #    m = graph.get_adjacency_matrix()
+    #    logger.info(f"m = {m[:3,:3]} and type = {type(m)} and shape = {m.shape}")
+    #    new_m = np.zeros([m.shape[0], m.shape[1]])
+    #    with open(f'{rootpath}/graph_'+save+'.pickle', 'wb') as f:
+    #        pickle.dump(m, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     if embedding_type == EmbeddingType.AnonymousWalk:
         walk = AnonymousWalks(G=graph.to_nx_graph())
@@ -87,7 +106,7 @@ def get_embedding(
         return compute_dgm_from_graph_ripser(graph)
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
         return sorted(graph.final_logits)
-    elif embedding_type in [EmbeddingType.RawGraph, EmbeddingType.RawGraphWithPCA]:
+    elif embedding_type == EmbeddingType.RawGraph:
         return to_sparse_vector(graph.get_adjacency_matrix())
     else:
         raise NotImplementedError(embedding_type)
@@ -158,7 +177,8 @@ def get_gram_matrix(
         embeddings_out: Optional[List] = None,
         params: List = [dict()],
         n_jobs: int=1,
-        verbatim: bool = False
+        verbatim = False,
+        save=False
 ):
     """
     Compute the gram matrix of the given embeddings
@@ -187,14 +207,14 @@ def get_gram_matrix(
         distance_matrix = np.zeros((n,m))
         for i in range(n):
             for j in range(m):
-                if verbatim:
-                    logger.info(f"Row {i} and col {j}")
+                #if verbatim:
+                #    logger.info(f"Row {i} and col {j}")
                 distance_matrix[i,j] = sliced_wasserstein_distance_old_version(
                     embeddings_in[i],
                     embeddings_out[j],
                     M=20,
-                    verbatim=verbatim,
-                    row=i)
+                    verbatim=f"row{i}_col{j}",
+                    save=save)
         grams = [np.exp(- distance_matrix / (2 * a_param['sigma'] ** 2)) for a_param in params]
         #grams = [distance_matrix for a_param in params]
         logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")

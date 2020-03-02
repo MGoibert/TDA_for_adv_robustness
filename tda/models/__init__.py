@@ -71,6 +71,12 @@ def train_network(
     """
     Helper function to train an arbitrary model
     """
+    # Save model initial values
+    model.epochs = num_epochs
+
+    filename = f"{rootpath}/trained_models/{str(model)}_initial.model"
+    torch.save(model.state_dict(), filename)
+    logger.info(f"Saved initial model in {filename}")
 
     if device.type == "cuda":
         logger.info(f"Learning on GPU {device}")
@@ -187,6 +193,7 @@ def get_deep_model(
         architecture.load_state_dict(state_dict)
         if device.type == "cuda":
             architecture.cuda(device)
+        architecture.epochs = "custom"
         return architecture, loss_func
 
     if not os.path.exists(f"{rootpath}/trained_models"):
@@ -240,6 +247,7 @@ def get_deep_model(
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
     architecture.is_trained = True
+    architecture.epochs = num_epochs
     return architecture
 
 

@@ -474,6 +474,7 @@ class BatchNorm2d(Layer):
 #################
 logger = get_logger("Architecture")
 
+
 class Architecture(nn.Module):
 
     def __init__(self,
@@ -503,11 +504,13 @@ class Architecture(nn.Module):
 
         self.is_trained = False
 
+        self.epochs = 0
+
     def __repr__(self):
-        return self.name
+        return f"{self.name}_{self.epochs}"
 
     def __str__(self):
-        return self.name
+        return f"{self.name}_{self.epochs}"
 
     def set_train_mode(self):
         for layer in self.layers:

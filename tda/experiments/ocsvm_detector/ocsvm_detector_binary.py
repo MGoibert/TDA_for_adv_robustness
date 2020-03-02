@@ -58,6 +58,8 @@ class Config(typing.NamedTuple):
     attack_type: str
     # Parameter used by DeepFool and CW
     num_iter: int
+    # PCA Parameter for RawGraph (-1 = No PCA)
+    raw_graph_pca: int
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -87,6 +89,7 @@ def get_config() -> Config:
     parser.add_argument('--train_noise', type=float, default=0.0)
     parser.add_argument('--dataset_size', type=int, default=100)
     parser.add_argument('--successful_adv', type=int, default=1)
+    parser.add_argument('--raw_graph_pca', type=int, default=-1)
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--num_iter', type=int, default=10)
     parser.add_argument('--n_jobs', type=int, default=1)
@@ -121,7 +124,7 @@ def get_all_embeddings(config: Config):
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
-        #all_epsilons = [0.01, 0.1, 0.4]
+        #all_epsilons = [0.01]
     else:
         all_epsilons = config.all_epsilons
 
@@ -141,9 +144,11 @@ def get_all_embeddings(config: Config):
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    def embedding_getter(line_chunk):
+    def embedding_getter(line_chunk, save=False):
         ret = list()
+        c = 0
         for line in line_chunk:
+            save2 = save + "_" + str(c) if save else False
             ret.append(get_embedding(
                 embedding_type=config.embedding_type,
                 line=line,
@@ -151,26 +156,29 @@ def get_all_embeddings(config: Config):
                     "hash_size": int(config.hash_size),
                     "height": int(config.height),
                     "node_labels": config.node_labels,
-                    "steps": config.steps
+                    "steps": config.steps,
+                    "raw_graph_pca": config.raw_graph_pca
                 },
                 architecture=architecture,
-                thresholds=thresholds
+                thresholds=thresholds,
+                save=save2
             ))
+            c += 1
         return ret
 
-    def process(input_dataset):
+    def process(input_dataset, save=False):
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
-        ret = Parallel(n_jobs=config.n_jobs)(delayed(embedding_getter)(chunk) for chunk in my_chunks)
+        ret = Parallel(n_jobs=config.n_jobs)(delayed(embedding_getter)(chunk, save) for chunk in my_chunks)
         ret = [item for sublist in ret for item in sublist]
         return ret
 
     # Clean train
-    clean_embeddings_train = process(train_clean)
+    clean_embeddings_train = process(train_clean, save="clean_train")
     logger.info(f"Clean train dataset "
                 f"({len(clean_embeddings_train)} points) !!")
 
     # Clean test
-    clean_embeddings_test = process(test_clean)
+    clean_embeddings_test = process(test_clean, save="clean_test")
     logger.info(f"Clean test dataset "
                 f"({len(clean_embeddings_test)} points) !!")
 
@@ -185,7 +193,7 @@ def get_all_embeddings(config: Config):
         logger.info(f"Adversarial train dataset for espilon = {epsilon}"
                     f"  ({len(adv_embeddings_train[epsilon])} points) !")
 
-        adv_embeddings_test[epsilon] = process(test_adv[epsilon])
+        adv_embeddings_test[epsilon] = process(test_adv[epsilon], save="adv_test")
         logger.info(f"Adversarial test dataset for espilon = {epsilon} "
                     f"({len(adv_embeddings_test[epsilon])} points)  !")
 
@@ -200,15 +208,15 @@ def get_all_embeddings(config: Config):
             f"{np.quantile(stats[epsilon], 0.75)}, "
             f"{np.quantile(stats[epsilon], 0.9)}")
 
-    if config.embedding_type in [EmbeddingType.RawGraph, EmbeddingType.RawGraphWithPCA]:
+    if config.embedding_type == EmbeddingType.RawGraph:
         raw_graph_indices = identify_active_indices(clean_embeddings_train)
 
         clean_embeddings_train = featurize_vectors(clean_embeddings_train, raw_graph_indices)
         clean_embeddings_test = featurize_vectors(clean_embeddings_test, raw_graph_indices)
 
-        if config.embedding_type == EmbeddingType.RawGraphWithPCA:
+        if config.raw_graph_pca > 0:
             logger.info("Fitting PCA...")
-            pca = PCA(n_components=20, random_state=int(config.experiment_id))
+            pca = PCA(n_components=config.raw_graph_pca, random_state=int(config.experiment_id))
             clean_embeddings_train = pca.fit_transform(clean_embeddings_train)
             logger.info("Done fitting PCA...")
             clean_embeddings_test = pca.transform(clean_embeddings_test)
@@ -217,7 +225,7 @@ def get_all_embeddings(config: Config):
             adv_embeddings_train[epsilon] = featurize_vectors(adv_embeddings_train[epsilon], raw_graph_indices)
             adv_embeddings_test[epsilon] = featurize_vectors(adv_embeddings_test[epsilon], raw_graph_indices)
 
-            if config.embedding_type == EmbeddingType.RawGraphWithPCA:
+            if config.raw_graph_pca > 0:
                 adv_embeddings_train[epsilon] = pca.transform(adv_embeddings_train[epsilon])
                 adv_embeddings_test[epsilon] = pca.transform(adv_embeddings_test[epsilon])
 
@@ -241,7 +249,9 @@ def run_experiment(config: Config):
 
     (embedding_train, embedding_test, adv_embeddings_train, adv_embeddings_test,
      thresholds, stats, stats_inf) = get_all_embeddings(config)
-    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean.pickle', 'wb') as f:
+    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_train.pickle', 'wb') as f:
+    #            pickle.dump(embedding_train, f, protocol=pickle.HIGHEST_PROTOCOL)
+    #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_test.pickle', 'wb') as f:
     #            pickle.dump(embedding_test, f, protocol=pickle.HIGHEST_PROTOCOL)
     #eps_to_save = 0.1
     #with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_adv_'+str(eps_to_save)+'.pickle', 'wb') as f:
