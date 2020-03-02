@@ -20,7 +20,7 @@ experiment = R3D3Experiment(
           svhn_lenet.name
         ],
         'attack_type': [
-          "All"#, "BIM", "DeepFool", "CW"
+          "DeepFool"#, "BIM", "DeepFool", "CW"
         ],
         'threshold': [
             #'0.5_0_0.25_0_0.1_0_0',
@@ -38,7 +38,7 @@ experiment = R3D3Experiment(
             1
         ],
         'dataset_size': [
-            30
+            15
         ],
         'num_iter':[
             20
