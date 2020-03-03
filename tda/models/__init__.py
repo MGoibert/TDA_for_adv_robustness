@@ -248,6 +248,7 @@ def get_deep_model(
     architecture.set_eval_mode()
     architecture.is_trained = True
     architecture.epochs = num_epochs
+    architecture.build_matrices()
     return architecture
 
 

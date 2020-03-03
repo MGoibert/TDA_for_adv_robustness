@@ -33,6 +33,7 @@ def test_simple_graph():
             SoftMaxLayer(),
         ],
     )
+    simple_archi.build_matrices()
 
     simple_example = torch.ones(4)
 
@@ -65,6 +66,7 @@ def test_simple_resnet_graph():
         ],
         layer_links=[(-1, 0), (0, 1), (1, 2), (1, 3), (2, 3), (3, 4)],
     )
+    simple_archi.build_matrices()
 
     simple_example = torch.ones(4)
 
@@ -112,12 +114,14 @@ def test_simple_cnn_one_channel(stride, padding):
             ConvLayer(
                 in_channels=1,
                 out_channels=1,
+                input_shape=(3, 4),
                 kernel_size=kernel_size,
                 stride=stride,
                 padding=padding,
             )
         ],
     )
+    simple_archi.build_matrices()
 
     simple_example = torch.tensor([[[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]]])
 
@@ -146,10 +150,11 @@ def test_simple_cnn_multi_channels():
         layers=[
             # 2 input channels
             # 3 output channels
-            ConvLayer(2, 3, 2),
+            ConvLayer(2, 3, 2, input_shape=(3, 4)),
             LinearLayer(18, 1),
         ],
     )
+    simple_archi.build_matrices()
 
     simple_example = torch.tensor(
         [

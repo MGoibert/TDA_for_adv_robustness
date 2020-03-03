@@ -12,6 +12,7 @@ class ConvLayer(Layer):
         in_channels,
         out_channels,
         kernel_size,
+        input_shape=None,
         stride=1,
         padding=0,
         bias=False,
@@ -37,6 +38,7 @@ class ConvLayer(Layer):
         self._activ = activ
         self._stride = stride
         self._padding = padding
+        self._input_shape = input_shape
 
     @staticmethod
     def _get_nb_elements(t):
@@ -116,25 +118,7 @@ class ConvLayer(Layer):
                             raise RuntimeError("Invalid edge")
         return data, col_ind, row_ind, nb_offset_i * nb_offset_j
 
-    def get_matrix(self):
-
-        m = dict()
-
-        for parentidx in self._activations:
-            matrix_grid = [
-                [
-                    self.get_matrix_for_channel(in_c, out_c)[parentidx]
-                    for in_c in range(self._in_channels)
-                ]
-                for out_c in range(self._out_channels)
-            ]
-
-            m[parentidx] = sparse_bmat(blocks=matrix_grid, format="coo")
-            # logger.info(f"parent = {parentidx} and m = {m[parentidx].todense()}")
-
-        return m
-
-    def get_matrix_for_channel(self, in_channel, out_channel):
+    def build_matrix_for_channel(self, in_channel, out_channel):
         """
         Return the weight of unrolled weight matrix
         for a convolutional layer
@@ -151,7 +135,7 @@ class ConvLayer(Layer):
             # logger.info(f"out channel = {out_channel} and in channel = {in_channel}")
             # TODO: why this order out / in ???
             param = param_[1]
-            name_ = param_[0]
+            # name_ = param_[0]
             if len(param.size()) > 1:
                 kernel = param.data[out_channel, in_channel, :, :]
                 # logger.info(f"name = {name_} and kernel = {kernel.size()}")
@@ -160,12 +144,9 @@ class ConvLayer(Layer):
         # Compute the size of the matrix #
         ##################################
 
-        parentidx = list(self._activations.keys())[0]
-        activations = self._activations[parentidx][:, in_channel, :, :]
-
-        nbcols_input = list(activations.shape)[-1]
-        nbrows_input = list(activations.shape)[-2]
-        nbcols = ConvLayer._get_nb_elements(activations)
+        nbcols_input = self._input_shape[1]
+        nbrows_input = self._input_shape[0]
+        nbcols = self._input_shape[0] * self._input_shape[1]
 
         #############################
         # Compute Toeplitz matrices #
@@ -180,19 +161,20 @@ class ConvLayer(Layer):
             stride=self._stride,
         )
 
-        ret = dict()
-        for parentidx in self._activations:
-            activ = self._activations[parentidx][:, in_channel, :, :].reshape(-1)
+        return coo_matrix(
+                (data, (row_ind, col_ind)), shape=(nbrows, nbcols)
+        )
 
-            data_for_parent = [
-                data[i] * float(activ[col_idx]) for i, col_idx in enumerate(col_ind)
+    def build_matrix(self) -> coo_matrix:
+        matrix_grid = [
+            [
+                self.build_matrix_for_channel(in_c, out_c)
+                for in_c in range(self._in_channels)
             ]
-
-            ret[parentidx] = coo_matrix(
-                (data_for_parent, (row_ind, col_ind)), shape=(nbrows, nbcols)
-            )
-
-        return ret
+            for out_c in range(self._out_channels)
+        ]
+        self._matrix = sparse_bmat(matrix_grid)
+        return self._matrix
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
