@@ -2,23 +2,20 @@ import numpy as np
 import pytest
 import torch
 
+from tda.embeddings import get_embedding, EmbeddingType, KernelType
+from tda.embeddings import get_gram_matrix
 from tda.graph import Graph
+from tda.models import get_deep_model, Dataset
 from tda.models.architectures import (
     Architecture,
-    LinearLayer,
-    ConvLayer,
-    mnist_mlp,
     svhn_cnn_simple,
     svhn_lenet,
-    SoftMaxLayer,
-    svhn_resnet,
 )
-from tda.embeddings import get_embedding, EmbeddingType, KernelType
 from tda.models.architectures import mnist_mlp, get_architecture
-from tda.models import get_deep_model, Dataset
+from tda.models.layers import LinearLayer, ConvLayer, SoftMaxLayer
+from tda.protocol import get_protocolar_datasets
 from tda.thresholds import process_thresholds
-from tda.protocol import get_protocolar_datasets, evaluate_embeddings
-from tda.embeddings import get_gram_matrix
+
 
 # from tda.models.datasets import Dataset
 
@@ -91,6 +88,7 @@ def test_mnist_graph():
 
     simple_example = torch.randn((28, 28))
 
+    mnist_mlp.build_matrices()
     graph = Graph.from_architecture_and_data_point(mnist_mlp, simple_example)
 
     adjacency_matrix = graph.get_adjacency_matrix().todense()

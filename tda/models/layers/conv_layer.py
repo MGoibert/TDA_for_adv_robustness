@@ -4,7 +4,9 @@ from functools import reduce
 from numba import njit
 import numpy as np
 from scipy.sparse import coo_matrix, bmat as sparse_bmat
+from tda.tda_logging import get_logger
 
+logger = get_logger("ConvLayer")
 
 class ConvLayer(Layer):
     def __init__(
@@ -181,6 +183,11 @@ class ConvLayer(Layer):
         if store_for_graph:
             self._activations = x
         x = sum(x.values())
+
+        if not hasattr(self, "_input_shape") or self._input_shape is None:
+            logger.info(f"{self} received input with shape {x.shape}")
+            self._input_shape = (x.shape[-2], x.shape[-1])
+
         if self._activ:
             out = self.func(x)
             if type(self._activ) == list:
