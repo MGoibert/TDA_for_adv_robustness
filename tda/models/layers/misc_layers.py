@@ -1,12 +1,18 @@
+from scipy.sparse import coo_matrix
+
 from .layer import Layer
 from torch import nn
 
 
 class SoftMaxLayer(Layer):
+
     def __init__(self):
         super().__init__(func=nn.Softmax(dim=1), graph_layer=False)
 
     def get_matrix(self):
+        raise NotImplementedError()
+
+    def build_matrix(self) -> coo_matrix:
         raise NotImplementedError()
 
 
@@ -15,6 +21,9 @@ class DropOut(Layer):
         super().__init__(func=nn.Dropout(), graph_layer=False)
 
     def get_matrix(self):
+        raise NotImplementedError()
+
+    def build_matrix(self) -> coo_matrix:
         raise NotImplementedError()
 
 
@@ -28,6 +37,9 @@ class ReluLayer(Layer):
         return out
 
     def get_matrix(self):
+        raise NotImplementedError()
+
+    def build_matrix(self) -> coo_matrix:
         raise NotImplementedError()
 
 
@@ -51,4 +63,7 @@ class BatchNorm2d(Layer):
             return out
 
     def get_matrix(self):
+        raise NotImplementedError()
+
+    def build_matrix(self) -> coo_matrix:
         raise NotImplementedError()

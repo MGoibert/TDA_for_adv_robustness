@@ -12,6 +12,11 @@ class AvgPool2dLayer(Layer):
 
         super().__init__(func=nn.AvgPool2d(kernel_size=kernel_size), graph_layer=True)
 
+    def build_matrix(self) -> coo_matrix:
+        # Unfortunately, we cannot precompute the matrix
+        # for AvgPool2dLayers
+        pass
+
     def get_matrix(self):
         """
         Return the weight of the linear layer, ignore biases

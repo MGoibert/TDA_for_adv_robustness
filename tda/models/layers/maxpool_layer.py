@@ -1,6 +1,7 @@
 from torch import nn
 from .layer import Layer
 import numpy as np
+from scipy.sparse import coo_matrix
 
 
 class MaxPool2dLayer(Layer):
@@ -12,6 +13,11 @@ class MaxPool2dLayer(Layer):
 
         self._activ = activ
         # self._use_activation = True
+
+    def build_matrix(self) -> coo_matrix:
+        # Unfortunately, we cannot precompute the matrix
+        # for AvgPool2dLayers
+        pass
 
     def get_matrix(self):
         """
