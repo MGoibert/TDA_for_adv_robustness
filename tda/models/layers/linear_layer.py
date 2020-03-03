@@ -19,18 +19,6 @@ class LinearLayer(Layer):
         self._matrix = coo_matrix(matrix.cpu().detach().numpy())
         return self._matrix
 
-    def get_matrix(self):
-        ret = dict()
-        for parentidx in self._activations:
-            activ = self._activations[parentidx].reshape(-1)
-            data_for_parent = [
-                self._matrix.data[i] * float(activ[col_idx]) for i, col_idx in enumerate(self._matrix.col)
-            ]
-            ret[parentidx] = coo_matrix(
-                (data_for_parent, (self._matrix.row, self._matrix.col)), self._matrix.shape
-            )
-        return ret
-
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
         _x = {key: x[key].reshape(-1, self._in_width) for key in x}

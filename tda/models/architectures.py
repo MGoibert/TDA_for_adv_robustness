@@ -172,7 +172,7 @@ class Architecture(nn.Module):
         for layer_idx, layer in enumerate(self.layers):
             # (f"Processing layer {layer_idx}")
             if layer.graph_layer:
-                m = layer.get_matrix_v2()
+                m = layer.get_matrix()
                 for parentidx in m:
                     ret[(parentidx, layer_idx)] = m[parentidx]
         return ret

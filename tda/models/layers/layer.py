@@ -16,7 +16,16 @@ class Layer(object):
         raise NotImplementedError()
 
     def get_matrix(self):
-        raise NotImplementedError()
+        ret = dict()
+        for parentidx in self._activations:
+            activ = self._activations[parentidx].reshape(-1)
+            data_for_parent = [
+                self._matrix.data[i] * float(activ[col_idx]) for i, col_idx in enumerate(self._matrix.col)
+            ]
+            ret[parentidx] = coo_matrix(
+                (data_for_parent, (self._matrix.row, self._matrix.col)), self._matrix.shape
+            )
+        return ret
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
