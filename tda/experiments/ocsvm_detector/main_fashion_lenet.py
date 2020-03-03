@@ -17,7 +17,7 @@ experiment = R3D3Experiment(
             fashion_mnist_lenet.name
         ],
         'epochs': [
-            50
+            200
         ],
         'dataset': [
             "FashionMNIST"
@@ -26,9 +26,9 @@ experiment = R3D3Experiment(
             100
         ],
         'attack_type': [
-            "CW"
+            "FGSM", "BIM", "DeepFool", "CW"
         ],
-        'threshold': [
+        'thresholds': [
             #'0.1_0.01_0.1_0_0_0'
             '0.5_0.03_0.3_0_0_0'
         ],

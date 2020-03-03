@@ -23,19 +23,19 @@ experiment = R3D3Experiment(
             "MNIST"
         ],
         'dataset_size': [
-            50
+            100
         ],
         'attack_type': [
-            "FGSM"
+            "FGSM", "BIM", "DeepFool", "CW"
         ],
-        'threshold': [
+        'thresholds': [
             '0;1;0_-1;0;0.1_1;2;0.1_2;3;0.025_3;4;0_5;6;0'
         ],
         'noise': [
             0.0
         ],
         'n_jobs': [
-            1
+            24
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
