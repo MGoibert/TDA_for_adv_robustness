@@ -11,6 +11,7 @@ from .definitions import (
     svhn_preprocess,
     mnist_preprocess,
     mnist_preprocess2,
+    fashion_mnist_mlp
 )
 
 # Hack to deserialize models

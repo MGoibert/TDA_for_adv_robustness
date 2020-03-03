@@ -15,6 +15,7 @@ from tda.models.architectures import (
     svhn_lenet,
     cifar_lenet,
     fashion_mnist_lenet,
+    fashion_mnist_mlp
 )
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
