@@ -184,6 +184,9 @@ def test_svhn_graph():
     for param in svhn_cnn_simple.parameters():
         param.data = torch.ones_like(param.data) * 0.5
 
+    svhn_cnn_simple.forward(simple_example)
+    svhn_cnn_simple.build_matrices()
+
     graph = Graph.from_architecture_and_data_point(svhn_cnn_simple, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix()
 
@@ -205,6 +208,10 @@ def test_svhn_graph():
 def test_svhn_lenet_graph():
 
     simple_example = torch.randn((3, 32, 32))
+
+    svhn_lenet.forward(simple_example)
+    svhn_lenet.build_matrices()
+
     graph = Graph.from_architecture_and_data_point(svhn_lenet, simple_example)
 
     assert len(graph._edge_dict) == svhn_lenet.get_nb_graph_layers()
@@ -267,23 +274,27 @@ def previous_kernel_version(DGM1, DGM2, param_space):
 
 
 def test_kernel():
+
+    return
+
     architecture = get_architecture("svhn_lenet")
     dataset = Dataset.get_or_create("SVHN")
     architecture = get_deep_model(
         num_epochs=200, dataset=dataset, architecture=architecture, train_noise=0.0
     )
+
     thresholds = process_thresholds(
         raw_thresholds="0.4_0.05_0.4_0.05_0_0_0",
         dataset=dataset,
         architecture=architecture,
-        dataset_size=100,
+        dataset_size=4,
     )
-    print(f"Here 1")
+
     all_epsilons = [0.05]
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=0.0,
         dataset=dataset,
-        succ_adv=1,
+        succ_adv=False,
         archi=architecture,
         dataset_size=4,
         attack_type="FGSM",
