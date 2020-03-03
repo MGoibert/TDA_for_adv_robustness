@@ -16,29 +16,29 @@ experiment = R3D3Experiment(
             svhn_lenet.name
         ],
         'epochs': [
-            205
+            250
         ],
         'dataset': [
             "SVHN"
         ],
         'dataset_size': [
-            10
+            100
         ],
         'attack_type': [
-            "DeepFool"#, "FGSM", "BIM", "CW", "DeepFool"
+            "FGSM", "BIM", "CW", "DeepFool"
         ],
         'thresholds': [
             #'0.5_0.03_0.5_0.03_inf_inf_inf'
             '0.1_0.1_0.2_0.2_0.2'
         ],
         'threshold_strategy': [
-            ThresholdStrategy.UnderoptimizedEdgeMovement
+            ThresholdStrategy.ActivationValue
         ],
         'noise': [
             0.0
         ],
         'n_jobs': [
-            1
+            24
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

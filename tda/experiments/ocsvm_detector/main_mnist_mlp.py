@@ -1,6 +1,6 @@
 from r3d3 import R3D3Experiment
 from tda.rootpath import rootpath, db_path
-from tda.embeddings import EmbeddingType, KernelType
+from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
 from tda.models.architectures import mnist_mlp
 
 experiment = R3D3Experiment(
@@ -15,19 +15,22 @@ experiment = R3D3Experiment(
         'architecture': [
             mnist_mlp.name
         ],
+        'threshold_strategy': [
+            ThresholdStrategy.ActivationValue
+        ],
         'epochs': [
-            49
+            50
         ],
         'dataset': [
             "MNIST"
         ],
         'dataset_size': [
-            30
+            100
         ],
         'attack_type': [
             "FGSM", "BIM", "CW", "DeepFool"
         ],
-        'threshold': [
+        'thresholds': [
             '0.1_0.1_0'
         ],
         'noise': [
