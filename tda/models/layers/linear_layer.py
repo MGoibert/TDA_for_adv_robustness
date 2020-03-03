@@ -14,25 +14,21 @@ class LinearLayer(Layer):
         self._in_width = in_width
         self._activ = activ
 
-    def build_matrix(self):
+    def build_matrix(self) -> coo_matrix:
         matrix = list(self.func.parameters())[0]
-        self._matrix = matrix.cpu().detach().numpy()
+        self._matrix = coo_matrix(matrix.cpu().detach().numpy())
         return self._matrix
 
     def get_matrix(self):
-        """
-        Return the weight of the linear layer, ignore biases
-        """
-        m = list(self.func.parameters())[0]
-
         ret = dict()
-
         for parentidx in self._activations:
-            weight = self._activations[parentidx] * m
-            if weight.is_cuda:
-                weight = weight.cpu()
-            ret[parentidx] = coo_matrix(np.abs(weight.detach().numpy()))
-
+            activ = self._activations[parentidx].reshape(-1)
+            data_for_parent = [
+                self._matrix.data[i] * float(activ[col_idx]) for i, col_idx in enumerate(self._matrix.col)
+            ]
+            ret[parentidx] = coo_matrix(
+                (data_for_parent, (self._matrix.row, self._matrix.col)), self._matrix.shape
+            )
         return ret
 
     def process(self, x, store_for_graph):

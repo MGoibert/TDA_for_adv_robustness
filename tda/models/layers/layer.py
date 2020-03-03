@@ -1,5 +1,7 @@
-from torch import nn
 from typing import Optional
+
+from scipy.sparse import coo_matrix
+from torch import nn
 
 
 class Layer(object):
@@ -10,7 +12,7 @@ class Layer(object):
         self._matrix = None
         self.name = name
 
-    def build_matrix(self):
+    def build_matrix(self) -> coo_matrix:
         raise NotImplementedError()
 
     def get_matrix(self):
