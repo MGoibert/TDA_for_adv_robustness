@@ -15,7 +15,7 @@ from tda.models.architectures import (
     svhn_lenet,
     cifar_lenet,
     fashion_mnist_lenet,
-    fashion_mnist_mlp
+    fashion_mnist_mlp,
 )
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
@@ -84,8 +84,8 @@ def train_network(
     # Save model initial values
     model.epochs = num_epochs
 
-    filename = f"{rootpath}/trained_models/{str(model)}_initial.model"
-    torch.save(model.state_dict(), filename)
+    filename = model.get_model_initial_savepath()
+    torch.save(model, filename)
     logger.info(f"Saved initial model in {filename}")
 
     if device.type == "cuda":
@@ -110,7 +110,7 @@ def train_network(
         lr = 0.2
         patience = 15
 
-    #optimizer = optim.SGD(model.parameters(), lr=lr)
+    # optimizer = optim.SGD(model.parameters(), lr=lr)
     optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -119,7 +119,9 @@ def train_network(
     t = time()
 
     for epoch in range(num_epochs):
-        logger.info(f"Starting epoch {epoch} ({time()-t} secs) and lr = {[param['lr'] for param in optimizer.param_groups]}")
+        logger.info(
+            f"Starting epoch {epoch} ({time()-t} secs) and lr = {[param['lr'] for param in optimizer.param_groups]}"
+        )
         t = time()
         model.set_train_mode()
 
