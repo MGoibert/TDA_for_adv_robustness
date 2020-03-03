@@ -60,6 +60,11 @@ class Architecture(nn.Module):
             if layer.graph_layer:
                 layer.build_matrix()
 
+    def get_layer_matrices(self):
+        return {
+            i: layer.matrix for i, layer in enumerate(self.layers) if layer.graph_layer
+        }
+
     def __repr__(self):
         return f"{self.name}_{self.epochs}"
 

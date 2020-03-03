@@ -9,7 +9,7 @@ class Layer(object):
         self.func = func
         self.graph_layer = graph_layer
         self._activations = None
-        self._matrix = None
+        self.matrix = None
         self.name = name
 
     def build_matrix(self) -> coo_matrix:
@@ -20,10 +20,10 @@ class Layer(object):
         for parentidx in self._activations:
             activ = self._activations[parentidx].reshape(-1)
             data_for_parent = [
-                self._matrix.data[i] * float(activ[col_idx]) for i, col_idx in enumerate(self._matrix.col)
+                self.matrix.data[i] * float(activ[col_idx]) for i, col_idx in enumerate(self.matrix.col)
             ]
             ret[parentidx] = coo_matrix(
-                (data_for_parent, (self._matrix.row, self._matrix.col)), self._matrix.shape
+                (data_for_parent, (self.matrix.row, self.matrix.col)), self.matrix.shape
             )
         return ret
 
