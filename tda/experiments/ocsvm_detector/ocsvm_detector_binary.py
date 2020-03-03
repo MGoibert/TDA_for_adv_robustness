@@ -148,7 +148,7 @@ def get_all_embeddings(config: Config):
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
         all_epsilons=all_epsilons,
-        compute_graph=True
+        compute_graph=False
     )
 
     def chunks(lst, n):
@@ -173,6 +173,7 @@ def get_all_embeddings(config: Config):
                 },
                 architecture=architecture,
                 thresholds=thresholds,
+                threshold_strategy=config.threshold_strategy,
                 save=save2
             ))
             c += 1
