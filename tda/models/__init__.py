@@ -262,12 +262,13 @@ def get_deep_model(
     if device.type == "cuda":
         architecture.cuda(device)
 
-    if with_details:
-        return architecture, val_accuracy, test_accuracy
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
     architecture.is_trained = True
     architecture.epochs = num_epochs
+
+    if with_details:
+        return architecture, val_accuracy, test_accuracy
 
     # Infer input shape from sample
     x, _ = dataset.train_dataset[0]
