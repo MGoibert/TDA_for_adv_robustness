@@ -10,6 +10,7 @@ from tda.models.layers import (
     Layer,
     SoftMaxLayer,
 )
+from tda.rootpath import rootpath
 from tda.tda_logging import get_logger
 
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -64,6 +65,15 @@ class Architecture(nn.Module):
         return {
             i: layer.matrix for i, layer in enumerate(self.layers) if layer.graph_layer
         }
+
+    def get_model_initial_savepath(self):
+        return f"{rootpath}/trained_models/{str(self)}_initial.model"
+
+    def get_initial_model(self) -> "Architecture":
+        """
+        Return the initial version of the model if available
+        """
+        return torch.load(self.get_model_initial_savepath())
 
     def __repr__(self):
         return f"{self.name}_{self.epochs}"
