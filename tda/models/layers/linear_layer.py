@@ -16,8 +16,8 @@ class LinearLayer(Layer):
 
     def build_matrix(self) -> coo_matrix:
         matrix = list(self.func.parameters())[0]
-        self._matrix = coo_matrix(matrix.cpu().detach().numpy())
-        return self._matrix
+        self.matrix = coo_matrix(matrix.cpu().detach().numpy())
+        return self.matrix
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)

@@ -174,8 +174,8 @@ class ConvLayer(Layer):
             ]
             for out_c in range(self._out_channels)
         ]
-        self._matrix = sparse_bmat(matrix_grid)
-        return self._matrix
+        self.matrix = sparse_bmat(matrix_grid)
+        return self.matrix
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
