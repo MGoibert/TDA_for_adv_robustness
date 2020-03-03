@@ -8,6 +8,7 @@ from tda.tda_logging import get_logger
 
 logger = get_logger("ConvLayer")
 
+
 class ConvLayer(Layer):
     def __init__(
         self,
@@ -163,9 +164,7 @@ class ConvLayer(Layer):
             stride=self._stride,
         )
 
-        return coo_matrix(
-                (data, (row_ind, col_ind)), shape=(nbrows, nbcols)
-        )
+        return coo_matrix((data, (row_ind, col_ind)), shape=(nbrows, nbcols))
 
     def build_matrix(self) -> coo_matrix:
         matrix_grid = [

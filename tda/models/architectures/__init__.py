@@ -16,4 +16,14 @@ from .definitions import (
 # Hack to deserialize models
 # (old serialized models are importing their Layers from the
 #  wrong place)
-from tda.models.layers import *
+from tda.models.layers import (
+    Layer,
+    ConvLayer,
+    LinearLayer,
+    SoftMaxLayer,
+    ReluLayer,
+    DropOut,
+    BatchNorm2d,
+    MaxPool2dLayer,
+    AvgPool2dLayer,
+)
