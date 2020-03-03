@@ -413,6 +413,18 @@ fashion_mnist_lenet = Architecture(
     ],
 )
 
+fashion_mnist_mlp = Architecture(
+    name="fashion_mnist_mlp",
+    preprocess=mnist_preprocess,
+    layers=[
+        LinearLayer(28 * 28, 512, activ=F.relu, name="fc0"),
+        LinearLayer(512, 256, activ=F.relu, name="fc1"),
+        LinearLayer(256, 128, activ=F.relu, name="fc2"),
+        LinearLayer(128, 64, activ=F.relu, name="fc3"),
+        LinearLayer(64, 10, activ=F.relu, name="fc4"),
+        SoftMaxLayer()
+    ])
+
 known_architectures: List[Architecture] = [
     mnist_mlp,
     svhn_cnn_simple,
@@ -423,6 +435,7 @@ known_architectures: List[Architecture] = [
     svhn_resnet_test,
     cifar_lenet,
     fashion_mnist_lenet,
+    fashion_mnist_mlp
 ]
 
 
