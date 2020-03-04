@@ -26,8 +26,7 @@ def one_hot(y, num_classes=None):
     else:
         y_ = torch.zeros(1, num_classes)
     y_.scatter_(1, y.unsqueeze(-1), 1)
-    if device.type == "cuda":
-        y_ = y_.to(device)
+    y_ = y_.to(device)
     return y_
 
 

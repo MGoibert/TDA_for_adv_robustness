@@ -37,9 +37,8 @@ def compute_val_acc(model, val_loader):
     with no_grad():
         for data, target in val_loader:
             data = data.double()
-            if device.type == "cuda":
-                data = data.to(device)
-                target = target.to(device)
+            data = data.to(device)
+            target = target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -57,9 +56,8 @@ def compute_test_acc(model, test_loader):
     with no_grad():
         for data, target in test_loader:
             data = data.double()
-            if device.type == "cuda":
-                data = data.to(device)
-                target = target.to(device)
+            data = data.to(device)
+            target = target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -122,8 +120,6 @@ def train_network(
         model.set_train_mode()
 
         for x_batch, y_batch in train_loader:
-            x_batch = x_batch.to(device)
-            y_batch = y_batch.to(device)
             x_batch = x_batch.double()
             if train_noise > 0.0:
                 x_batch_noisy = torch.clamp(
@@ -157,9 +153,6 @@ def train_network(
         model.set_eval_mode()
         for x_val, y_val in val_loader:
             x_val = x_val.double()
-            if device.type == "cuda":
-                x_val = x_val.to(device)
-                y_val = y_val.to(device)
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
             logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")

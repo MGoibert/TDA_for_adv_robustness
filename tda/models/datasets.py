@@ -21,8 +21,8 @@ _root = "./data"
 _trans = transforms.Compose(
     [
         transforms.ToTensor(),
-        transforms.Normalize((0.0,), (1.0,)),
         transforms.Lambda(lambda x: x.to(device)),
+        transforms.Normalize((0.0,), (1.0,)),
     ]
 )
 
