@@ -18,7 +18,7 @@ torch.set_default_tensor_type(torch.DoubleTensor)
 
 _root = './data'
 _trans = transforms.Compose(
-    [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
+    [transforms.ToTensor(), transforms.Normalize((0.0,), (1.0,))])
 
 torch.manual_seed(1)
 seed(1)
