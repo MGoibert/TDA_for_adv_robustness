@@ -67,7 +67,7 @@ class Architecture(nn.Module):
         }
 
     def get_model_initial_savepath(self):
-        return f"{rootpath}/trained_models/{str(self)}_initial.model"
+        return f"{rootpath}/trained_models/{self.name}_initial.model"
 
     def get_initial_model(self) -> "Architecture":
         """
