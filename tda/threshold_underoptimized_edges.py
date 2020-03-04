@@ -169,15 +169,16 @@ def thresholdize_underopt_v2(
 
             # Thresholding the matrix
             logger.info(f"Applying underopt threshold to layer {layer_idx} !")
+            matrix_shape = architecture.layers[layer_idx].matrix.shape
+            logger.info(f"Matrix shape is {matrix_shape}")
+
             architecture.layers[layer_idx].matrix = coo_matrix(
                 (
+                    architecture.layers[layer_idx].matrix.data[loc],
                     (
-                        architecture.layers[layer_idx].matrix.data[loc],
-                        (
-                            architecture.layers[layer_idx].matrix.row[loc],
-                            architecture.layers[layer_idx].matrix.col[loc],
-                        ),
+                        architecture.layers[layer_idx].matrix.row[loc],
+                        architecture.layers[layer_idx].matrix.col[loc],
                     ),
-                    architecture.layers[layer_idx].matrix.shape,
-                )
+                ),
+                shape=matrix_shape,
             )

@@ -88,20 +88,20 @@ def train_network(
         init_weight_dict = copy.deepcopy(model.state_dict())
 
     if model.name in [mnist_lenet.name, fashion_mnist_lenet.name]:
-        lr = 0.1
+        lr = 1e-3
         patience = 12
     elif model.name == svhn_lenet.name:
-        lr = 0.05
+        lr = 0.0008
         patience = 40
     elif model.name in [mnist_mlp.name, fashion_mnist_mlp.name]:
-        lr = 0.1
+        lr = 1e-3
         patience = 5
     elif model.name == cifar_lenet.name:
-        lr = 0.2
+        lr = 1e-3
         patience = 15
 
-    optimizer = optim.SGD(model.parameters(), lr=lr)
-    #  optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
+    #optimizer = optim.SGD(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.95, 0.99))
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=patience, verbose=True, factor=0.5
@@ -156,7 +156,7 @@ def train_network(
             val_loss = loss_func(y_val_pred, y_val)
             logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")
             loss_history.append(val_loss.item())
-        if True:  # epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
+        if False:  # epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
             scheduler.step(val_loss)
         if epoch % 10 == 0:
             logger.info(f"Val acc = {compute_val_acc(model, val_loader)}")
