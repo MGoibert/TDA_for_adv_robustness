@@ -1,6 +1,6 @@
 from r3d3 import R3D3Experiment
 
-from tda.embeddings import EmbeddingType, KernelType
+from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
 from tda.models.architectures import mnist_lenet
 from tda.rootpath import rootpath, db_path
 
@@ -16,6 +16,9 @@ experiment = R3D3Experiment(
         'architecture': [
             mnist_lenet.name
         ],
+        'threshold_strategy': [
+            ThresholdStrategy.ActivationValue
+        ],
         'epochs': [
             50
         ],
@@ -23,10 +26,10 @@ experiment = R3D3Experiment(
             "MNIST"
         ],
         'dataset_size': [
-            100
+            500
         ],
         'attack_type': [
-            "FGSM", "BIM", "DeepFool", "CW"
+            "FGSM"  #  , "BIM", "DeepFool", "CW"
         ],
         'thresholds': [
             '0;1;0_-1;0;0.1_1;2;0.1_2;3;0.025_3;4;0_5;6;0'

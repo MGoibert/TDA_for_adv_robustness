@@ -49,7 +49,7 @@ def get_embedding(
         line: DatasetLine,
         architecture: Architecture,
         thresholds: Dict,
-        threshold_strategy: str = ThresholdStrategy.UnderoptimizedEdgeMovement,
+        threshold_strategy: str,
         params: Dict = dict(),
         save=None
 ):
