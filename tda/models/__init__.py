@@ -82,11 +82,7 @@ def train_network(
     # Save model initial values
     model.epochs = num_epochs
 
-    if device.type == "cuda":
-        logger.info(f"Learning on GPU {device}")
-        model.cuda(device)
-    else:
-        logger.info("Learning on CPU")
+    logger.info(f"Learnig on device {device}")
 
     if prune_percentile != 0.0:
         init_weight_dict = copy.deepcopy(model.state_dict())
@@ -120,6 +116,7 @@ def train_network(
         model.set_train_mode()
 
         for x_batch, y_batch in train_loader:
+            y_batch = y_batch.to(device)
             x_batch = x_batch.double()
             if train_noise > 0.0:
                 x_batch_noisy = torch.clamp(
@@ -129,6 +126,7 @@ def train_network(
                 y_batch_noisy = y_batch
             optimizer.zero_grad()
             y_pred = model(x_batch)
+
             loss = loss_func(y_pred, y_batch)
             if train_noise > 0.0:
                 y_pred_noisy = model(x_batch_noisy)
@@ -152,6 +150,7 @@ def train_network(
             optimizer.step()
         model.set_eval_mode()
         for x_val, y_val in val_loader:
+            y_val = y_val.to(device)
             x_val = x_val.double()
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
@@ -191,10 +190,8 @@ def get_deep_model(
     force_retrain: bool = False,
     pretrained_pth: str = None,
 ) -> Architecture:
-    loss_func = nn.CrossEntropyLoss()
 
-    # Ensuring architecture is on the right device
-    architecture.to(device)
+    loss_func = nn.CrossEntropyLoss()
 
     if pretrained_pth is not None:
         # Experimental: to help loading an existing model
@@ -206,8 +203,6 @@ def get_deep_model(
         )
         state_dict = {key.replace(".", "_"): state_dict[key] for key in state_dict}
         architecture.load_state_dict(state_dict)
-        if device.type == "cuda":
-            architecture.cuda(device)
         architecture.epochs = "custom"
         return architecture, loss_func
 
