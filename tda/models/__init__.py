@@ -106,8 +106,8 @@ def train_network(
         lr = 0.2
         patience = 15
 
-    # optimizer = optim.SGD(model.parameters(), lr=lr)
-    optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
+    optimizer = optim.SGD(model.parameters(), lr=lr)
+    #  optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=patience, verbose=True, factor=0.5
@@ -122,9 +122,8 @@ def train_network(
         model.set_train_mode()
 
         for x_batch, y_batch in train_loader:
-            if device.type == "cuda":
-                x_batch = x_batch.to(device)
-                y_batch = y_batch.to(device)
+            x_batch = x_batch.to(device)
+            y_batch = y_batch.to(device)
             x_batch = x_batch.double()
             if train_noise > 0.0:
                 x_batch_noisy = torch.clamp(
@@ -201,6 +200,9 @@ def get_deep_model(
 ) -> Architecture:
     loss_func = nn.CrossEntropyLoss()
 
+    # Ensuring architecture is on the right device
+    architecture.to(device)
+
     if pretrained_pth is not None:
         # Experimental: to help loading an existing model
         # possibly trained outside of our framework
@@ -242,7 +244,7 @@ def get_deep_model(
     except FileNotFoundError:
         logger.info(f"Unable to find model in {model_filename}... Retraining it...")
 
-        x, _ = dataset.train_dataset[0]
+        x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
         architecture.build_matrices()
         filename = architecture.get_model_initial_savepath()
@@ -267,9 +269,6 @@ def get_deep_model(
         logger.info(f"Validation accuracy = {val_accuracy}")
         test_accuracy = compute_test_acc(architecture, dataset.test_loader)
         logger.info(f"Test accuracy = {test_accuracy}")
-
-    if device.type == "cuda":
-        architecture.cuda(device)
 
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
