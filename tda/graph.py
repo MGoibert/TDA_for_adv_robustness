@@ -83,7 +83,8 @@ class Graph(object):
     def thresholdize_underopt(self, ud):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
-            if layer_link in ud.keys():
+            destination_layer = layer_link[1]
+            if destination_layer in ud.keys():
                 v2 = np.zeros(np.shape(v))
                 loc = tuple([list(map(itemgetter(0), ud[layer_link])), list(map(itemgetter(1), ud[layer_link]))])
                 v2[loc] = v.todense()[loc]

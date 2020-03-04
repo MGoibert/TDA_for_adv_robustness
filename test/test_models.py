@@ -123,9 +123,7 @@ def test_new_threshold():
 
     thresholds = process_thresholds_underopt(
         raw_thresholds="0.1_0.1_0.1_0.1_0.1",
-        dataset=dataset,
         architecture=architecture,
-        dataset_size=10
     )
 
 
