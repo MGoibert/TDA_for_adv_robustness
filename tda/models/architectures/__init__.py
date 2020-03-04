@@ -1,4 +1,5 @@
 from typing import List
+from tda.devices import device
 from .architecture import Architecture
 
 from .mnist_models import (
@@ -44,7 +45,7 @@ known_architectures: List[Architecture] = [
 def get_architecture(architecture_name: str) -> Architecture:
     for archi in known_architectures:
         if architecture_name == archi.name:
-            return archi
+            return archi.to(device)
 
 
 # Hack to deserialize models

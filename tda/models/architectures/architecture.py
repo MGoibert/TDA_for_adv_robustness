@@ -143,8 +143,7 @@ class Architecture(nn.Module):
 
     def forward(self, x, store_for_graph=False, output="final"):
         # List to store intermediate results if needed
-        if device.type == "cuda":
-            x = x.to(device)
+        x = x.to(device)
         if self.preprocess is not None:
             x = self.preprocess(x)
 
