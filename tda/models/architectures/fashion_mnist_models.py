@@ -8,14 +8,14 @@ from tda.models.layers import (
 )
 from .architecture import Architecture
 from .mnist_models import (
-    mnist_preprocess_cnn,
-    mnist_preprocess_flatten,
+    mnist_preprocess2,
+    mnist_preprocess,
     mnist_preprocess_cnn_0_1,
 )
 
 fashion_mnist_lenet = Architecture(
     name="fashion_mnist_lenet",
-    preprocess=mnist_preprocess_cnn,
+    preprocess=mnist_preprocess2,
     layers=[
         ConvLayer(
             1, 10, 5, activ=F.relu, bias=True, name="conv1"
@@ -55,7 +55,7 @@ fashion_mnist_lenet_0_1 = Architecture(
 
 fashion_mnist_mlp = Architecture(
     name="fashion_mnist_mlp",
-    preprocess=mnist_preprocess_flatten,
+    preprocess=mnist_preprocess,
     layers=[
         LinearLayer(28 * 28, 512, activ=F.relu, name="fc0"),
         LinearLayer(512, 256, activ=F.relu, name="fc1"),
