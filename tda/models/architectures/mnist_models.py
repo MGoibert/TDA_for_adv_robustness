@@ -44,8 +44,7 @@ mnist_small_mlp = Architecture(
     ],
 )
 
-def mnist_lenet():
-    return Architecture(
+mnist_lenet = Architecture(
     name="mnist_lenet",
     preprocess=mnist_preprocess2,
     layers=[
