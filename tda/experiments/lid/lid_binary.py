@@ -82,7 +82,8 @@ def get_config() -> Config:
 def create_lid_dataset(
         config: Config,
         archi: Architecture,
-        input_dataset: typing.List[DatasetLine]
+        input_dataset: typing.List[DatasetLine],
+        clean_dataset: typing.List[DatasetLine]
 ) -> (typing.List, typing.List, typing.List):
     logger.debug(f"Dataset size is {len(input_dataset)}")
 
@@ -97,6 +98,7 @@ def create_lid_dataset(
     for batch_idx in range(nb_batches):
 
         raw_batch = input_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
+        raw_batch_clean = clean_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
 
         actual_batch_size = len(raw_batch)  # Can be < config.batch_size (for the last batch)
         number_of_nn = int(actual_batch_size * config.perc_of_nn)
@@ -107,6 +109,8 @@ def create_lid_dataset(
 
         activations = archi.forward(
             torch.cat([line.x.unsqueeze(0) for line in raw_batch]), output="all_inner")
+        activations_clean = archi.forward(
+            torch.cat([line.x.unsqueeze(0) for line in raw_batch_clean]), output="all_inner")
 
         lids = np.zeros((actual_batch_size, len(archi.layers) - 1))
 
@@ -118,8 +122,9 @@ def create_lid_dataset(
                 # Skipping softmax
                 continue
             activations_layer = activations[layer_idx].reshape(actual_batch_size, -1).cpu().detach().numpy()
+            activations_layer_clean = activations_clean[layer_idx].reshape(actual_batch_size, -1).cpu().detach().numpy()
 
-            distances = euclidean_distances(activations_layer, activations_layer)
+            distances = euclidean_distances(activations_layer, activations_layer_clean)
 
             for sample_idx in range(actual_batch_size):
                 z = distances[sample_idx]
@@ -156,15 +161,15 @@ def get_feature_datasets(
         all_epsilons=epsilons
     )
 
-    embeddings_train = create_lid_dataset(config, archi, train_clean)[0]
-    embeddings_test = create_lid_dataset(config, archi, test_clean)[0]
+    embeddings_train = create_lid_dataset(config, archi, train_clean, train_clean)[0]
+    embeddings_test = create_lid_dataset(config, archi, test_clean, test_clean)[0]
 
     adv_embedding_train = {
-        epsilon: create_lid_dataset(config, archi, train_adv[epsilon])[0] for epsilon in epsilons
+        epsilon: create_lid_dataset(config, archi, train_adv[epsilon], train_clean)[0] for epsilon in epsilons
     }
 
     adv_embedding_test = {
-        epsilon: create_lid_dataset(config, archi, test_adv[epsilon])[0] for epsilon in epsilons
+        epsilon: create_lid_dataset(config, archi, test_adv[epsilon], test_clean)[0] for epsilon in epsilons
     }
 
     logger.info(f"Generated {len(embeddings_train)} clean embeddings for train")
