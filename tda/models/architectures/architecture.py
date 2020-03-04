@@ -56,6 +56,8 @@ class Architecture(nn.Module):
 
         self.epochs = 0
 
+        self.to(device)
+
     def build_matrices(self):
         for layer in self.layers:
             if layer.graph_layer:
@@ -67,7 +69,7 @@ class Architecture(nn.Module):
         }
 
     def get_model_initial_savepath(self):
-        return f"{rootpath}/trained_models/{str(self)}_initial.model"
+        return f"{rootpath}/trained_models/{self.name}_initial.model"
 
     def get_initial_model(self) -> "Architecture":
         """
@@ -143,8 +145,7 @@ class Architecture(nn.Module):
 
     def forward(self, x, store_for_graph=False, output="final"):
         # List to store intermediate results if needed
-        if device.type == "cuda":
-            x = x.to(device)
+        x = x.to(device)
         if self.preprocess is not None:
             x = self.preprocess(x)
 

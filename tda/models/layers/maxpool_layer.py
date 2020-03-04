@@ -29,9 +29,7 @@ class MaxPool2dLayer(Layer):
                 idx[:, i, :, :]
                 + i * self._activations_shape[2] * self._activations_shape[3]
             )
-        if idx.is_cuda:
-            idx = idx.cpu()
-        idx = idx.numpy().flatten()
+        idx = idx.cpu().numpy().flatten()
         dim = 1
         dim_out = 1
         for d in self._activations_shape:

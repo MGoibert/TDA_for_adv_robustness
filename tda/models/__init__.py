@@ -37,9 +37,8 @@ def compute_val_acc(model, val_loader):
     with no_grad():
         for data, target in val_loader:
             data = data.double()
-            if device.type == "cuda":
-                data = data.to(device)
-                target = target.to(device)
+            data = data.to(device)
+            target = target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -57,9 +56,8 @@ def compute_test_acc(model, test_loader):
     with no_grad():
         for data, target in test_loader:
             data = data.double()
-            if device.type == "cuda":
-                data = data.to(device)
-                target = target.to(device)
+            data = data.to(device)
+            target = target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -84,11 +82,7 @@ def train_network(
     # Save model initial values
     model.epochs = num_epochs
 
-    if device.type == "cuda":
-        logger.info(f"Learning on GPU {device}")
-        model.cuda(device)
-    else:
-        logger.info("Learning on CPU")
+    logger.info(f"Learnig on device {device}")
 
     if prune_percentile != 0.0:
         init_weight_dict = copy.deepcopy(model.state_dict())
@@ -106,8 +100,8 @@ def train_network(
         lr = 0.2
         patience = 15
 
-    # optimizer = optim.SGD(model.parameters(), lr=lr)
-    optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
+    optimizer = optim.SGD(model.parameters(), lr=lr)
+    #  optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=patience, verbose=True, factor=0.5
@@ -122,9 +116,7 @@ def train_network(
         model.set_train_mode()
 
         for x_batch, y_batch in train_loader:
-            if device.type == "cuda":
-                x_batch = x_batch.to(device)
-                y_batch = y_batch.to(device)
+            y_batch = y_batch.to(device)
             x_batch = x_batch.double()
             if train_noise > 0.0:
                 x_batch_noisy = torch.clamp(
@@ -134,6 +126,7 @@ def train_network(
                 y_batch_noisy = y_batch
             optimizer.zero_grad()
             y_pred = model(x_batch)
+
             loss = loss_func(y_pred, y_batch)
             if train_noise > 0.0:
                 y_pred_noisy = model(x_batch_noisy)
@@ -157,10 +150,8 @@ def train_network(
             optimizer.step()
         model.set_eval_mode()
         for x_val, y_val in val_loader:
+            y_val = y_val.to(device)
             x_val = x_val.double()
-            if device.type == "cuda":
-                x_val = x_val.to(device)
-                y_val = y_val.to(device)
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
             logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")
@@ -199,6 +190,7 @@ def get_deep_model(
     force_retrain: bool = False,
     pretrained_pth: str = None,
 ) -> Architecture:
+
     loss_func = nn.CrossEntropyLoss()
 
     if pretrained_pth is not None:
@@ -211,8 +203,6 @@ def get_deep_model(
         )
         state_dict = {key.replace(".", "_"): state_dict[key] for key in state_dict}
         architecture.load_state_dict(state_dict)
-        if device.type == "cuda":
-            architecture.cuda(device)
         architecture.epochs = "custom"
         return architecture, loss_func
 
@@ -242,7 +232,7 @@ def get_deep_model(
     except FileNotFoundError:
         logger.info(f"Unable to find model in {model_filename}... Retraining it...")
 
-        x, _ = dataset.train_dataset[0]
+        x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
         architecture.build_matrices()
         filename = architecture.get_model_initial_savepath()
@@ -267,9 +257,6 @@ def get_deep_model(
         logger.info(f"Validation accuracy = {val_accuracy}")
         test_accuracy = compute_test_acc(architecture, dataset.test_loader)
         logger.info(f"Test accuracy = {test_accuracy}")
-
-    if device.type == "cuda":
-        architecture.cuda(device)
 
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
