@@ -65,6 +65,40 @@ def compute_test_acc(model, test_loader):
     print("Test accuracy =", acc)
     return acc
 
+def go_training(model, x, y, epoch, optimizer, loss_func, train_noise=0, prune_percentile=0, mask_=None):
+
+    x = x.double()
+    y = y.to(device)
+    optimizer.zero_grad()
+
+    # Normal training
+    if train_noise == 0:
+        y_pred = model(x)
+        loss = loss_func(y_pred, y)
+        loss.backward()
+        optimizer.step()
+
+    # Training with noise
+    if train_noise > 0:
+        x_noisy = torch.clamp(x + train_noise * torch.randn(x.size()), 0, 1).double()
+        y_noisy = y_batch
+        y_pred = model(x)
+        y_pred_noisy = model(x_noisy)
+        loss = 0.75 * loss_func(y_pred, y) + 0.25 * loss_func(y_pred_noisy, y_noisy)
+        loss.backward()
+        optimizer.step()
+
+    # Training with prune percentile
+    if prune_percentile > 0:
+        for i, (name, param) in enumerate(model.named_parameters()):
+            if (
+                len(param.data.size()) > 1
+                and epoch > first_pruned_iter
+            ):
+                param.data = param.data * mask_[i]
+                param.grad.data = param.grad.data * mask_[i]
+
+
 
 def train_network(
     model: Architecture,
@@ -116,38 +150,13 @@ def train_network(
         model.set_train_mode()
 
         for x_batch, y_batch in train_loader:
-            y_batch = y_batch.to(device)
-            x_batch = x_batch.double()
-            if train_noise > 0.0:
-                x_batch_noisy = torch.clamp(
-                    x_batch + train_noise * torch.randn(x_batch.size()), -0.5, 0.5
-                ).double()
-                # x_batch = torch.cat((x_batch, x_batch_noisy), 0)
-                y_batch_noisy = y_batch
-            optimizer.zero_grad()
-            y_pred = model(x_batch)
+            # Training !!
+            if epoch == 0:
+                mask_ = None
+            go_training(model, x_batch, y_batch, epoch,
+                optimizer, loss_func, train_noise=train_noise,
+                prune_percentile=prune_percentile, mask_=mask_)
 
-            loss = loss_func(y_pred, y_batch)
-            if train_noise > 0.0:
-                y_pred_noisy = model(x_batch_noisy)
-                loss_noisy = loss_func(y_pred_noisy, y_batch_noisy)
-                loss = 0.75 * loss + 0.25 * loss_noisy
-            loss.backward()
-
-            # c = 0
-            for i, (name, param) in enumerate(model.named_parameters()):
-                if (
-                    len(param.data.size()) > 1
-                    and epoch > first_pruned_iter
-                    and prune_percentile != 0.0
-                ):
-                    param.data = param.data * mask_[i]
-                    param.grad.data = param.grad.data * mask_[i]
-
-                # c += np.count_nonzero(param.grad.data.cpu())
-            # logger.info(f"epoch {epoch} nonzero grad = {c}")
-
-            optimizer.step()
         model.set_eval_mode()
         for x_val, y_val in val_loader:
             y_val = y_val.to(device)
