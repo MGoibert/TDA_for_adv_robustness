@@ -10,7 +10,7 @@ from .architecture import Architecture
 from .mnist_models import (
     mnist_preprocess2,
     mnist_preprocess,
-    mnist_preprocess_cnn_0_1,
+    mnist_preprocess_cnn_05,
 )
 
 fashion_mnist_lenet = Architecture(
@@ -34,9 +34,9 @@ fashion_mnist_lenet = Architecture(
 
 # Same model as above but with the pixels between 0 and 1
 # (instead of -0.5 / 0.5)
-fashion_mnist_lenet_0_1 = Architecture(
-    name="fashion_mnist_lenet_0_1",
-    preprocess=mnist_preprocess_cnn_0_1,
+fashion_mnist_lenet_05 = Architecture(
+    name="fashion_mnist_lenet_05",
+    preprocess=mnist_preprocess_cnn_05,
     layers=[
         ConvLayer(
             1, 10, 5, activ=F.relu, bias=True, name="conv1"

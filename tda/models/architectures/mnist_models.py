@@ -18,8 +18,8 @@ def mnist_preprocess2(x):
     return x.view(-1, 1, 28, 28)
 
 
-def mnist_preprocess_cnn_0_1(x):
-    return x.view(-1, 1, 28, 28) + 0.5
+def mnist_preprocess_cnn_05(x):
+    return x.view(-1, 1, 28, 28) - 0.5
 
 
 mnist_mlp = Architecture(
