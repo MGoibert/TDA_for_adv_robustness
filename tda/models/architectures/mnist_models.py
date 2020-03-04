@@ -10,11 +10,11 @@ from tda.models.layers import (
 from .architecture import Architecture
 
 
-def mnist_preprocess_flatten(x):
+def mnist_preprocess(x):
     return x.view(-1, 28 * 28)
 
 
-def mnist_preprocess_cnn(x):
+def mnist_preprocess2(x):
     return x.view(-1, 1, 28, 28)
 
 
@@ -24,7 +24,7 @@ def mnist_preprocess_cnn_0_1(x):
 
 mnist_mlp = Architecture(
     name="simple_fcn_mnist",
-    preprocess=mnist_preprocess_flatten,
+    preprocess=mnist_preprocess,
     layers=[
         LinearLayer(28 * 28, 500),
         LinearLayer(500, 256),
@@ -35,7 +35,7 @@ mnist_mlp = Architecture(
 
 mnist_small_mlp = Architecture(
     name="small_mlp",
-    preprocess=mnist_preprocess_flatten,
+    preprocess=mnist_preprocess,
     layers=[
         LinearLayer(28 * 28, 200),
         LinearLayer(200, 50),
@@ -46,7 +46,7 @@ mnist_small_mlp = Architecture(
 
 mnist_lenet = Architecture(
     name="mnist_lenet",
-    preprocess=mnist_preprocess_cnn,
+    preprocess=mnist_preprocess2,
     layers=[
         ConvLayer(
             1, 10, 5, activ=F.relu, bias=True, name="conv1"

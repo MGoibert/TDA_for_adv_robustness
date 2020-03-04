@@ -4,8 +4,8 @@ from .architecture import Architecture
 from .mnist_models import (
     mnist_lenet,
     mnist_mlp,
-    mnist_preprocess_flatten,
-    mnist_preprocess_cnn,
+    mnist_preprocess,
+    mnist_preprocess2,
     mnist_preprocess_cnn_0_1,
     mnist_small_mlp,
 )
