@@ -56,6 +56,8 @@ class Architecture(nn.Module):
 
         self.epochs = 0
 
+        self.to(device)
+
     def build_matrices(self):
         for layer in self.layers:
             if layer.graph_layer:

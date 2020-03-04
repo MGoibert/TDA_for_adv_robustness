@@ -45,7 +45,7 @@ known_architectures: List[Architecture] = [
 def get_architecture(architecture_name: str) -> Architecture:
     for archi in known_architectures:
         if architecture_name == archi.name:
-            return archi.to(device)
+            return archi
 
 
 # Hack to deserialize models
