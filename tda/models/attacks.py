@@ -25,7 +25,7 @@ def where(cond, x, y):
 
 # Base class for attacks
 class _BaseAttack(object):
-    def __init__(self, model, num_iter=None, lims=(-0.5, 0.5)):
+    def __init__(self, model, num_iter=None, lims=(0, 1)):
         self.model = model
         self.num_iter = num_iter
 
@@ -36,7 +36,7 @@ class _BaseAttack(object):
         return self.run(*args, **kwargs)
 
     def clamp(self, data):
-        return torch.clamp(data, -0.5, 0.5)
+        return torch.clamp(data, 0, 1)
 
 # FGSM
 class FGSM(_BaseAttack):
@@ -66,7 +66,7 @@ class BIM(_BaseAttack):
     """
     BIM (Basic Iterative Method) or PGD method: iterative algorithm based on FGSM
     """
-    def __init__(self, model, loss_func, num_iter=20, lims=(-0.5, 0.5)):
+    def __init__(self, model, loss_func, num_iter=20, lims=(0, 1)):
         super(BIM, self).__init__(model, num_iter=num_iter, lims=lims)
         self.loss_func = loss_func
 
@@ -96,7 +96,7 @@ class BIM(_BaseAttack):
         return data
 
 # Define CW attack then CW
-def _to_attack_space(x, lims=(-0.5, 0.5)):
+def _to_attack_space(x, lims=(0, 1)):
     """
     For C&W attack: transform an input from the model space (]min, max[,
     depending on the data) into  an input of the attack space (]-inf, inf[).
@@ -116,7 +116,7 @@ def _to_attack_space(x, lims=(-0.5, 0.5)):
     return x
 
 
-def _to_model_space(x, lims=(-0.5, 0.5)):
+def _to_model_space(x, lims=(0, 1)):
     """
     For C&W attack: transform an input in the attack space (]-inf, inf[) into
     an input of the model space (]min, max[, depending on the data).
@@ -149,7 +149,7 @@ def _soft_to_logit(softmax_list):
 # ----------
 
 
-def _fct_to_min(adv_x, reconstruct_data, target, y_pred, logits, c, confidence=0, lims=(-0.5, 0.5)):
+def _fct_to_min(adv_x, reconstruct_data, target, y_pred, logits, c, confidence=0, lims=(0, 1)):
     """
     C&W attack: Objective function to minimize. Untargeted implementation.
     Parameters
@@ -207,7 +207,7 @@ def _fct_to_min(adv_x, reconstruct_data, target, y_pred, logits, c, confidence=0
 
 
 def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
-              confidence=0, learning_rate=0.1, initial_c=1, lims=(-0.5, 0.5)):
+              confidence=0, learning_rate=0.1, initial_c=1, lims=(0, 1)):
     """
     Carlini & Wagner attack.
     Untargeted implementation, L2 setup.
@@ -264,7 +264,7 @@ class CW(_BaseAttack):
     Carlini-Wagner Method
     """
     def __init__(self, model, binary_search_steps=15,
-                 num_iter=50, lims=(-0.5, 0.5)):
+                 num_iter=50, lims=(0, 1)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
         self.num_iter = num_iter
