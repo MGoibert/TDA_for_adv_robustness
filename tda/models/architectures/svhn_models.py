@@ -1,70 +1,15 @@
-from .architecture import Architecture
 import torch.nn.functional as F
-from typing import List
+
 from tda.models.layers import (
     ConvLayer,
     MaxPool2dLayer,
-    DropOut,
     LinearLayer,
     SoftMaxLayer,
     BatchNorm2d,
     ReluLayer,
     AvgPool2dLayer,
 )
-
-#######################
-# MNIST Architectures #
-#######################
-
-
-def mnist_preprocess(x):
-    return x.view(-1, 28 * 28)
-
-
-def mnist_preprocess2(x):
-    return x.view(-1, 1, 28, 28)
-
-
-mnist_mlp = Architecture(
-    name="simple_fcn_mnist",
-    preprocess=mnist_preprocess,
-    layers=[
-        LinearLayer(28 * 28, 500),
-        LinearLayer(500, 256),
-        LinearLayer(256, 10),
-        SoftMaxLayer(),
-    ],
-)
-
-mnist_small_mlp = Architecture(
-    name="small_mlp",
-    preprocess=mnist_preprocess,
-    layers=[
-        LinearLayer(28 * 28, 200),
-        LinearLayer(200, 50),
-        LinearLayer(50, 10),
-        SoftMaxLayer(),
-    ],
-)
-
-mnist_lenet = Architecture(
-    name="mnist_lenet",
-    preprocess=mnist_preprocess2,
-    layers=[
-        ConvLayer(
-            1, 10, 5, activ=F.relu, bias=True, name="conv1"
-        ),  # output 6 * 28 * 28
-        MaxPool2dLayer(2),
-        ConvLayer(
-            10, 20, 5, activ=F.relu, bias=True, name="conv2"
-        ),  # output 6 * 28 * 28
-        MaxPool2dLayer(2),
-        LinearLayer(320, 50, activ=F.relu, name="fc1"),
-        DropOut(),
-        LinearLayer(50, 10, name="fc2"),
-        SoftMaxLayer(),
-    ],
-)
+from .architecture import Architecture
 
 
 ######################
@@ -370,76 +315,3 @@ svhn_resnet_test = Architecture(
     ],
     layer_links=[(i - 1, i) for i in range(10)] + [(1, 6)],
 )
-
-#########################
-# CIFAR10 Architectures #
-#########################
-
-cifar_lenet = Architecture(
-    name="cifar_lenet",
-    preprocess=svhn_preprocess,
-    layers=[
-        ConvLayer(3, 6, 5, activ=F.relu),  # output 6 * 28 * 28
-        MaxPool2dLayer(2),
-        ConvLayer(6, 16, 5, activ=F.relu),
-        MaxPool2dLayer(2),  # output 16 * 5 * 5
-        LinearLayer(16 * 5 * 5, 120, activ=F.relu),
-        LinearLayer(120, 84, activ=F.relu),
-        LinearLayer(84, 10),
-        SoftMaxLayer(),
-    ],
-)
-
-###############################
-# Fashion MNIST Architectures #
-###############################
-
-fashion_mnist_lenet = Architecture(
-    name="fashion_mnist_lenet",
-    preprocess=mnist_preprocess2,
-    layers=[
-        ConvLayer(
-            1, 10, 5, activ=F.relu, bias=True, name="conv1"
-        ),  # output 6 * 28 * 28
-        MaxPool2dLayer(2),
-        ConvLayer(
-            10, 20, 5, activ=F.relu, bias=True, name="conv2"
-        ),  # output 6 * 28 * 28
-        MaxPool2dLayer(2),
-        LinearLayer(320, 50, activ=F.relu, name="fc1"),
-        # DropOut(),
-        LinearLayer(50, 10, name="fc2"),
-        SoftMaxLayer(),
-    ],
-)
-
-fashion_mnist_mlp = Architecture(
-    name="fashion_mnist_mlp",
-    preprocess=mnist_preprocess,
-    layers=[
-        LinearLayer(28 * 28, 512, activ=F.relu, name="fc0"),
-        LinearLayer(512, 256, activ=F.relu, name="fc1"),
-        LinearLayer(256, 128, activ=F.relu, name="fc2"),
-        LinearLayer(128, 64, activ=F.relu, name="fc3"),
-        LinearLayer(64, 10, activ=F.relu, name="fc4"),
-        SoftMaxLayer()
-    ])
-
-known_architectures: List[Architecture] = [
-    mnist_mlp,
-    svhn_cnn_simple,
-    svhn_lenet,
-    svhn_resnet,
-    mnist_lenet,
-    mnist_small_mlp,
-    svhn_resnet_test,
-    cifar_lenet,
-    fashion_mnist_lenet,
-    fashion_mnist_mlp
-]
-
-
-def get_architecture(architecture_name: str) -> Architecture:
-    for archi in known_architectures:
-        if architecture_name == archi.name:
-            return archi
