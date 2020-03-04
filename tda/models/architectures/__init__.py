@@ -18,7 +18,7 @@ from .svhn_models import (
     svhn_preprocess,
 )
 
-from .fashion_mnist_models import fashion_mnist_mlp, fashion_mnist_lenet
+from .fashion_mnist_models import fashion_mnist_mlp, fashion_mnist_lenet, fashion_mnist_lenet_0_1
 
 from .cifar10_models import cifar_lenet
 
@@ -32,6 +32,7 @@ known_architectures: List[Architecture] = [
     svhn_resnet_test,
     cifar_lenet,
     fashion_mnist_lenet,
+    fashion_mnist_lenet_0_1,
     fashion_mnist_mlp,
 ]
 
