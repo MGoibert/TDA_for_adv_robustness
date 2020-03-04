@@ -6,19 +6,24 @@ Created on Wed May 29 13:27:17 2019
 Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
-import torch
-import torchvision.transforms as transforms
-import torchvision.datasets as dset
-from operator import itemgetter
 from random import shuffle, seed
 
+import torch
+import torchvision.datasets as dset
+import torchvision.transforms as transforms
+
 from tda.tda_logging import get_logger
+from tda.devices import device
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
 _root = './data'
 _trans = transforms.Compose(
-    [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
+    [
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (1.0,)),
+        transforms.Lambda(lambda x: x.to(device)),
+    ])
 
 torch.manual_seed(1)
 seed(1)
