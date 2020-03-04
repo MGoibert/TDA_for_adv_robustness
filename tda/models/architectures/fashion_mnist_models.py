@@ -34,7 +34,7 @@ fashion_mnist_lenet = Architecture(
 
 # Same model as above but with the pixels between 0 and 1
 # (instead of -0.5 / 0.5)
-fashion_mnist_lenet = Architecture(
+fashion_mnist_lenet_0_1 = Architecture(
     name="fashion_mnist_lenet_01",
     preprocess=mnist_preprocess_cnn_0_1,
     layers=[
