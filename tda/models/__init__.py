@@ -84,10 +84,6 @@ def train_network(
     # Save model initial values
     model.epochs = num_epochs
 
-    filename = model.get_model_initial_savepath()
-    torch.save(model, filename)
-    logger.info(f"Saved initial model in {filename}")
-
     if device.type == "cuda":
         logger.info(f"Learning on GPU {device}")
         model.cuda(device)
@@ -246,6 +242,13 @@ def get_deep_model(
     except FileNotFoundError:
         logger.info(f"Unable to find model in {model_filename}... Retraining it...")
 
+        x, _ = dataset.train_dataset[0]
+        architecture.forward(x, store_for_graph=False, output="final")
+        architecture.build_matrices()
+        filename = architecture.get_model_initial_savepath()
+        torch.save(architecture, filename)
+        logger.info(f"Saved initial model in {filename}")
+
         # Train the NN
         train_network(
             architecture,
@@ -275,10 +278,6 @@ def get_deep_model(
 
     if with_details:
         return architecture, val_accuracy, test_accuracy
-
-    # Infer input shape from sample
-    x, _ = dataset.train_dataset[0]
-    architecture.forward(x, store_for_graph=False, output="final")
 
     # Build matrices
     architecture.build_matrices()
