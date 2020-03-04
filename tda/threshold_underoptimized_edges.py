@@ -151,29 +151,31 @@ def thresholdize_underopt_v2(
 
     for layer_idx in matrices.keys():
 
-        arr = np.array(matrices[layer_idx].data)
-        arr_init = np.array(matrices_init[layer_idx].data)
+        if matrices[layer_idx] is not None:
 
-        if method == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2:
-            value = np.abs(arr) - np.abs(arr_init)
-        elif method == ThresholdStrategy.UnderoptimizedLargeFinalV2:
-            value = np.abs(arr)
-        else:
-            raise NotImplementedError(f"Unknown method {method}")
+            arr = np.array(matrices[layer_idx].data)
+            arr_init = np.array(matrices_init[layer_idx].data)
 
-        min_value = np.quantile(value, quantiles[layer_idx])
+            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2:
+                value = np.abs(arr) - np.abs(arr_init)
+            elif method == ThresholdStrategy.UnderoptimizedLargeFinalV2:
+                value = np.abs(arr)
+            else:
+                raise NotImplementedError(f"Unknown method {method}")
 
-        loc = arr < min_value
+            min_value = np.quantile(value, quantiles[layer_idx])
 
-        # Thresholding the matrix
-        logger.info(f"Applying underopt threshold to layer {layer_idx} !")
-        architecture.layers[layer_idx].matrix = coo_matrix(
-            (
-                architecture.layers[layer_idx].matrix.data[loc],
+            loc = arr < min_value
+
+            # Thresholding the matrix
+            logger.info(f"Applying underopt threshold to layer {layer_idx} !")
+            architecture.layers[layer_idx].matrix = coo_matrix(
                 (
-                    architecture.layers[layer_idx].matrix.row[loc],
-                    architecture.layers[layer_idx].matrix.col[loc],
-                ),
-                architecture.layers[layer_idx].matrix.shape,
+                    architecture.layers[layer_idx].matrix.data[loc],
+                    (
+                        architecture.layers[layer_idx].matrix.row[loc],
+                        architecture.layers[layer_idx].matrix.col[loc],
+                    ),
+                    architecture.layers[layer_idx].matrix.shape,
+                )
             )
-        )

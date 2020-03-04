@@ -17,7 +17,7 @@ class MaxPool2dLayer(Layer):
     def build_matrix(self) -> coo_matrix:
         # Unfortunately, we cannot precompute the matrix
         # for MaxPool2dLayers
-        pass
+        self.matrix = None
 
     def get_matrix(self):
         """
