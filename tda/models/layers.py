@@ -61,9 +61,7 @@ class LinearLayer(Layer):
 
         for parentidx in self._activations:
             weight = self._activations[parentidx] * m
-            if weight.is_cuda:
-                weight = weight.cpu()
-            ret[parentidx] = coo_matrix(np.abs(weight.detach().numpy()))
+            ret[parentidx] = coo_matrix(np.abs(weight.cpu().detach().numpy()))
 
         return ret
 
@@ -101,9 +99,7 @@ class MaxPool2dLayer(Layer):
         Return the weight of the linear layer, ignore biases
         """
         idx = self._indx
-        if idx.is_cuda:
-            idx = idx.cpu()
-        idx = idx.numpy().flatten()
+        idx = idx.cpu().numpy().flatten()
         dim = 1
         dim_out = 1
         for d in self._activations_shape:

@@ -1,4 +1,5 @@
 from typing import List
+from tda.devices import device
 from .architecture import Architecture
 
 from .mnist_models import (
