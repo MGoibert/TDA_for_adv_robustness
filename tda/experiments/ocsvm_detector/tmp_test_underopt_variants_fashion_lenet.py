@@ -1,7 +1,7 @@
 from r3d3 import R3D3Experiment
 
 from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
-from tda.models.architectures import fashion_mnist_lenet
+from tda.models.architectures import fashion_mnist_mlp
 from tda.rootpath import rootpath, db_path
 
 experiment = R3D3Experiment(
@@ -14,7 +14,7 @@ experiment = R3D3Experiment(
             KernelType.SlicedWasserstein
         ],
         'architecture': [
-            fashion_mnist_lenet.name
+            fashion_mnist_mlp.name
         ],
         'threshold_strategy': [
             ThresholdStrategy.ActivationValue,
@@ -22,7 +22,7 @@ experiment = R3D3Experiment(
             ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2
         ],
         'epochs': [
-            200
+            50
         ],
         'dataset': [
             "FashionMNIST"
