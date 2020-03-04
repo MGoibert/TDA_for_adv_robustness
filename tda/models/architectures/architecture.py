@@ -75,6 +75,9 @@ class Architecture(nn.Module):
         """
         return torch.load(self.get_model_initial_savepath())
 
+    def get_initial_model_v2(self) -> "Architecture":
+        self.name
+
     def __repr__(self):
         return f"{self.name}_{self.epochs}"
 
