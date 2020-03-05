@@ -351,20 +351,22 @@ def run_experiment(config: Config):
 
     end_time = time.time()
 
+    metrics = {
+        "name": "Graph",
+        "aucs_supervised": aucs_supervised,
+        "aucs_unsupervised": aucs_unsupervised,
+        "running_time": end_time - start_time,
+        "l2_diff": stats,
+        "linf_diff": stats_inf,
+    }
+
+    if thresholds is not None:
+        metrics["effective_thresholds"] = (
+            {"_".join([str(v) for v in key]): thresholds[key] for key in thresholds},
+        )
+
     my_db.update_experiment(
-        experiment_id=config.experiment_id,
-        run_id=config.run_id,
-        metrics={
-            "name": "Graph",
-            "aucs_supervised": aucs_supervised,
-            "aucs_unsupervised": aucs_unsupervised,
-            "effective_thresholds": {
-                "_".join([str(v) for v in key]): thresholds[key] for key in thresholds
-            },
-            "running_time": end_time - start_time,
-            "l2_diff": stats,
-            "linf_diff": stats_inf,
-        },
+        experiment_id=config.experiment_id, run_id=config.run_id, metrics=metrics
     )
 
     logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !!")
