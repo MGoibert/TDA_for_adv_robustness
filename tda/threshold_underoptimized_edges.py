@@ -11,10 +11,12 @@ from tda.embeddings import ThresholdStrategy
 logger = get_logger("Thresholds Underoptimized")
 
 
-def process(x):
-    if x == "inf":
-        return np.inf
-    return float(x)
+def _process_raw_quantiles(raw_quantiles: str, model: Architecture) -> typing.Dict[int, float]:
+    ret = dict()
+    for raw_quantile in raw_quantiles.split("_"):
+        layer_idx, value = raw_quantile.split(":")
+        ret[int(layer_idx)] = float(value)
+    return ret
 
 
 def underopt_edges(
@@ -23,10 +25,6 @@ def underopt_edges(
     limit_val = dict()
     qtest = dict()
     underoptimized_edges = dict()
-    if isinstance(quantile, float):
-        quantile = np.repeat(
-            quantile, len([lk for lk in model.state_dict().keys() if "weight" in lk])
-        )
     i = 0
     for layer in model.state_dict().keys():
         if "weight" in layer:
@@ -94,9 +92,9 @@ def process_thresholds_underopt(
 
     architecture_init = architecture.get_initial_model()
 
-    q = [process(x) for x in raw_thresholds.split("_")]
+    quantiles_per_layer = _process_raw_quantiles(raw_thresholds)
     underopt = underopt_edges(
-        quantile=q, method=method, model=architecture, model_init=architecture_init
+        quantile=quantiles_per_layer, method=method, model=architecture, model_init=architecture_init
     )
 
     if architecture.name in ["mnist_lenet", "fashion_mnist_lenet"]:
