@@ -190,9 +190,9 @@ def get_sample_dataset(
 
         # Ok we have found a point
         l2_norm = np.linalg.norm(
-            torch.abs((processed_sample[0].double() - sample[0].double()).flatten()).detach().numpy(), 2)
+            torch.abs((processed_sample[0].double() - sample[0].double()).flatten()).cpu().detach().numpy(), 2)
         linf_norm = np.linalg.norm(
-            torch.abs((processed_sample[0].double() - sample[0].double()).flatten()).detach().numpy(), np.inf)
+            torch.abs((processed_sample[0].double() - sample[0].double()).flatten()).cpu().detach().numpy(), np.inf)
 
         nb_samples += 1
         if nb_samples % 10 == 0:
