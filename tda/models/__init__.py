@@ -134,8 +134,8 @@ def train_network(
         lr = 0.2
         patience = 15
 
-    optimizer = optim.SGD(model.parameters(), lr=lr)
-    #  optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
+    # optimizer = optim.SGD(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
     loss_history = []
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=patience, verbose=True, factor=0.5
