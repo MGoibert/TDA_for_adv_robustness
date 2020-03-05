@@ -86,7 +86,12 @@ class Graph(object):
             destination_layer = layer_link[1]
             if destination_layer in ud.keys():
                 v2 = np.zeros(np.shape(v))
-                loc = tuple([list(map(itemgetter(0), ud[layer_link])), list(map(itemgetter(1), ud[layer_link]))])
+                loc = tuple(
+                    [
+                        list(map(itemgetter(0), ud[destination_layer])),
+                        list(map(itemgetter(1), ud[destination_layer])),
+                    ]
+                )
                 v2[loc] = v.todense()[loc]
                 v = coo_matrix(v2)
             else:
