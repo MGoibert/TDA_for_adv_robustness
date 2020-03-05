@@ -10,16 +10,16 @@ experiment = R3D3Experiment(
             mnist_mlp.name
         ],
         'epochs': [
-            25
+            50
         ],
         'dataset': [
             "MNIST"
         ],
         'attack_type': [
-            "FGSM", "BIM", "CW", "DeepFool"
+            "FGSM" #, "BIM", "CW", "DeepFool"
         ],
         'noise': [
-            0.1
+            0.0
         ],
         "dataset_size": [
             500
