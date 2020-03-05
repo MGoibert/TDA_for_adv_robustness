@@ -299,7 +299,7 @@ def get_feature_datasets(
 
                     # Now we have to do a second pass of optimization
                     best_score = np.inf
-                    fhat = fhat.detach().numpy()
+                    fhat = fhat.cpu().detach().numpy()
 
                     for clazz in all_classes:
                         mu_clazz = mean_per_class[layer_idx][clazz]
