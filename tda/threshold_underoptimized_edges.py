@@ -11,7 +11,7 @@ from tda.embeddings import ThresholdStrategy
 logger = get_logger("Thresholds Underoptimized")
 
 
-def _process_raw_quantiles(raw_quantiles: str, model: Architecture) -> typing.Dict[int, float]:
+def _process_raw_quantiles(raw_quantiles: str) -> typing.Dict[int, float]:
     ret = dict()
     for raw_quantile in raw_quantiles.split("_"):
         layer_idx, value = raw_quantile.split(":")
@@ -20,25 +20,24 @@ def _process_raw_quantiles(raw_quantiles: str, model: Architecture) -> typing.Di
 
 
 def underopt_edges(
-    quantile: float, method: str, model: Architecture, model_init: Architecture
+    quantiles: typing.Dict, method: str, model: Architecture, model_init: Architecture
 ):
     limit_val = dict()
     qtest = dict()
     underoptimized_edges = dict()
-    i = 0
-    for layer in model.state_dict().keys():
-        if "weight" in layer:
+    for layer_idx, layer in enumerate(model.layers):
+        if "weight" in layer.func.state_dict():
+            param = layer.func.state_dict()["weight"]
+            param_init = model_init.layers[layer_idx].func.state_dict()["weight"]
+
             if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
-                limit_val[layer] = torch.abs(model.state_dict()[layer]) - torch.abs(
-                    model_init[layer]
-                )
+                limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
-                limit_val[layer] = torch.abs(model.state_dict()[layer])
-            qtest[layer] = np.quantile(limit_val[layer], quantile[i])
-            underoptimized_edges[layer] = (
-                (limit_val[layer] < qtest[layer]).nonzero().numpy().tolist()
+                limit_val[layer_idx] = torch.abs(param)
+            qtest[layer_idx] = np.quantile(limit_val[layer], quantiles[layer_idx])
+            underoptimized_edges[layer_idx] = (
+                (limit_val[layer_idx] < qtest[layer_idx]).nonzero().numpy().tolist()
             )
-            i += 1
 
     return underoptimized_edges
 
@@ -93,8 +92,11 @@ def process_thresholds_underopt(
     architecture_init = architecture.get_initial_model()
 
     quantiles_per_layer = _process_raw_quantiles(raw_thresholds)
-    underopt = underopt_edges(
-        quantile=quantiles_per_layer, method=method, model=architecture, model_init=architecture_init
+    underoptimized_edges = underopt_edges(
+        quantiles=quantiles_per_layer,
+        method=method,
+        model=architecture,
+        model_init=architecture_init,
     )
 
     if architecture.name in ["mnist_lenet", "fashion_mnist_lenet"]:
@@ -104,22 +106,15 @@ def process_thresholds_underopt(
     else:
         raise NotImplementedError(f"This function cannot handle {architecture.name}")
 
-    underoptimized_edges = dict()
-    j = 0
+    # Post-processing the ConvLayers
     c = 0
-    for i, layer in enumerate(architecture.layers):
+    for layer_idx, layer in enumerate(architecture.layers):
         if isinstance(layer.func, torch.nn.Conv2d):
             kernel_shape = layer.func.weight.size()
-            key = list(underopt.keys())[j]
-            underoptimized_edges[architecture.layer_links[i]] = kernel_to_edge_idx(
-                underopt[key], kernel_shape, mat_shapes[c]
+            underoptimized_edges[layer_idx] = kernel_to_edge_idx(
+                underoptimized_edges[layer_idx], kernel_shape, mat_shapes[c]
             )
-            j += 1
             c += 1
-        elif isinstance(layer.func, torch.nn.Linear):
-            key = list(underopt.keys())[j]
-            underoptimized_edges[architecture.layer_links[i]] = underopt[key]
-            j += 1
 
     logger.info(f"Keys = {underoptimized_edges.keys()}")
     logger.info(
@@ -140,7 +135,7 @@ def thresholdize_underopt_v2(
     :return:
     """
 
-    quantiles = [process(x) for x in raw_thresholds.split("_")]
+    quantiles_per_layer = _process_raw_quantiles(raw_thresholds)
 
     architecture_init = architecture.get_initial_model()
 
@@ -161,7 +156,7 @@ def thresholdize_underopt_v2(
             else:
                 raise NotImplementedError(f"Unknown method {method}")
 
-            min_value = np.quantile(value, quantiles[layer_idx])
+            min_value = np.quantile(value, quantiles_per_layer[layer_idx])
 
             loc = arr < min_value
 
