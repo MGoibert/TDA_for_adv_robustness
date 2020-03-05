@@ -8,7 +8,6 @@ from scipy.sparse import coo_matrix, bmat as sparse_bmat
 
 from tda.models.architectures import Architecture
 from tda.tda_logging import get_logger
-
 logger = get_logger("GraphComputation")
 
 import os
@@ -19,18 +18,17 @@ import typing
 import numpy as np
 from operator import itemgetter
 
-
 def use_sigmoid(v, layer_link, file, k="auto", quant=0.9):
-    # dict_quant = torch.load("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/cache/get_stats/architecture=svhn_lenet_dataset=svhn_dataset_size=100.cached")
-    # data = data.todense()
+    #dict_quant = torch.load("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/cache/get_stats/architecture=svhn_lenet_dataset=svhn_dataset_size=100.cached")
+    #data = data.todense()
     dict_quant = {
-        (-1, 0): {0.5: 32476, 0.9: 147831, 0.99: 304033},
-        (0, 1): {0.5: 792848, 0.9: 2538853, 0.99: 5852197},
-        (1, 2): {0.5: 100556, 0.9: 580880, 0.99: 1958327},
-        (2, 3): {0.5: 2549860, 0.9: 8806744, 0.99: 18652663},
-        (3, 4): {0.5: 111805, 0.9: 656135, 0.99: 2082124},
-        (4, 5): {0.5: 253505, 0.9: 1483325, 0.99: 4708494},
-        (5, 6): {0.5: 1061315, 0.9: 7107406, 0.99: 22761988},
+    (-1,0): {0.5: 32476, 0.9: 147831, 0.99: 304033},
+    (0,1): {0.5: 792848, 0.9: 2538853, 0.99: 5852197},
+    (1,2): {0.5: 100556, 0.9: 580880, 0.99: 1958327},
+    (2,3): {0.5: 2549860, 0.9: 8806744, 0.99: 18652663},
+    (3,4): {0.5: 111805, 0.9: 656135, 0.99: 2082124},
+    (4,5): {0.5: 253505, 0.9: 1483325, 0.99: 4708494},
+    (5,6): {0.5: 1061315, 0.9: 7107406, 0.99: 22761988},
     }
     med = dict()
     qu = dict()
@@ -44,17 +42,23 @@ def use_sigmoid(v, layer_link, file, k="auto", quant=0.9):
     if k == "auto":
         k = -1 / (qu[layer_link] - med[layer_link]) * np.log(0.01 / 0.99)
 
-    # val = 1/(1 + np.exp(-k * (np.asarray(data) - med[layer_link])))
-    val = 1 / (1 + np.exp(-k * (v.data - med[layer_link])))
+    #val = 1/(1 + np.exp(-k * (np.asarray(data) - med[layer_link])))
+    val = 1/(1 + np.exp(-k * (v.data - med[layer_link])))
     return coo_matrix((val, (v.row, v.col)), np.shape(v))
 
 
 class Graph(object):
-    def __init__(self, edge_dict: typing.Dict):
-        self._edge_dict = edge_dict
+
+    def __init__(self,
+                 edge_dict: typing.Dict
+                 ):
+        self._edge_dict = edge_dict    
 
     @classmethod
-    def from_architecture_and_data_point(cls, architecture: Architecture, x: Tensor):
+    def from_architecture_and_data_point(cls,
+                                         architecture: Architecture,
+                                         x: Tensor
+                                         ):
         raw_edge_dict = architecture.get_graph_values(x)
         edge_dict = dict()
         for layer_link in raw_edge_dict:
@@ -62,17 +66,17 @@ class Graph(object):
             v = np.abs(v) * 10e5
             edge_dict[layer_link] = v
 
-        return cls(edge_dict=edge_dict)
+        return cls(
+            edge_dict=edge_dict
+        )
 
     def thresholdize(self, thresholds):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
-            # logger.info(f"layer link {layer_link} and shape of v = {v.todense().shape}")
+            #logger.info(f"layer link {layer_link} and shape of v = {v.todense().shape}")
             # Keeping only edges below a given threhsold
             loc = v.data < thresholds.get(layer_link, np.inf)
-            v = coo_matrix(
-                (v.data[loc].round(2), (v.row[loc], v.col[loc])), np.shape(v)
-            )
+            v = coo_matrix((v.data[loc].round(2), (v.row[loc], v.col[loc])), np.shape(v))
             # Changing the sign for the persistent diagram
             self._edge_dict[layer_link] = v
 
@@ -82,12 +86,7 @@ class Graph(object):
             destination_layer = layer_link[1]
             if destination_layer in ud.keys():
                 v2 = np.zeros(np.shape(v))
-                loc = tuple(
-                    [
-                        list(map(itemgetter(0), ud[destination_layer])),
-                        list(map(itemgetter(1), ud[destination_layer])),
-                    ]
-                )
+                loc = tuple([list(map(itemgetter(0), ud[layer_link])), list(map(itemgetter(1), ud[layer_link]))])
                 v2[loc] = v.todense()[loc]
                 v = coo_matrix(v2)
             else:
@@ -95,22 +94,20 @@ class Graph(object):
             self._edge_dict[layer_link] = v
 
     def sigmoidize(self, file=False, quant=0.99):
-        dict_quant = {
-            (-1, 0): {0.5: 32476, 0.9: 147831, 0.99: 304033},
-            (0, 1): {0.5: 792848, 0.9: 2538853, 0.99: 5852197},
-            (1, 2): {0.5: 100556, 0.9: 580880, 0.99: 1958327},
-            (2, 3): {0.5: 2549860, 0.9: 8806744, 0.99: 18652663},
-            (3, 4): {0.5: 111805, 0.9: 656135, 0.99: 2082124},
-            (4, 5): {0.5: 253505, 0.9: 1483325, 0.99: 4708494},
-            (5, 6): {0.5: 1061315, 0.9: 7107406, 0.99: 22761988},
-        }
+        dict_quant = {(-1,0): {0.5: 32476, 0.9: 147831, 0.99: 304033},
+                        (0,1): {0.5: 792848, 0.9: 2538853, 0.99: 5852197},
+                        (1,2): {0.5: 100556, 0.9: 580880, 0.99: 1958327},
+                        (2,3): {0.5: 2549860, 0.9: 8806744, 0.99: 18652663},
+                        (3,4): {0.5: 111805, 0.9: 656135, 0.99: 2082124},
+                        (4,5): {0.5: 253505, 0.9: 1483325, 0.99: 4708494},
+                        (5,6): {0.5: 1061315, 0.9: 7107406, 0.99: 22761988}}
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
             # Take median and "good" quantile to scale sigmoid
             med, qu = dict_quant[layer_link][0.5], dict_quant[layer_link][quant]
             k = -1 / (qu - med) * np.log(0.00001 / 0.99999)
             # Apply sigmoid
-            val = 1 / (1 + np.exp(-k * (v.data - med)))
+            val = 1/(1 + np.exp(-k * (v.data - med)))
             v = coo_matrix((val, (v.row, v.col)), np.shape(v))
             self._edge_dict[layer_link] = v
 
@@ -128,9 +125,7 @@ class Graph(object):
         and the adjacency matrix
         """
         shapes = {key[0]: np.shape(self._edge_dict[key])[1] for key in self._edge_dict}
-        shapes.update(
-            {key[1]: np.shape(self._edge_dict[key])[0] for key in self._edge_dict}
-        )
+        shapes.update({key[1]: np.shape(self._edge_dict[key])[0] for key in self._edge_dict})
         return shapes
 
     def get_edge_list(self):
@@ -142,14 +137,15 @@ class Graph(object):
 
         shapes = self._get_shapes()
         all_layer_indices = sorted(list(shapes.keys()))
-        vertex_offset = [0] + list(
-            np.cumsum([shapes[idx] for idx in all_layer_indices])
-        )
+        vertex_offset = [0] + list(np.cumsum([
+            shapes[idx]
+            for idx in all_layer_indices
+        ]))
         vertex_offset = vertex_offset[:-1]
 
         for source_layer, target_layer in self._edge_dict:
-            offset_source = vertex_offset[source_layer + 1]
-            offset_target = vertex_offset[target_layer + 1]
+            offset_source = vertex_offset[source_layer+1]
+            offset_target = vertex_offset[target_layer+1]
             mat = self._edge_dict[(source_layer, target_layer)]
 
             for i in range(len(mat.data)):
@@ -159,16 +155,18 @@ class Graph(object):
                 ret.append(([source_vertex, target_vertex], weight))
         return ret
 
-    def get_adjacency_matrix(self) -> np.matrix:
+    def get_adjacency_matrix(
+            self
+    ) -> np.matrix:
         edges = self.get_edge_list()
 
         data = [e[1] for e in edges]
         row = [e[0][0] for e in edges]
         col = [e[0][1] for e in edges]
 
-        # logger.info(f"Shape = {self._get_shapes().values()}")
+        #logger.info(f"Shape = {self._get_shapes().values()}")
         N = sum(self._get_shapes().values())
-        mat = coo_matrix((data + data, (row + col, col + row)), shape=(N, N))
+        mat = coo_matrix((data+data, (row+col, col+row)), shape=(N, N))
 
         return mat
 
@@ -180,8 +178,14 @@ class Graph(object):
 
         n = len(self._edge_list)
 
-        m = {key: np.transpose(self._edge_list[key]) for key in range(n)}
-        s = {key: np.shape(m[key])[0] for key in range(n)}
+        m = {
+            key: np.transpose(self._edge_list[key])
+            for key in range(n)
+        }
+        s = {
+            key: np.shape(m[key])[0]
+            for key in range(n)
+        }
 
         s[n] = np.shape(m[n - 1])[1]
 
@@ -191,5 +195,7 @@ class Graph(object):
 
         return ret
 
-    def to_nx_graph(self) -> nx.Graph:
+    def to_nx_graph(
+            self
+    ) -> nx.Graph:
         return nx.from_numpy_matrix(self.get_adjacency_matrix())
