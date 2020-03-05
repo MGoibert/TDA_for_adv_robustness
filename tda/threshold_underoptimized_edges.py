@@ -32,13 +32,13 @@ def underopt_edges(
         if "weight" in layer:
             if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
                 limit_val[layer] = torch.abs(model.state_dict()[layer]) - torch.abs(
-                    model_init[layer]
+                    model_init.state_dict()[layer]
                 )
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer] = torch.abs(model.state_dict()[layer])
-            qtest[layer] = np.quantile(limit_val[layer], quantile[i])
+            qtest[layer] = np.quantile(limit_val[layer].cpu(), quantile[i])
             underoptimized_edges[layer] = (
-                (limit_val[layer] < qtest[layer]).nonzero().numpy().tolist()
+                (limit_val[layer] < qtest[layer]).nonzero().cpu().numpy().tolist()
             )
             i += 1
 
