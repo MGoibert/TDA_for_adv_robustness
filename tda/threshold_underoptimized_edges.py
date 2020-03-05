@@ -36,7 +36,7 @@ def underopt_edges(
                 limit_val[layer_idx] = torch.abs(param)
             qtest[layer_idx] = np.quantile(limit_val[layer_idx], quantiles[layer_idx])
             underoptimized_edges[layer_idx] = (
-                (limit_val[layer_idx] < qtest[layer_idx]).nonzero().numpy().tolist()
+                (limit_val[layer_idx] < qtest[layer_idx]).nonzero().cpu().numpy().tolist()
             )
 
     return underoptimized_edges
