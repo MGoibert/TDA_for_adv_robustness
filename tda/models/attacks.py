@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 from tda.tda_logging import get_logger
+from tda.devices import device
 
 logger = get_logger("Attacks")
 
@@ -335,4 +336,4 @@ class DeepFool(_BaseAttack):
         x_adv = self.clamp(nx+eta)
         x_adv.squeeze_(0)
 
-        return x_adv
+        return x_adv.to(device)
