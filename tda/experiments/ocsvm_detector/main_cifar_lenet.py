@@ -1,9 +1,10 @@
-from r3d3 import R3D3Experiment
-from tda.rootpath import rootpath, db_path
+from r3d3 import R3D3ExperimentPlan
+
 from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
 from tda.models.architectures import cifar_lenet
+from tda.rootpath import rootpath, db_path
 
-experiment = R3D3Experiment(
+experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
     db_path=db_path,
     configs={
         'embedding_type': [
