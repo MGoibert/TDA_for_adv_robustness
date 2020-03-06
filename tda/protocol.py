@@ -3,7 +3,7 @@ import time
 import pickle
 
 import numpy as np
-from sklearn.metrics import roc_auc_score, recall_score
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.svm import OneClassSVM, SVC
 
@@ -237,9 +237,6 @@ def evaluate_embeddings(
             predictions = detector.decision_function(gram_test_supervised[i])
 
             roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
-
-
-
             logger.info(f"Supervised AUC score for param = {param} : {roc_auc_val}")
 
             if roc_auc_val > best_auc_supervised:
