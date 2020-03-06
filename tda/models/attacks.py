@@ -108,10 +108,11 @@ def _to_attack_space(x, lims=(0, 1)):
     x = (x - a) / b
 
     # from [-1, +1] to approx. (-1, +1)
-    x = x * 0.999999999999999
+    x = x * 0.99999999999999
+    x = (1 + x) / (1 - x)
 
     # from (-1, +1) to (-inf, +inf)
-    x = 1. / 2. * torch.log((1 + x) / (1 - x))
+    x = 1. / 2. * torch.log(x)
 
     return x
 
@@ -125,7 +126,7 @@ def _to_model_space(x, lims=(0, 1)):
 
     # from (-inf, +inf) to (-1, +1)
     x = (1 - torch.exp(-2 * x * 0.999)) / (1 + torch.exp(
-        -2 * x * 0.999999999999999))
+        -2 * x * 0.9999999999999))
 
     # map from (-1, +1) to (min, max)
     a = (lims[0] + lims[1]) / 2
@@ -207,7 +208,7 @@ def _fct_to_min(adv_x, reconstruct_data, target, y_pred, logits, c, confidence=0
 
 
 def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
-              confidence=0, learning_rate=0.1, initial_c=1, lims=(0, 1)):
+              confidence=0, learning_rate=0.001, initial_c=1, lims=(0, 1)):
     """
     Carlini & Wagner attack.
     Untargeted implementation, L2 setup.
@@ -238,7 +239,7 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
 
             for t in range(batch_size):
                 optimizer_CW[t].zero_grad()
-                cost[t].backward(retain_graph=True)
+                cost[t].backward(retain_graph=False)
                 optimizer_CW[t].step()
                 if logits[t].squeeze().argmax(-1, keepdim=True).item() != target[t]:
                     #if found_adv[t] == 0: logger.info(f"!! Found adv !! at BSS = {binary_search_step} and iter = {iteration}")
@@ -257,6 +258,8 @@ def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
             else:
                 c[t] = (lower_bound[t] + upper_bound[t]) / 2
 
+    if torch.isnan(best_x).any():
+        logger.info(f"Nan CW: {best_x}")
     return best_x.squeeze(0)
 
 class CW(_BaseAttack):
