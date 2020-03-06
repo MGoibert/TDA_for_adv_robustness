@@ -258,6 +258,13 @@ def get_feature_datasets(
                         best_score = score_clazz[0, 0]
                         mu_l = mu_clazz
 
+                if mu_l is None:
+                    logger.error(f"mu_l is still None for layer {layer_idx}")
+                    logger.error(f"Best score is {best_score}")
+                    logger.error(f"Means per class for this layer are {mean_per_class[layer_idx]}")
+                    logger.error(f"Input dataline is {dataset_line}")
+                    raise RuntimeError()
+
                 # OPT: Add perturbation on x to reduce its score
                 # (mainly useful for out-of-distribution ?)
                 if config.preproc_epsilon > 0:
@@ -299,7 +306,7 @@ def get_feature_datasets(
 
                     # Now we have to do a second pass of optimization
                     best_score = np.inf
-                    fhat = fhat.detach().numpy()
+                    fhat = fhat.cpu().detach().numpy()
 
                     for clazz in all_classes:
                         mu_clazz = mean_per_class[layer_idx][clazz]

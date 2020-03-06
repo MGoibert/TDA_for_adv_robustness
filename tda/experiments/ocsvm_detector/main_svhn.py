@@ -1,9 +1,9 @@
-from r3d3 import R3D3Experiment
+from r3d3 import R3D3Experiment, R3D3ExperimentPlan
 from tda.rootpath import rootpath, db_path
 from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
 from tda.models.architectures import svhn_lenet
 
-experiment = R3D3Experiment(
+experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
     db_path=db_path,
     configs={
         'embedding_type': [
