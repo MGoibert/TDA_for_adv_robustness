@@ -105,7 +105,7 @@ def process_sample(
         x = adversarial_generation(model, x, y, epsilon, num_classes=num_classes, attack_type=attack_type,
                                    num_iter=num_iter)
     if noise > 0:
-        x = torch.clamp(x + noise * torch.randn(x.size()), -0.5, 0.5).double()
+        x = torch.clamp(x + noise * torch.randn(x.size(), device=device), -0.5, 0.5).double()
 
     return x, y
 

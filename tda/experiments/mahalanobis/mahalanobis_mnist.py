@@ -1,9 +1,9 @@
-from r3d3 import R3D3Experiment
+from r3d3 import R3D3ExperimentPlan
 
 from tda.models.architectures import mnist_lenet
 from tda.rootpath import rootpath, db_path
 
-experiment = R3D3Experiment(
+experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
     db_path=db_path,
     configs={
         'architecture': [
