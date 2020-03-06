@@ -122,24 +122,32 @@ def train_network(
         init_weight_dict = copy.deepcopy(model.state_dict())
 
     if model.name in [mnist_lenet.name, fashion_mnist_lenet.name]:
-        lr = 0.1
-        patience = 12
+        lr = 0.001
+        patience = 20
+        optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", patience=patience, verbose=True, factor=0.5)
     elif model.name == svhn_lenet.name:
-        lr = 0.05
+        lr = 0.0008
         patience = 40
+        optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", patience=patience, verbose=True, factor=0.5)
     elif model.name in [mnist_mlp.name, fashion_mnist_mlp.name]:
         lr = 0.1
         patience = 5
+        optimizer = optim.SGD(model.parameters(), lr=lr)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", patience=patience, verbose=True, factor=0.5)
     elif model.name == cifar_lenet.name:
-        lr = 0.2
-        patience = 15
+        lr = 0.0008
+        patience = 50
+        optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", patience=patience, verbose=True, factor=0.5)
 
     # optimizer = optim.SGD(model.parameters(), lr=lr)
-    optimizer = optim.Adam(model.parameters(), lr=0.0008, betas=(0.9, 0.99))
     loss_history = []
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", patience=patience, verbose=True, factor=0.5
-    )
     t = time()
 
     for epoch in range(num_epochs):

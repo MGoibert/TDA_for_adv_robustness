@@ -56,7 +56,7 @@ def adversarial_generation(model, x, y,
                            num_classes=10,
                            attack_type='FGSM',
                            num_iter=10,
-                           lims=(-0.5, 0.5)):
+                           lims=(0, 1)):
     """
     Create an adversarial example (FGMS only for now)
     """
@@ -105,7 +105,7 @@ def process_sample(
         x = adversarial_generation(model, x, y, epsilon, num_classes=num_classes, attack_type=attack_type,
                                    num_iter=num_iter)
     if noise > 0:
-        x = torch.clamp(x + noise * torch.randn(x.size(), device=device), -0.5, 0.5).double()
+        x = torch.clamp(x + noise * torch.randn(x.size(), device=device), 0, 1).double()
 
     return x, y
 
