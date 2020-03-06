@@ -2,7 +2,9 @@
 # coding: utf-8
 
 import argparse
+import io
 import time
+import traceback
 import typing
 
 import numpy as np
@@ -374,4 +376,14 @@ def run_experiment(config: Config):
 
 if __name__ == "__main__":
     my_config = get_config()
-    run_experiment(my_config)
+    try:
+        run_experiment(my_config)
+    except Exception as e:
+        my_trace = io.StringIO()
+        traceback.print_exc(file=my_trace)
+
+        my_db.update_experiment(
+            experiment_id=my_config.experiment_id,
+            run_id=my_config.run_id,
+            metrics={"ERROR": my_trace.getvalue()},
+        )
