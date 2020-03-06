@@ -34,7 +34,7 @@ def underopt_edges(
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer_idx] = torch.abs(param)
-            qtest[layer_idx] = np.quantile(limit_val[layer], quantiles[layer_idx])
+            qtest[layer_idx] = np.quantile(limit_val[layer_idx], quantiles[layer_idx])
             underoptimized_edges[layer_idx] = (
                 (limit_val[layer_idx] < qtest[layer_idx]).nonzero().cpu().numpy().tolist()
             )
