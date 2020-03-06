@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.svm import OneClassSVM, SVC
+from sklearn.utils import check_random_state
 
 from tda.embeddings import get_gram_matrix
 from tda.graph_dataset import get_sample_dataset
@@ -16,14 +17,14 @@ logger = get_logger("C3PO")
 
 
 def get_protocolar_datasets(
-        noise: float,
-        dataset: Dataset,
-        succ_adv: bool,
-        archi: Architecture,
-        dataset_size: int,
-        attack_type: str,
-        all_epsilons: typing.List,
-        compute_graph: bool = False
+    noise: float,
+    dataset: Dataset,
+    succ_adv: bool,
+    archi: Architecture,
+    dataset_size: int,
+    attack_type: str,
+    all_epsilons: typing.List,
+    compute_graph: bool = False,
 ):
     logger.info("I will produce for you the protocolar datasets !")
 
@@ -37,7 +38,7 @@ def get_protocolar_datasets(
         archi=archi,
         dataset_size=dataset_size // 2,
         offset=0,
-        compute_graph=compute_graph
+        compute_graph=compute_graph,
     )
 
     if noise > 0.0:
@@ -51,7 +52,7 @@ def get_protocolar_datasets(
             archi=archi,
             dataset_size=dataset_size // 2,
             offset=0,
-            compute_graph=compute_graph
+            compute_graph=compute_graph,
         )
 
     test_clean = get_sample_dataset(
@@ -64,7 +65,7 @@ def get_protocolar_datasets(
         archi=archi,
         dataset_size=dataset_size // 2,
         offset=dataset_size // 2,
-        compute_graph=compute_graph
+        compute_graph=compute_graph,
     )
 
     if noise > 0.0:
@@ -78,7 +79,7 @@ def get_protocolar_datasets(
             archi=archi,
             dataset_size=dataset_size // 2,
             offset=dataset_size // 2,
-            compute_graph=compute_graph
+            compute_graph=compute_graph,
         )
 
     train_adv = dict()
@@ -97,21 +98,59 @@ def get_protocolar_datasets(
             num_iter=50,
             dataset_size=dataset_size,
             offset=dataset_size,
-            compute_graph=compute_graph
+            compute_graph=compute_graph,
         )
 
-        train_adv[epsilon], test_adv[epsilon] = train_test_split(adv, test_size=0.5, random_state=37)
+        train_adv[epsilon], test_adv[epsilon] = train_test_split(
+            adv, test_size=0.5, random_state=37
+        )
 
     return train_clean, test_clean, train_adv, test_adv
 
 
+def bootstrapped_scores(
+    scorer,
+    y_true,
+    y_pred,
+    n_bootstraps=10,
+    bootstrap_size=None,
+    random_state=None,
+    debug=False,
+    **kwargs,
+):
+    """
+    Adapted from Olivier Grisel's https://stackoverflow.com/a/19132400/1080358
+    """
+    rng = check_random_state(random_state)
+    n_samples = len(y_true)
+    if bootstrap_size is None:
+        bootstrap_size = max(100, n_samples // 2)
+    n_bootstraps = min(n_samples, n_bootstraps)
+    if debug:
+        print("Running %d bootstraps of size %d each" % (n_bootstraps, bootstrap_size))
+    b_scores = []
+    for i in range(n_bootstraps):
+        # bootstrap by sampling with replacement on the prediction indices
+        indices = rng.randint(0, n_samples, bootstrap_size)
+        if len(np.unique(y_true[indices])) < 2:
+            # We need at least one positive and one negative sample for the scores
+            # to be defined: reject the sample
+            continue
+
+        score = scorer(y_true[indices], y_pred[indices], **kwargs)
+        b_scores.append(score)
+        if debug:
+            print("Bootstrap #{} score: {:0.3f}".format(i + 1, score))
+    return b_scores
+
+
 def evaluate_embeddings(
-        embeddings_train: typing.List,
-        embeddings_test: typing.List,
-        all_adv_embeddings_train: typing.Dict,
-        all_adv_embeddings_test: typing.Dict,
-        param_space: typing.List,
-        kernel_type: str
+    embeddings_train: typing.List,
+    embeddings_test: typing.List,
+    all_adv_embeddings_train: typing.Dict,
+    all_adv_embeddings_test: typing.Dict,
+    param_space: typing.List,
+    kernel_type: str,
 ) -> (float, float):
     """
     Compute the AUC for a given epsilon and returns also the scores
@@ -123,12 +162,12 @@ def evaluate_embeddings(
     logger.info(f"Found {len(embeddings_test)} clean embeddings for test")
 
     gram_train_matrices = get_gram_matrix(
-            kernel_type=kernel_type,
-            embeddings_in=embeddings_train,
-            embeddings_out=None,
-            params=param_space
+        kernel_type=kernel_type,
+        embeddings_in=embeddings_train,
+        embeddings_out=None,
+        params=param_space,
     )
-    #with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_train.pickle', 'wb') as f:
+    # with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_train.pickle', 'wb') as f:
     #    pickle.dump(gram_train_matrices, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     logger.info(f"Computed all unsupervised Gram train matrices !")
@@ -149,16 +188,16 @@ def evaluate_embeddings(
 
         start_time = time.time()
         logger.info(f"\n \n UNSUPERVISED MATRIX HERE \n \n")
-        #logger.info(f"Emb train = {len(list(embeddings_train))} and test = {len(list(embeddings_test))} and adv {len(list(adv_embeddings_test))}")
+        # logger.info(f"Emb train = {len(list(embeddings_train))} and test = {len(list(embeddings_test))} and adv {len(list(adv_embeddings_test))}")
         gram_test_and_bad = get_gram_matrix(
             kernel_type=kernel_type,
             embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
             embeddings_out=list(embeddings_train),
             params=param_space,
             verbatim="clean_test_and_adv",
-            save=True
+            save=True,
         )
-        #with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_test_unsupervised_'+str(key)+'.pickle', 'wb') as f:
+        # with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_test_unsupervised_'+str(key)+'.pickle', 'wb') as f:
         #    pickle.dump(gram_test_and_bad, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
 
@@ -166,14 +205,14 @@ def evaluate_embeddings(
             kernel_type=kernel_type,
             embeddings_in=list(embeddings_train) + list(adv_embeddings_train),
             embeddings_out=None,
-            params=param_space
+            params=param_space,
         )
 
         gram_test_supervised = get_gram_matrix(
             kernel_type=kernel_type,
             embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
             embeddings_out=list(embeddings_train) + list(adv_embeddings_train),
-            params=param_space
+            params=param_space,
         )
 
         for i, param in enumerate(param_space):
@@ -183,10 +222,7 @@ def evaluate_embeddings(
             #########################
 
             for nu in np.linspace(0.1, 0.9, 9):
-                ocs = OneClassSVM(
-                    tol=1e-5,
-                    nu=nu,
-                    kernel="precomputed")
+                ocs = OneClassSVM(tol=1e-5, nu=nu, kernel="precomputed")
 
                 # Training model
                 start_time = time.time()
@@ -200,10 +236,7 @@ def evaluate_embeddings(
                 #    pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
 
                 labels = np.concatenate(
-                    (
-                        np.ones(len(embeddings_test)),
-                        np.zeros(len(adv_embeddings_test))
-                    )
+                    (np.ones(len(embeddings_test)), np.zeros(len(adv_embeddings_test)))
                 )
 
                 roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
@@ -218,18 +251,10 @@ def evaluate_embeddings(
             # Supervised Learning #
             #######################
 
-            detector = SVC(
-                verbose=0,
-                tol=1e-9,
-                max_iter=100000,
-                kernel='precomputed'
-            )
+            detector = SVC(verbose=0, tol=1e-9, max_iter=100000, kernel="precomputed")
 
             labels_train = np.concatenate(
-                (
-                    np.ones(len(embeddings_train)),
-                    np.zeros(len(adv_embeddings_train))
-                )
+                (np.ones(len(embeddings_train)), np.zeros(len(adv_embeddings_train)))
             )
 
             detector.fit(gram_train_supervised[i], labels_train)
