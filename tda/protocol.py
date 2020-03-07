@@ -108,14 +108,13 @@ def get_protocolar_datasets(
     return train_clean, test_clean, train_adv, test_adv
 
 
-def bootstrapped_scores(
+def score_with_confidence(
     scorer,
     y_true,
     y_pred,
-    n_bootstraps=10,
+    n_bootstraps=100,
     bootstrap_size=None,
     random_state=None,
-    debug=False,
     **kwargs,
 ):
     """
@@ -126,10 +125,12 @@ def bootstrapped_scores(
     if bootstrap_size is None:
         bootstrap_size = max(100, n_samples // 2)
     n_bootstraps = min(n_samples, n_bootstraps)
-    if debug:
-        print("Running %d bootstraps of size %d each" % (n_bootstraps, bootstrap_size))
+    logger.debug("Running %d bootstraps of size %d each" % (n_bootstraps, bootstrap_size))
+
+    true_score = scorer(y_true, y_pred, **kwargs)
+
     b_scores = []
-    for i in range(n_bootstraps):
+    while len(b_scores) < n_bootstraps:
         # bootstrap by sampling with replacement on the prediction indices
         indices = rng.randint(0, n_samples, bootstrap_size)
         if len(np.unique(y_true[indices])) < 2:
@@ -139,9 +140,11 @@ def bootstrapped_scores(
 
         score = scorer(y_true[indices], y_pred[indices], **kwargs)
         b_scores.append(score)
-        if debug:
-            print("Bootstrap #{} score: {:0.3f}".format(i + 1, score))
-    return b_scores
+
+    c10 = 2*true_score - np.percentile(b_scores, 90)
+    c90 = 2*true_score - np.percentile(b_scores, 10)
+
+    return c10, true_score, c90
 
 
 def evaluate_embeddings(
