@@ -109,6 +109,9 @@ def create_lid_dataset(
         actual_batch_size = len(
             raw_batch
         )  # Can be < config.batch_size (for the last batch)
+        actual_batch_size_clean = len(
+            raw_batch_clean
+        )  # Can be < config.batch_size (for the last batch)
         number_of_nn = int(actual_batch_size * config.perc_of_nn)
 
         #########################
@@ -141,13 +144,36 @@ def create_lid_dataset(
             )
             activations_layer_clean = (
                 activations_clean[layer_idx]
-                .reshape(actual_batch_size, -1)
+                .reshape(actual_batch_size_clean, -1)
                 .cpu()
                 .detach()
                 .numpy()
             )
 
-            distances = euclidean_distances(activations_layer, activations_layer_clean)
+            try:
+                distances = euclidean_distances(
+                    activations_layer, activations_layer_clean
+                )
+            except ValueError as exc:
+
+                debug = " ; ".join(
+                    [
+                        f"{layer_idx} -> {activations[layer_idx].shape}"
+                        for layer_idx in archi.layer_visit_order
+                    ]
+                )
+                debug_clean = " ; ".join(
+                    [
+                        f"{layer_idx} -> {activations_clean[layer_idx].shape}"
+                        for layer_idx in archi.layer_visit_order
+                    ]
+                )
+
+                raise RuntimeError(
+                    f"Unable to compute distances between activations_layer ({activations_layer.shape})"
+                    f" and activations_layer_clean ({activations_layer_clean.shape})"
+                    f" (layer_idx = {layer_idx}) ({debug} || {debug_clean})"
+                ) from exc
 
             for sample_idx in range(actual_batch_size):
                 z = distances[sample_idx]
