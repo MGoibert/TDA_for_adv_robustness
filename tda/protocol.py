@@ -108,14 +108,13 @@ def get_protocolar_datasets(
     return train_clean, test_clean, train_adv, test_adv
 
 
-def bootstrapped_scores(
+def score_with_confidence(
     scorer,
     y_true,
     y_pred,
-    n_bootstraps=10,
+    n_bootstraps=100,
     bootstrap_size=None,
     random_state=None,
-    debug=False,
     **kwargs,
 ):
     """
@@ -126,10 +125,12 @@ def bootstrapped_scores(
     if bootstrap_size is None:
         bootstrap_size = max(100, n_samples // 2)
     n_bootstraps = min(n_samples, n_bootstraps)
-    if debug:
-        print("Running %d bootstraps of size %d each" % (n_bootstraps, bootstrap_size))
+    logger.debug("Running %d bootstraps of size %d each" % (n_bootstraps, bootstrap_size))
+
+    true_score = scorer(y_true, y_pred, **kwargs)
+
     b_scores = []
-    for i in range(n_bootstraps):
+    while len(b_scores) < n_bootstraps:
         # bootstrap by sampling with replacement on the prediction indices
         indices = rng.randint(0, n_samples, bootstrap_size)
         if len(np.unique(y_true[indices])) < 2:
@@ -139,9 +140,11 @@ def bootstrapped_scores(
 
         score = scorer(y_true[indices], y_pred[indices], **kwargs)
         b_scores.append(score)
-        if debug:
-            print("Bootstrap #{} score: {:0.3f}".format(i + 1, score))
-    return b_scores
+
+    c10 = 2*true_score - np.percentile(b_scores, 90)
+    c90 = 2*true_score - np.percentile(b_scores, 10)
+
+    return c10, true_score, c90
 
 
 def evaluate_embeddings(
@@ -179,6 +182,10 @@ def evaluate_embeddings(
 
         best_auc = 0.0
         best_auc_supervised = 0.0
+        best_auc_c10 = 0.0
+        best_auc_c90 = 0.0
+        best_auc_supervised_c10 = 0.0
+        best_auc_supervised_c90 = 0.0
         best_param = None
         best_nu_param = None
         best_param_supervised = None
@@ -215,6 +222,10 @@ def evaluate_embeddings(
             params=param_space,
         )
 
+        labels = np.concatenate(
+            (np.ones(len(embeddings_test)), np.zeros(len(adv_embeddings_test)))
+        )
+
         for i, param in enumerate(param_space):
 
             #########################
@@ -235,15 +246,13 @@ def evaluate_embeddings(
                 # with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
                 #    pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-                labels = np.concatenate(
-                    (np.ones(len(embeddings_test)), np.zeros(len(adv_embeddings_test)))
-                )
+                auc_c10, auc_true, auc_c90 = score_with_confidence(roc_auc_score, y_true=labels, y_pred=predictions)
+                logger.info(f"[nu={nu}] AUC score for param = {param} : {auc_true}")
 
-                roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
-                logger.info(f"[nu={nu}] AUC score for param = {param} : {roc_auc_val}")
-
-                if roc_auc_val > best_auc:
-                    best_auc = roc_auc_val
+                if auc_true > best_auc:
+                    best_auc = auc_true
+                    best_auc_c10 = auc_c10
+                    best_auc_c90 = auc_c90
                     best_nu_param = nu
                     best_param = param
 
@@ -261,15 +270,17 @@ def evaluate_embeddings(
 
             predictions = detector.decision_function(gram_test_supervised[i])
 
-            roc_auc_val = roc_auc_score(y_true=labels, y_score=predictions)
-            logger.info(f"Supervised AUC score for param = {param} : {roc_auc_val}")
+            auc_c10, auc_true, auc_c90 = score_with_confidence(roc_auc_score, y_true=labels, y_pred=predictions)
+            logger.info(f"Supervised AUC score for param = {param} : {auc_true}")
 
-            if roc_auc_val > best_auc_supervised:
-                best_auc_supervised = roc_auc_val
+            if auc_true > best_auc_supervised:
+                best_auc_supervised = auc_true
+                best_auc_supervised_c10 = auc_c10
+                best_auc_supervised_c90 = auc_c90
                 best_param_supervised = param
 
-        aucs[key] = best_auc
-        aucs_supervised[key] = best_auc_supervised
+        aucs[key] = (best_auc_c10, best_auc, best_auc_c90)
+        aucs_supervised[key] = (best_auc_supervised_c10, best_auc_supervised, best_auc_supervised_c90)
 
         logger.info(f"Best param unsupervised {best_param}")
         logger.info(f"Best nu param unsupervised {best_nu_param}")
