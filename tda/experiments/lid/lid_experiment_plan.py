@@ -29,7 +29,7 @@ for model, dataset, nb_epochs in [
     [mnist_mlp.name, "MNIST", 50],
     [mnist_lenet.name, "MNIST", 50],
     [fashion_mnist_lenet.name, "FashionMNIST", 200],
-    [svhn_lenet.name, "SVHN", 200],
+    [svhn_lenet.name, "SVHN", 250],
 ]:
     for config in base_configs:
         config = deepcopy(config)
