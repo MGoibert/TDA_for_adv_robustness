@@ -97,7 +97,7 @@ def compute_means_and_sigmas_inv(
 
     features_per_class = dict()
     mean_per_class = dict()
-    sigma_per_class = dict()
+    sigma_per_layer = dict()
 
     # As proposed in the paper, we use the train samples here
     for x, y in dataset.train_dataset:
@@ -131,7 +131,7 @@ def compute_means_and_sigmas_inv(
 
     for layer_idx in all_feature_indices:
         mean_per_class[layer_idx] = dict()
-        sigma_per_class[layer_idx] = None
+        sigma_per_layer[layer_idx] = None
         counters_per_class = 0
 
         for clazz in all_classes:
@@ -147,22 +147,22 @@ def compute_means_and_sigmas_inv(
             sigma_clazz = sum(
                 [np.transpose(v - mu_clazz) @ (v - mu_clazz) for v in arr]
             )
-            if sigma_per_class[layer_idx] is None:
-                sigma_per_class[layer_idx] = sigma_clazz
+            if sigma_per_layer[layer_idx] is None:
+                sigma_per_layer[layer_idx] = sigma_clazz
             else:
-                sigma_per_class[layer_idx] += sigma_clazz
+                sigma_per_layer[layer_idx] += sigma_clazz
             counters_per_class += len(arr)
 
-        sigma_per_class[layer_idx] = sigma_per_class[layer_idx] / counters_per_class
+        sigma_per_layer[layer_idx] = sigma_per_layer[layer_idx] / counters_per_class
 
     logger.info("Computing inverse of sigmas...")
     sigma_per_class_inv = dict()
-    for layer_idx in sigma_per_class:
+    for layer_idx in sigma_per_layer:
         logger.info(
-            f"Processing sigma for layer {layer_idx} (shape is {sigma_per_class[layer_idx].shape})"
+            f"Processing sigma for layer {layer_idx} (shape is {sigma_per_layer[layer_idx].shape})"
         )
         sigma_per_class_inv[layer_idx] = np.linalg.pinv(
-            sigma_per_class[layer_idx], hermitian=True
+            sigma_per_layer[layer_idx], hermitian=True
         )
 
     logger.info("Done.")
@@ -223,7 +223,7 @@ def get_feature_datasets(
     dataset: Dataset,
     architecture: Architecture,
     mean_per_class: typing.Dict,
-    sigma_per_class_inv: typing.Dict,
+    sigma_per_layer_inv: typing.Dict,
     epsilons: typing.List[float],
 ):
     assert architecture.is_trained
@@ -260,7 +260,7 @@ def get_feature_datasets(
             for layer_idx in all_feature_indices:
 
                 best_score = np.inf
-                sigma_l_inv = sigma_per_class_inv[layer_idx]
+                sigma_l_inv = sigma_per_layer_inv[layer_idx]
                 mu_l = None
 
                 for clazz in all_classes:
@@ -282,7 +282,7 @@ def get_feature_datasets(
                         f"Means per class for this layer are {mean_per_class[layer_idx]}"
                     )
                     logger.error(f"Input dataline is {dataset_line}")
-                    raise RuntimeError()
+                    raise RuntimeError("mu_l is None")
 
                 # OPT: Add perturbation on x to reduce its score
                 # (mainly useful for out-of-distribution ?)
@@ -302,7 +302,33 @@ def get_feature_datasets(
 
                     live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
 
-                    assert np.isclose(live_score.cpu().detach().numpy(), best_score)
+                    if not np.isclose(
+                        live_score.cpu().detach().numpy(), best_score, atol=1e-4
+                    ):
+                        debug_messages = list()
+
+                        live_score_recomputed_with_numpy = (
+                            (
+                                f.cpu().detach().numpy()
+                                - mu_tensor.cpu().detach().numpy()
+                            )
+                            @ inv_sigma_tensor.cpu().detach().numpy()
+                            @ np.transpose(
+                                f.cpu().detach().numpy()
+                                - mu_tensor.cpu().detach().numpy()
+                            )
+                        )
+                        debug_messages.append(
+                            f"live_score_recomputed_with_numpy {live_score_recomputed_with_numpy}"
+                        )
+
+                        distance = np.linalg.norm(live_score.cpu().detach().numpy()-best_score, 2)
+
+                        raise RuntimeError(
+                            f"Live score {live_score.cpu().detach().numpy()}"
+                            f" and best_score {best_score} are different (dist={distance})\n\n"
+                            + "\n".join(debug_messages)
+                        )
 
                     architecture.zero_grad()
                     live_score.backward()
@@ -401,7 +427,7 @@ def run_experiment(config: Config):
         dataset=dataset,
         architecture=architecture,
         mean_per_class=mean_per_class,
-        sigma_per_class_inv=sigma_per_class_inv,
+        sigma_per_layer_inv=sigma_per_class_inv,
     )
 
     aucs_unsupervised, auc_supervised = evaluate_embeddings(
