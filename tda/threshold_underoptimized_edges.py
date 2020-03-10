@@ -18,7 +18,7 @@ def _process_raw_quantiles(
     if not "_" in raw_quantiles:
         # Uniform quantile
         return {
-            layer_idx: float(raw_quantiles)
+            layer_idx: round(float(raw_quantiles), 2)
             for layer_idx in architecture.layer_visit_order
         }
 

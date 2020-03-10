@@ -24,7 +24,7 @@ base_configs = cartesian_product(
         ],
         "dataset_size": [500],
         "attack_type": ["FGSM"],
-        "thresholds": [str(t) for t in np.linspace(0.1, 0.9, 9)],
+        "thresholds": [str(round(t, 2)) for t in np.linspace(0.1, 0.9, 9)],
         "noise": [0.0],
         "n_jobs": [24],
     }
