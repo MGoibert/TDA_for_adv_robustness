@@ -11,7 +11,17 @@ from tda.embeddings import ThresholdStrategy
 logger = get_logger("Thresholds Underoptimized")
 
 
-def _process_raw_quantiles(raw_quantiles: str) -> typing.Dict[int, float]:
+def _process_raw_quantiles(
+    raw_quantiles: str, architecture: Architecture = None
+) -> typing.Dict[int, float]:
+
+    if not "_" in raw_quantiles:
+        # Uniform quantile
+        return {
+            layer_idx: float(raw_quantiles)
+            for layer_idx in architecture.layer_visit_order
+        }
+
     ret = dict()
     for raw_quantile in raw_quantiles.split("_"):
         layer_idx, value = raw_quantile.split(":")
@@ -36,7 +46,11 @@ def underopt_edges(
                 limit_val[layer_idx] = torch.abs(param)
             qtest[layer_idx] = np.quantile(limit_val[layer_idx], quantiles[layer_idx])
             underoptimized_edges[layer_idx] = (
-                (limit_val[layer_idx] < qtest[layer_idx]).nonzero().cpu().numpy().tolist()
+                (limit_val[layer_idx] < qtest[layer_idx])
+                .nonzero()
+                .cpu()
+                .numpy()
+                .tolist()
             )
 
     return underoptimized_edges
@@ -91,7 +105,7 @@ def process_thresholds_underopt(
 
     architecture_init = architecture.get_initial_model()
 
-    quantiles_per_layer = _process_raw_quantiles(raw_thresholds)
+    quantiles_per_layer = _process_raw_quantiles(raw_thresholds, architecture)
     underoptimized_edges = underopt_edges(
         quantiles=quantiles_per_layer,
         method=method,
