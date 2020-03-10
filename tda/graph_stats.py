@@ -23,11 +23,10 @@ logger = get_logger("GraphStats")
 # Fetching datasets #
 #####################
 
+
 @cached
 def get_stats(
-        architecture: Architecture,
-        dataset: Dataset,
-        dataset_size: int
+    architecture: Architecture, dataset: Dataset, dataset_size: int
 ) -> (typing.Dict, np.matrix):
     """
     Helper function to get list of embeddings
@@ -38,19 +37,21 @@ def get_stats(
     weights_per_layer = dict()
 
     for line in get_sample_dataset(
-            epsilon=0.0,
-            noise=0.0,
-            adv=False,
-            archi=architecture,
-            dataset_size=dataset_size,
-            succ_adv=False,
-            dataset=dataset,
-            compute_graph=True,
-            train=False
+        epsilon=0.0,
+        noise=0.0,
+        adv=False,
+        archi=architecture,
+        dataset_size=dataset_size,
+        succ_adv=False,
+        dataset=dataset,
+        compute_graph=True,
+        train=False,
     ):
 
         graph: Graph = line.graph
-        logger.info(f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv}")
+        logger.info(
+            f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv}"
+        )
         for key in graph._edge_dict:
             layer_matrix = graph._edge_dict[key]
             if not isinstance(layer_matrix, np.matrix):
@@ -58,7 +59,9 @@ def get_stats(
             if key in weights_per_layer:
                 if not isinstance(weights_per_layer[key], np.matrix):
                     weights_per_layer[key] = weights_per_layer[key].todense()
-                weights_per_layer[key] = np.concatenate([weights_per_layer[key], layer_matrix])
+                weights_per_layer[key] = np.concatenate(
+                    [weights_per_layer[key], layer_matrix]
+                )
             else:
                 weights_per_layer[key] = layer_matrix
 
@@ -80,17 +83,11 @@ def get_stats(
         q95 = np.quantile(nonzero_m, 0.95)
         q99 = np.quantile(nonzero_m, 0.99)
         qmax = max(nonzero_m)
-        logger.debug(f"Link {key} weights [min = {qmin}; "
-                     f"0.10 = {q10}; 0.25 = {q25}; 0.5 = {q50}; "
-                     f"0.75 = {q75}; 0.8 = {q80}; 0.9 = {q90}; "
-                     f"0.95 = {q95}; 0.99 = {q99}; max = {qmax}]")
+        logger.debug(
+            f"Link {key} weights [min = {qmin}; "
+            f"0.10 = {q10}; 0.25 = {q25}; 0.5 = {q50}; "
+            f"0.75 = {q75}; 0.8 = {q80}; 0.9 = {q90}; "
+            f"0.95 = {q95}; 0.99 = {q99}; max = {qmax}]"
+        )
 
-    quants = np.linspace(0, 1, 1001)
-    quants_dict = dict()
-    for key in all_weights:
-        weight_layer = all_weights[key]
-        quants_dict[key] = dict()
-        for quant in quants:
-            quants_dict[key][quant] = np.quantile(weight_layer, quant)
-
-    return quants_dict
+    return all_weights
