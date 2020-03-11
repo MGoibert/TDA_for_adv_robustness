@@ -2,8 +2,10 @@
 # coding: utf-8
 
 import argparse
+import io
 import os
 import time
+import traceback
 import typing
 
 import numpy as np
@@ -60,19 +62,19 @@ class Config(typing.NamedTuple):
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--experiment_id', type=int, default=-1)
-    parser.add_argument('--run_id', type=int, default=-1)
+    parser.add_argument("--experiment_id", type=int, default=-1)
+    parser.add_argument("--run_id", type=int, default=-1)
 
-    parser.add_argument('--epochs', type=int, default=20)
-    parser.add_argument('--dataset', type=str, default="MNIST")
-    parser.add_argument('--architecture', type=str, default=mnist_lenet.name)
-    parser.add_argument('--attack_type', type=str, default="FGSM")
-    parser.add_argument('--noise', type=float, default=0.0)
-    parser.add_argument('--train_noise', type=float, default=0.0)
-    parser.add_argument('--dataset_size', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=100)
-    parser.add_argument('--perc_of_nn', type=float, default=0.2)
-    parser.add_argument('--successful_adv', type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--dataset", type=str, default="MNIST")
+    parser.add_argument("--architecture", type=str, default=mnist_lenet.name)
+    parser.add_argument("--attack_type", type=str, default="FGSM")
+    parser.add_argument("--noise", type=float, default=0.0)
+    parser.add_argument("--train_noise", type=float, default=0.0)
+    parser.add_argument("--dataset_size", type=int, default=100)
+    parser.add_argument("--batch_size", type=int, default=100)
+    parser.add_argument("--perc_of_nn", type=float, default=0.2)
+    parser.add_argument("--successful_adv", type=int, default=1)
 
     args, _ = parser.parse_known_args()
 
@@ -80,10 +82,10 @@ def get_config() -> Config:
 
 
 def create_lid_dataset(
-        config: Config,
-        archi: Architecture,
-        input_dataset: typing.List[DatasetLine],
-        clean_dataset: typing.List[DatasetLine]
+    config: Config,
+    archi: Architecture,
+    input_dataset: typing.List[DatasetLine],
+    clean_dataset: typing.List[DatasetLine],
 ) -> (typing.List, typing.List, typing.List):
     logger.debug(f"Dataset size is {len(input_dataset)}")
 
@@ -97,10 +99,19 @@ def create_lid_dataset(
 
     for batch_idx in range(nb_batches):
 
-        raw_batch = input_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
-        raw_batch_clean = clean_dataset[batch_idx * config.batch_size:(batch_idx + 1) * config.batch_size]
+        raw_batch = input_dataset[
+            batch_idx * config.batch_size : (batch_idx + 1) * config.batch_size
+        ]
+        raw_batch_clean = clean_dataset[
+            batch_idx * config.batch_size : (batch_idx + 1) * config.batch_size
+        ]
 
-        actual_batch_size = len(raw_batch)  # Can be < config.batch_size (for the last batch)
+        actual_batch_size = len(
+            raw_batch
+        )  # Can be < config.batch_size (for the last batch)
+        actual_batch_size_clean = len(
+            raw_batch_clean
+        )  # Can be < config.batch_size (for the last batch)
         number_of_nn = int(actual_batch_size * config.perc_of_nn)
 
         #########################
@@ -108,9 +119,12 @@ def create_lid_dataset(
         #########################
 
         activations = archi.forward(
-            torch.cat([line.x.unsqueeze(0) for line in raw_batch]), output="all_inner")
+            torch.cat([line.x.unsqueeze(0) for line in raw_batch]), output="all_inner"
+        )
         activations_clean = archi.forward(
-            torch.cat([line.x.unsqueeze(0) for line in raw_batch_clean]), output="all_inner")
+            torch.cat([line.x.unsqueeze(0) for line in raw_batch_clean]),
+            output="all_inner",
+        )
 
         lids = np.zeros((actual_batch_size, len(archi.layers) - 1))
 
@@ -121,14 +135,49 @@ def create_lid_dataset(
             if isinstance(archi.layers[layer_idx], SoftMaxLayer):
                 # Skipping softmax
                 continue
-            activations_layer = activations[layer_idx].reshape(actual_batch_size, -1).cpu().detach().numpy()
-            activations_layer_clean = activations_clean[layer_idx].reshape(actual_batch_size, -1).cpu().detach().numpy()
+            activations_layer = (
+                activations[layer_idx]
+                .reshape(actual_batch_size, -1)
+                .cpu()
+                .detach()
+                .numpy()
+            )
+            activations_layer_clean = (
+                activations_clean[layer_idx]
+                .reshape(actual_batch_size_clean, -1)
+                .cpu()
+                .detach()
+                .numpy()
+            )
 
-            distances = euclidean_distances(activations_layer, activations_layer_clean)
+            try:
+                distances = euclidean_distances(
+                    activations_layer, activations_layer_clean
+                )
+            except ValueError as exc:
+
+                debug = " ; ".join(
+                    [
+                        f"{layer_idx} -> {activations[layer_idx].shape}"
+                        for layer_idx in archi.layer_visit_order
+                    ]
+                )
+                debug_clean = " ; ".join(
+                    [
+                        f"{layer_idx} -> {activations_clean[layer_idx].shape}"
+                        for layer_idx in archi.layer_visit_order
+                    ]
+                )
+
+                raise RuntimeError(
+                    f"Unable to compute distances between activations_layer ({activations_layer.shape})"
+                    f" and activations_layer_clean ({activations_layer_clean.shape})"
+                    f" (layer_idx = {layer_idx}) ({debug} || {debug_clean})"
+                ) from exc
 
             for sample_idx in range(actual_batch_size):
                 z = distances[sample_idx]
-                z = z[z.argsort()[1:number_of_nn + 1]]
+                z = z[z.argsort()[1 : number_of_nn + 1]]
 
                 lid = -1 / (sum([np.log(x / z[-1]) for x in z]) / number_of_nn)
 
@@ -144,10 +193,7 @@ def create_lid_dataset(
 
 
 def get_feature_datasets(
-        config: Config,
-        epsilons: typing.List[float],
-        dataset: Dataset,
-        archi: Architecture
+    config: Config, epsilons: typing.List[float], dataset: Dataset, archi: Architecture
 ):
     logger.info(f"Evaluating epsilon={epsilons}")
 
@@ -158,18 +204,20 @@ def get_feature_datasets(
         archi=archi,
         dataset_size=config.dataset_size,  # 2 * config.batch_size * config.nb_batches,  # Train + Test
         attack_type=config.attack_type,
-        all_epsilons=epsilons
+        all_epsilons=epsilons,
     )
 
     embeddings_train = create_lid_dataset(config, archi, train_clean, train_clean)[0]
     embeddings_test = create_lid_dataset(config, archi, test_clean, test_clean)[0]
 
     adv_embedding_train = {
-        epsilon: create_lid_dataset(config, archi, train_adv[epsilon], train_clean)[0] for epsilon in epsilons
+        epsilon: create_lid_dataset(config, archi, train_adv[epsilon], train_clean)[0]
+        for epsilon in epsilons
     }
 
     adv_embedding_test = {
-        epsilon: create_lid_dataset(config, archi, test_adv[epsilon], test_clean)[0] for epsilon in epsilons
+        epsilon: create_lid_dataset(config, archi, test_adv[epsilon], test_clean)[0]
+        for epsilon in epsilons
     }
 
     logger.info(f"Generated {len(embeddings_train)} clean embeddings for train")
@@ -185,7 +233,7 @@ def run_experiment(config: Config):
         my_db.add_experiment(
             experiment_id=config.experiment_id,
             run_id=config.run_id,
-            config=config._asdict()
+            config=config._asdict(),
         )
 
     dataset = Dataset(name=config.dataset)
@@ -195,20 +243,22 @@ def run_experiment(config: Config):
         num_epochs=config.epochs,
         dataset=dataset,
         architecture=get_architecture(config.architecture),
-        train_noise=config.train_noise
+        train_noise=config.train_noise,
     )
 
     if config.attack_type in ["FGSM", "BIM"]:
         all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]
-        #all_epsilons = np.linspace(1e-2, 1.0, 10)
+        # all_epsilons = np.linspace(1e-2, 1.0, 10)
     else:
         all_epsilons = [1.0]  # Not used for DeepFool and CW
 
-    embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test = get_feature_datasets(
-        config=config,
-        epsilons=all_epsilons,
-        dataset=dataset,
-        archi=archi
+    (
+        embeddings_train,
+        embeddings_test,
+        adv_embedding_train,
+        adv_embedding_test,
+    ) = get_feature_datasets(
+        config=config, epsilons=all_epsilons, dataset=dataset, archi=archi
     )
 
     aucs_unsupervised, auc_supervised = evaluate_embeddings(
@@ -217,7 +267,7 @@ def run_experiment(config: Config):
         all_adv_embeddings_train=adv_embedding_train,
         all_adv_embeddings_test=adv_embedding_test,
         param_space=[{"gamma": gamma} for gamma in np.logspace(-3, 3, 6)],
-        kernel_type=KernelType.RBF
+        kernel_type=KernelType.RBF,
     )
 
     logger.info(aucs_unsupervised)
@@ -230,8 +280,8 @@ def run_experiment(config: Config):
             "name": "LID",
             "time": time.time() - start_time,
             "aucs_supervised": auc_supervised,
-            "aucs_unsupervised": aucs_unsupervised
-        }
+            "aucs_unsupervised": aucs_unsupervised,
+        },
     )
 
     logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !")
@@ -241,4 +291,14 @@ def run_experiment(config: Config):
 
 if __name__ == "__main__":
     my_config = get_config()
-    run_experiment(my_config)
+    try:
+        run_experiment(my_config)
+    except Exception as e:
+        my_trace = io.StringIO()
+        traceback.print_exc(file=my_trace)
+
+        my_db.update_experiment(
+            experiment_id=my_config.experiment_id,
+            run_id=my_config.run_id,
+            metrics={"ERROR": my_trace.getvalue()},
+        )
