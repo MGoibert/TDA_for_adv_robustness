@@ -118,7 +118,7 @@ def process_thresholds_underopt(
     elif architecture.name in ["svhn_lenet", "cifar_lenet"]:
         mat_shapes = [[4704, 3072], [1600, 1176]]
     else:
-        raise NotImplementedError(f"This function cannot handle {architecture.name}")
+        mat_shapes = None
 
     # Post-processing the ConvLayers
     c = 0
