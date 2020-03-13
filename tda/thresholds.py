@@ -38,7 +38,7 @@ def process_thresholds(
     def process(x):
         if x == "inf":
             return np.inf
-        return str(round(float(x), 2))
+        return round(float(x), 4)
 
     if ";" in raw_thresholds:
         logger.info("Detected new format for thresholds")
@@ -62,7 +62,7 @@ def process_thresholds(
 
     logger.info(f"My received thresholds {thresholds}")
 
-    if any([float(threshold) <= 1 for threshold in thresholds.values()]):
+    if any([threshold <= 1 for threshold in thresholds.values()]):
         # In this case, we assume we have threshold as quantiles
         all_weights = get_stats(
                 dataset=dataset,
