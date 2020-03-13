@@ -382,6 +382,8 @@ if __name__ == "__main__":
         my_trace = io.StringIO()
         traceback.print_exc(file=my_trace)
 
+        logger.error(my_trace.getvalue())
+
         my_db.update_experiment(
             experiment_id=my_config.experiment_id,
             run_id=my_config.run_id,
