@@ -18,7 +18,7 @@ base_configs = cartesian_product(
         "embedding_type": [EmbeddingType.PersistentDiagram],
         "kernel_type": [KernelType.SlicedWasserstein],
         "dataset_size": [500],
-        "attack_type": ["FGSM"],
+        "attack_type": ["FGSM", "DeepFool"],
         "noise": [0.0],
         "n_jobs": [24],
     }
@@ -61,7 +61,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         svhn_lenet.name,
         "SVHN",
         250,
-        "0:0.3_1:0.02_2:0.3_3:0.02",
+        "-1;0;0.3_0;1;0.02_1;2;0.3_2;3;0.02",
         ThresholdStrategy.ActivationValue,
     ],
     [
