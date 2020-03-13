@@ -7,6 +7,10 @@ from tda.experiments.mahalanobis.mahalanobis_experiment_plan import (
     experiment_plan as ma_experiment_plan,
 )
 
+from tda.experiments.ocsvm_detector.tda_experiment_plan import (
+    experiment_plan as tda_experiment_plan,
+)
+
 experiment_plan = R3D3ExperimentPlan.from_multiple_plans(
-    [lid_experiment_plan, ma_experiment_plan]
+    [tda_experiment_plan, lid_experiment_plan, ma_experiment_plan]
 )
