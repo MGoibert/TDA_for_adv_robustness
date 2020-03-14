@@ -15,13 +15,12 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
+        "embedding_type": [EmbeddingType.PersistentDiagram],
         "kernel_type": [KernelType.SlicedWasserstein],
         "dataset_size": [500],
         "attack_type": ["FGSM", "DeepFool"],
         "noise": [0.0],
         "n_jobs": [24],
-        "raw_graph_pca": [100],
     }
 )
 
