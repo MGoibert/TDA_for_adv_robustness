@@ -61,7 +61,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         svhn_lenet.name,
         "SVHN",
         250,
-        "-1;0;0.3_0;1;0.02_1;2;0.3_2;3;0.02",
+        "0;1;0.02_-1;0;0.3_1;2;0.3_2;3;0.02",
         ThresholdStrategy.ActivationValue,
     ],
     [
