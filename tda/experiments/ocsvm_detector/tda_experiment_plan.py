@@ -19,7 +19,7 @@ base_configs = cartesian_product(
         "kernel_type": [KernelType.SlicedWasserstein],
         "dataset_size": [500],
         "attack_type": ["FGSM", "DeepFool"],
-        "noise": [0.0],
+        "noise": [0.01],
         "n_jobs": [24],
     }
 )
