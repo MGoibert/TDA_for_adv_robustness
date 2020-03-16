@@ -26,10 +26,10 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             "MNIST"
         ],
         'dataset_size': [
-            100
+            40
         ],
         'attack_type': [
-            "FGSM", "BIM", "CW", "DeepFool"
+            "DeepFool"#"FGSM", "BIM", "CW", "DeepFool"
         ],
         'thresholds': [
             '0.1_0.1_0'
