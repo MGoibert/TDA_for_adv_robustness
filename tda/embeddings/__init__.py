@@ -73,7 +73,7 @@ def get_embedding(
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
     ]:
-        logger.info(f"Using underoptimized threshold...")
+        # logger.info(f"Using underoptimized threshold...")
         graph.thresholdize_underopt(edges_to_keep)
 
     # if save is not None:

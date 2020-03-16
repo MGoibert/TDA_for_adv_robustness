@@ -44,7 +44,7 @@ def underopt_edges(
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer_idx] = torch.abs(param)
-            qtest[layer_idx] = np.quantile(limit_val[layer_idx], quantiles[layer_idx])
+            qtest[layer_idx] = np.quantile(limit_val[layer_idx], quantiles.get(layer_idx, 0.0))
             underoptimized_edges[layer_idx] = (
                 (limit_val[layer_idx] < qtest[layer_idx])
                 .nonzero()
@@ -118,7 +118,7 @@ def process_thresholds_underopt(
     elif architecture.name in ["svhn_lenet", "cifar_lenet"]:
         mat_shapes = [[4704, 3072], [1600, 1176]]
     else:
-        raise NotImplementedError(f"This function cannot handle {architecture.name}")
+        mat_shapes = None
 
     # Post-processing the ConvLayers
     c = 0
