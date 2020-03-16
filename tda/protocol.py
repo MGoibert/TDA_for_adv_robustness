@@ -36,7 +36,7 @@ def get_protocolar_datasets(
         train=False,
         succ_adv=succ_adv,
         archi=archi,
-        dataset_size=dataset_size // 2,
+        dataset_size=dataset_size // 2, # 8,
         offset=0,
         compute_graph=compute_graph,
     )
@@ -50,7 +50,7 @@ def get_protocolar_datasets(
             train=False,
             succ_adv=succ_adv,
             archi=archi,
-            dataset_size=dataset_size // 2,
+            dataset_size=dataset_size // 2, # 8,
             offset=0,
             compute_graph=compute_graph,
         )
@@ -63,9 +63,9 @@ def get_protocolar_datasets(
         train=False,
         succ_adv=succ_adv,
         archi=archi,
-        dataset_size=dataset_size // 2,
-        offset=dataset_size // 2,
-        compute_graph=compute_graph,
+        dataset_size=dataset_size // 2, #8,
+        offset=dataset_size // 2, #8,
+        compute_graph=compute_graph
     )
 
     if noise > 0.0:
@@ -77,9 +77,9 @@ def get_protocolar_datasets(
             train=False,
             succ_adv=succ_adv,
             archi=archi,
-            dataset_size=dataset_size // 2,
-            offset=dataset_size // 2,
-            compute_graph=compute_graph,
+            dataset_size=dataset_size // 2, #8,
+            offset=dataset_size // 2, #8,
+            compute_graph=compute_graph
         )
 
     train_adv = dict()
@@ -95,7 +95,7 @@ def get_protocolar_datasets(
             archi=archi,
             attack_type=attack_type,
             epsilon=epsilon,
-            num_iter=50,
+            num_iter=100,
             dataset_size=dataset_size,
             offset=dataset_size,
             compute_graph=compute_graph,
@@ -148,12 +148,13 @@ def score_with_confidence(
 
 
 def evaluate_embeddings(
-    embeddings_train: typing.List,
-    embeddings_test: typing.List,
-    all_adv_embeddings_train: typing.Dict,
-    all_adv_embeddings_test: typing.Dict,
-    param_space: typing.List,
-    kernel_type: str,
+        embeddings_train: typing.List,
+        embeddings_test: typing.List,
+        all_adv_embeddings_train: typing.Dict,
+        all_adv_embeddings_test: typing.Dict,
+        param_space: typing.List,
+        kernel_type: str,
+        index_l2_norm: typing.List
 ) -> (float, float):
     """
     Compute the AUC for a given epsilon and returns also the scores
@@ -194,8 +195,6 @@ def evaluate_embeddings(
         adv_embeddings_train = all_adv_embeddings_train[key]
 
         start_time = time.time()
-        logger.info(f"\n \n UNSUPERVISED MATRIX HERE \n \n")
-        # logger.info(f"Emb train = {len(list(embeddings_train))} and test = {len(list(embeddings_test))} and adv {len(list(adv_embeddings_test))}")
         gram_test_and_bad = get_gram_matrix(
             kernel_type=kernel_type,
             embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
@@ -243,6 +242,9 @@ def evaluate_embeddings(
 
                 # Testing model
                 predictions = ocs.score_samples(gram_test_and_bad[i])
+                pred_clean = predictions[:len(embeddings_test)]
+                pred_adv = predictions[len(embeddings_test):]
+
                 # with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
                 #    pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -255,6 +257,11 @@ def evaluate_embeddings(
                     best_auc_c90 = auc_c90
                     best_nu_param = nu
                     best_param = param
+                    # For separating into l2 norm buckets
+                    if index_l2_norm is not None:
+                        pred_adv_l2_norm = [pred_adv[index_l2_norm==i+1] for i in range(len(np.unique(index_l2_norm)))]
+                        lab_l2_norm = [np.concatenate((np.ones(len(embeddings_test)), np.zeros(len(pred)))) for pred in pred_adv_l2_norm]
+                        best_auc_l2_norm = [roc_auc_score(y_true=lab_l2_norm[i], y_score=list(pred_clean)+list(pred_adv_l2_norm[i])) for i in range(len(np.unique(index_l2_norm)))]
 
             #######################
             # Supervised Learning #
@@ -289,4 +296,7 @@ def evaluate_embeddings(
         logger.info(f"Best auc unsupervised {best_auc}")
         logger.info(f"Best auc supervised {best_auc_supervised}")
 
-    return aucs, aucs_supervised
+        if index_l2_norm is not None:
+            logger.info(f"Best auc l2 norm = {best_auc_l2_norm}")
+
+    return aucs, aucs_supervised, best_auc_l2_norm
