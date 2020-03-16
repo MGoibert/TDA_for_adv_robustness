@@ -75,7 +75,7 @@ class Architecture(nn.Module):
         """
         Return the initial version of the model if available
         """
-        return torch.load(self.get_model_initial_savepath())
+        return torch.load(self.get_model_initial_savepath(), map_location=device)
 
     def get_initial_model_v2(self) -> "Architecture":
         self.name

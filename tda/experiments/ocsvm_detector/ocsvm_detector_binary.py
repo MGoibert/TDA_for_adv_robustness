@@ -4,6 +4,7 @@
 import argparse
 import io
 import time
+import re
 import traceback
 import typing
 
@@ -380,7 +381,7 @@ def run_experiment(config: Config):
         "aucs_supervised": aucs_supervised,
         "aucs_unsupervised": aucs_unsupervised,
         "aucs_l2_norm": aucs_l2_norm,
-        "running_time": end_time - start_time,
+        "time": end_time - start_time,
         "l2_diff": stats,
         "linf_diff": stats_inf,
     }
@@ -405,8 +406,10 @@ if __name__ == "__main__":
         my_trace = io.StringIO()
         traceback.print_exc(file=my_trace)
 
+        logger.error(my_trace.getvalue())
+
         my_db.update_experiment(
             experiment_id=my_config.experiment_id,
             run_id=my_config.run_id,
-            metrics={"ERROR": my_trace.getvalue()},
+            metrics={"ERROR": re.escape(my_trace.getvalue())},
         )

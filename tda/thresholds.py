@@ -38,7 +38,7 @@ def process_thresholds(
     def process(x):
         if x == "inf":
             return np.inf
-        return float(x)
+        return round(float(x), 4)
 
     if ";" in raw_thresholds:
         logger.info("Detected new format for thresholds")
@@ -64,7 +64,7 @@ def process_thresholds(
 
     if any([threshold <= 1 for threshold in thresholds.values()]):
         # In this case, we assume we have threshold as quantiles
-        dict_quant = get_stats(
+        all_weights = get_stats(
                 dataset=dataset,
                 architecture=architecture,
                 dataset_size=dataset_size
@@ -73,7 +73,7 @@ def process_thresholds(
     for key in thresholds:
         threshold = thresholds[key]
         if 0 < threshold <= 1:
-            thresholds[key] = dict_quant[key][threshold]
+            thresholds[key] = np.quantile(all_weights[key], float(threshold))
             logger.info(f"Link {key}: threshold={thresholds[key]} (quantile {threshold})")
         else:
             logger.info(f"Link {key}: threshold={threshold}")
