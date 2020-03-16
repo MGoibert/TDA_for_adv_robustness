@@ -26,10 +26,10 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             "MNIST"
         ],
         'dataset_size': [
-            500
+            200
         ],
         'attack_type': [
-            "FGSM"  #  , "BIM", "DeepFool", "CW"
+            "DeepFool"  #  , "BIM", "DeepFool", "CW"
         ],
         'thresholds': [
             '0;1;0_-1;0;0.1_1;2;0.1_2;3;0.025_3;4;0_5;6;0'
@@ -38,7 +38,7 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             0.0
         ],
         'n_jobs': [
-            24
+            2
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

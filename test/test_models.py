@@ -8,6 +8,7 @@ from tda.models import get_deep_model
 from tda.models.datasets import Dataset
 from tda.models.architectures import * #mnist_mlp, svhn_cnn_simple, Architecture, mnist_lenet
 from tda.threshold_underoptimized_edges import process_thresholds_underopt
+from tda.graph_dataset import get_sample_dataset
 
 
 def test_get_mnist_model():
@@ -126,10 +127,49 @@ def test_new_threshold():
         architecture=architecture,
     )
 
+def test_cw_l2norm():
+    dataset = Dataset.get_or_create(name="MNIST")
+    architecture = get_architecture(mnist_lenet.name)
+    architecture = get_deep_model(
+        num_epochs=50,
+        dataset=dataset,
+        architecture=architecture,
+        train_noise=False,
+    )
+    data = get_sample_dataset(
+            adv=True,
+            noise=0.0,
+            dataset=dataset,
+            train=False,
+            succ_adv=True,
+            archi=architecture,
+            attack_type="CW",
+            epsilon=1,
+            num_iter=1000,
+            dataset_size=50,
+            offset=0,
+            compute_graph=False
+        )
+    list_norm = list()
+    for d in data:
+        list_norm.append(d.l2_norm)
+    def summary(my_list):
+        s = dict()
+        s["min"] = np.min(my_list)
+        for q in [0.05, 0.1, 0.25, 0.4, 0.5]:
+            s[str(q)] = np.quantile(my_list, q)
+        s["mean"] = np.mean(my_list)
+        for q in [0.6, 0.75, 0.9, 0.95]:
+            s[str(q)] = np.quantile(my_list, q)
+        s["max"] = np.max(my_list)
+        return s
+
+    print(f"Summary l2 norm = {summary(list_norm)}")
+
 
 if __name__ == "__main__":
     #resave_model("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/trained_models/init_svhn_svhn_lenet_205_epochs.model")
-    test_new_threshold()
+    test_cw_l2norm()
 
 
 
