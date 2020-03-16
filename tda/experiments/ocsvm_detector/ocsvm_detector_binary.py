@@ -67,6 +67,7 @@ class Config(typing.NamedTuple):
     num_iter: int
     # PCA Parameter for RawGraph (-1 = No PCA)
     raw_graph_pca: int
+    l2_norm_quantile: bool = True
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -107,6 +108,7 @@ def get_config() -> Config:
     parser.add_argument("--num_iter", type=int, default=10)
     parser.add_argument("--n_jobs", type=int, default=1)
     parser.add_argument("--all_epsilons", type=str, default=None)
+    parser.add_argument("--l2_norm_quantile", type=bool, default=True)
 
     args, _ = parser.parse_known_args()
 
@@ -243,6 +245,15 @@ def get_all_embeddings(config: Config):
         stats[epsilon] = [line.l2_norm for line in test_adv[epsilon]]
         stats_inf[epsilon] = [line.linf_norm for line in test_adv[epsilon]]
 
+        # Separate datasets as a function of L2 norms for CW or DeepFool
+        if config.attack_type in ["DeepFool", "CW"]:
+            bins = [np.quantile(stats[epsilon], q) for q in np.arange(0,1,0.2)]
+            index_l2_norm = np.digitize(stats[epsilon], bins)
+            logger.info(f"Quantile for L2 norm = {bins}")
+        else:
+            bins = None
+            index_l2_norm = None
+
         logger.debug(
             f"Stats for diff btw clean and adv: "
             f"{np.quantile(stats[epsilon], 0.1)}, "
@@ -296,6 +307,8 @@ def get_all_embeddings(config: Config):
         thresholds,
         stats,
         stats_inf,
+        index_l2_norm,
+        bins
     )
 
 
@@ -321,6 +334,8 @@ def run_experiment(config: Config):
         thresholds,
         stats,
         stats_inf,
+        index_l2_norm,
+        bins
     ) = get_all_embeddings(config)
     # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_train.pickle', 'wb') as f:
     #            pickle.dump(embedding_train, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -340,17 +355,24 @@ def run_experiment(config: Config):
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
-    aucs_unsupervised, aucs_supervised = evaluate_embeddings(
+    aucs_unsupervised, aucs_supervised, auc_l2_norm = evaluate_embeddings(
         embeddings_train=embedding_train,
         embeddings_test=embedding_test,
         all_adv_embeddings_train=adv_embeddings_train,
         all_adv_embeddings_test=adv_embeddings_test,
         param_space=param_space,
         kernel_type=config.kernel_type,
+        index_l2_norm=index_l2_norm
     )
+    logger.info(f"Here !!")
+    logger.info(f"bins = {bins}, len = {len(bins)}")
+    logger.info(f"auc_l2_norm = {auc_l2_norm}")
+    aucs_l2_norm = {bins[i]: auc_l2_norm[i] for i in range(len(bins))}
+    logger.info(f"aucs_l2_norm = {aucs_l2_norm}")
 
     logger.info(aucs_unsupervised)
     logger.info(aucs_supervised)
+    logger.info(aucs_l2_norm)
 
     end_time = time.time()
 
@@ -358,6 +380,7 @@ def run_experiment(config: Config):
         "name": "Graph",
         "aucs_supervised": aucs_supervised,
         "aucs_unsupervised": aucs_unsupervised,
+        "aucs_l2_norm": aucs_l2_norm,
         "time": end_time - start_time,
         "l2_diff": stats,
         "linf_diff": stats_inf,
