@@ -16,7 +16,7 @@ from tda.embeddings.persistent_diagrams import (
 )
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph_dataset import DatasetLine
-from tda.models import Architecture
+from tda.models import Architecture, Dataset
 from tda.tda_logging import get_logger
 from joblib import Parallel, delayed
 
@@ -53,11 +53,13 @@ def get_embedding(
     embedding_type: str,
     line: DatasetLine,
     architecture: Architecture,
+    dataset: Dataset,
     edges_to_keep,
     thresholds: Dict,
     threshold_strategy: str,
     params: Dict = dict(),
     save=None,
+    all_weights=None
 ):
 
     if line.graph is None:
@@ -67,6 +69,9 @@ def get_embedding(
     else:
         graph = line.graph
 
+    if all_weights is not None:
+        logger.info(f"Using sigmoidize")
+        graph.sigmoidize(all_weights=all_weights)
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds)
     elif threshold_strategy in [

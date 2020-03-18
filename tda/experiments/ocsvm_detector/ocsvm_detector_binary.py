@@ -26,6 +26,7 @@ from tda.threshold_underoptimized_edges import (
     thresholdize_underopt_v2,
 )
 from tda.thresholds import process_thresholds
+from tda.graph_stats import get_stats
 
 logger = get_logger("Detector")
 start_time = time.time()
@@ -127,6 +128,15 @@ def get_all_embeddings(config: Config):
         architecture=architecture,
         train_noise=config.train_noise,
     )
+    sigmoidize = False
+    if sigmoidize:
+        all_weights = get_stats(
+                dataset=dataset,
+                architecture=architecture,
+                dataset_size=100
+        )
+    else:
+        all_weights = None
 
     thresholds = None
     edges_to_keep = None
@@ -198,10 +208,12 @@ def get_all_embeddings(config: Config):
                         "raw_graph_pca": config.raw_graph_pca,
                     },
                     architecture=architecture,
+                    dataset=dataset,
                     thresholds=thresholds,
                     edges_to_keep=edges_to_keep,
                     threshold_strategy=config.threshold_strategy,
                     save=save2,
+                    all_weights=all_weights
                 )
             )
             c += 1
@@ -364,10 +376,7 @@ def run_experiment(config: Config):
         kernel_type=config.kernel_type,
         index_l2_norm=index_l2_norm
     )
-    logger.info(f"Here !!")
-    logger.info(f"bins = {bins}, len = {len(bins)}")
-    logger.info(f"auc_l2_norm = {auc_l2_norm}")
-    aucs_l2_norm = {bins[i]: auc_l2_norm[i] for i in range(len(bins))}
+    aucs_l2_norm = {bins[i]: auc_l2_norm[i] for i in range(len(bins))} if auc_l2_norm is not None else None
     logger.info(f"aucs_l2_norm = {aucs_l2_norm}")
 
     logger.info(aucs_unsupervised)

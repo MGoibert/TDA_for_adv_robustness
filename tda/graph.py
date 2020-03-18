@@ -89,21 +89,15 @@ class Graph(object):
             else:
                 self._edge_dict[layer_link] = coo_matrix(([], ([], [])), shape=v.shape)
 
-    def sigmoidize(self, file=False, quant=0.99):
-        dict_quant = {
-            (-1, 0): {0.5: 32476, 0.9: 147831, 0.99: 304033},
-            (0, 1): {0.5: 792848, 0.9: 2538853, 0.99: 5852197},
-            (1, 2): {0.5: 100556, 0.9: 580880, 0.99: 1958327},
-            (2, 3): {0.5: 2549860, 0.9: 8806744, 0.99: 18652663},
-            (3, 4): {0.5: 111805, 0.9: 656135, 0.99: 2082124},
-            (4, 5): {0.5: 253505, 0.9: 1483325, 0.99: 4708494},
-            (5, 6): {0.5: 1061315, 0.9: 7107406, 0.99: 22761988},
-        }
+    def sigmoidize(self, all_weights, quant=0.9500000000000001):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
             # Take median and "good" quantile to scale sigmoid
-            med, qu = dict_quant[layer_link][0.5], dict_quant[layer_link][quant]
-            k = -1 / (qu - med) * np.log(0.00001 / 0.99999)
+            if isinstance(all_weights[layer_link], dict):
+                med, qu = all_weights[layer_link][0.5], all_weights[layer_link][quant]
+            else:
+                med, qu = np.quantile(all_weights[layer_link], 0.5), np.quantile(all_weights[layer_link], quant)
+            k = -1 / (qu - med) * np.log(0.001 / 0.999)
             # Apply sigmoid
             val = 1 / (1 + np.exp(-k * (v.data - med)))
             v = coo_matrix((val, (v.row, v.col)), np.shape(v))

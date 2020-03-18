@@ -17,7 +17,7 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             mnist_lenet.name
         ],
         'threshold_strategy': [
-            ThresholdStrategy.ActivationValue
+            ThresholdStrategy.UnderoptimizedMagnitudeIncrease
         ],
         'epochs': [
             50
@@ -26,19 +26,25 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             "MNIST"
         ],
         'dataset_size': [
-            200
+            100
         ],
         'attack_type': [
-            "DeepFool"  #  , "BIM", "DeepFool", "CW"
+            "FGSM"  #  , "BIM", "DeepFool", "CW"
         ],
         'thresholds': [
-            '0;1;0_-1;0;0.1_1;2;0.1_2;3;0.025_3;4;0_5;6;0'
+            "0:0.3_2:0.0_4:0.0_5:0.0"
         ],
         'noise': [
             0.0
         ],
         'n_jobs': [
             2
+        ],
+        'num_iter': [
+            50
+        ],
+        'all_epsilons': [
+            "0.01;0.025;0.05;0.1;0.4"
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

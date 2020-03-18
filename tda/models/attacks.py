@@ -209,7 +209,7 @@ def _fct_to_min(adv_x, reconstruct_data, target, y_pred, logits, c, confidence=0
 
 
 def CW_attack(data, target, model, binary_search_steps=15, num_iter=50,
-              confidence=0, learning_rate=0.01, initial_c=1, lims=(0, 1)):
+              confidence=0, learning_rate=0.05, initial_c=1, lims=(0, 1)):
     """
     Carlini & Wagner attack.
     Untargeted implementation, L2 setup.
@@ -267,7 +267,7 @@ class CW(_BaseAttack):
     """
     Carlini-Wagner Method
     """
-    def __init__(self, model, binary_search_steps=5,
+    def __init__(self, model, binary_search_steps=15,
                  num_iter=50, lims=(0, 1)):
         _BaseAttack.__init__(self, model, lims=lims)
         self.binary_search_steps = binary_search_steps
