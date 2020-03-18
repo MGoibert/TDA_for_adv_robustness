@@ -262,6 +262,8 @@ def evaluate_embeddings(
                         pred_adv_l2_norm = [pred_adv[index_l2_norm==i+1] for i in range(len(np.unique(index_l2_norm)))]
                         lab_l2_norm = [np.concatenate((np.ones(len(embeddings_test)), np.zeros(len(pred)))) for pred in pred_adv_l2_norm]
                         best_auc_l2_norm = [roc_auc_score(y_true=lab_l2_norm[i], y_score=list(pred_clean)+list(pred_adv_l2_norm[i])) for i in range(len(np.unique(index_l2_norm)))]
+                    else:
+                        best_auc_l2_norm = None
 
             #######################
             # Supervised Learning #
