@@ -78,16 +78,34 @@ class Graph(object):
 
     def thresholdize_underopt(self, ud):
         for layer_link in self._edge_dict:
+            v = self._edge_dict[layer_link]
             if layer_link[1] in ud.keys():
-                v = self._edge_dict[layer_link]
                 idx_map = {k: idx for idx, k in enumerate(zip(v.row, v.col))}
                 loc = [idx_map[tuple(s)] for s in ud[layer_link[1]]]
-
+                loc = [i for i in loc if v.data[i] > 0]
                 self._edge_dict[layer_link] = coo_matrix(
-                    (v.data[loc], (v.row[loc], v.col[loc])), shape=v.shape
+                    (v.data[loc], (v.row[loc], v.col[loc])), shape=np.shape(v)
                 )
             else:
-                self._edge_dict[layer_link] = coo_matrix(([], ([], [])), shape=v.shape)
+                self._edge_dict[layer_link] = coo_matrix(np.zeros(np.shape(v)))
+
+    #def thresholdize_underopt(self, ud):
+    #    for layer_link in self._edge_dict:
+    #        v = self._edge_dict[layer_link]
+    #        destination_layer = layer_link[1]
+    #        if destination_layer in ud.keys():
+    #            v2 = np.zeros(np.shape(v))
+    #            loc = tuple(
+    #                [
+    #                    list(map(itemgetter(0), ud[destination_layer])),
+    #                    list(map(itemgetter(1), ud[destination_layer])),
+    #                ]
+    #            )
+    #            v2[loc] = v.todense()[loc]
+    #            v = coo_matrix(v2)
+    #        else:
+    #            v = coo_matrix(np.zeros(np.shape(v)))
+    #        self._edge_dict[layer_link] = v
 
     def sigmoidize(self, all_weights, quant=0.9500000000000001):
         for layer_link in self._edge_dict:
