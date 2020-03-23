@@ -185,7 +185,7 @@ def get_all_embeddings(config: Config):
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
         all_epsilons=all_epsilons,
-        compute_graph=False,
+        compute_graph=True,
     )
 
     def chunks(lst, n):
