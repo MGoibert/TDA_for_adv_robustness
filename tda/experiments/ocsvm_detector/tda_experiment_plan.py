@@ -40,7 +40,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         mnist_lenet.name,
         "MNIST",
         50,
-        "0:0.1_2:0.1_4:0.1_5:0.0",
+        "0:0.05_2:0.05_4:0.05_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
     ],
     [
