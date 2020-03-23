@@ -25,20 +25,25 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             100
         ],
         'attack_type': [
-            "FGSM", "BIM", "CW", "DeepFool"
+            "FGSM" #, "BIM", "CW", "DeepFool"
         ],
         'thresholds': [
-            #'0.5_0.03_0.5_0.03_inf_inf_inf'
-            '0.1_0.1_0.2_0.2_0.2'
+            "0:0.35_2:0.35_4:0.35_5:0_6:0"
         ],
         'threshold_strategy': [
-            ThresholdStrategy.ActivationValue
+            ThresholdStrategy.UnderoptimizedMagnitudeIncrease
         ],
         'noise': [
             0.0
         ],
         'n_jobs': [
-            24
+            2
+        ],
+        'all_epsilons': [
+            "0.01;0.1"
+        ],
+        'sigmoidize': [
+            False
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",

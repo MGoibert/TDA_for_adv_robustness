@@ -70,7 +70,6 @@ def get_embedding(
         graph = line.graph
 
     if all_weights is not None:
-        logger.info(f"Using sigmoidize")
         graph.sigmoidize(all_weights=all_weights)
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds)

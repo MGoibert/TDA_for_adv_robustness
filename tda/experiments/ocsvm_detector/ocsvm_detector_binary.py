@@ -69,6 +69,7 @@ class Config(typing.NamedTuple):
     # PCA Parameter for RawGraph (-1 = No PCA)
     raw_graph_pca: int
     l2_norm_quantile: bool = True
+    sigmoidize: bool = False
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -110,6 +111,7 @@ def get_config() -> Config:
     parser.add_argument("--n_jobs", type=int, default=1)
     parser.add_argument("--all_epsilons", type=str, default=None)
     parser.add_argument("--l2_norm_quantile", type=bool, default=True)
+    parser.add_argument("--sigmoidize", type=bool, default=False)
 
     args, _ = parser.parse_known_args()
 
@@ -128,8 +130,8 @@ def get_all_embeddings(config: Config):
         architecture=architecture,
         train_noise=config.train_noise,
     )
-    sigmoidize = False
-    if sigmoidize:
+    if config.sigmoidize:
+        logger.info(f"Using inter-class regularization (sigmoid)")
         all_weights = get_stats(
                 dataset=dataset,
                 architecture=architecture,
