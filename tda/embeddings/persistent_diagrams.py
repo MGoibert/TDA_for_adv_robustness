@@ -62,7 +62,8 @@ except Exception as e:
 
 def compute_dgm_from_graph(
         graph: Graph,
-        astuple: bool = True
+        astuple: bool = True,
+        negate: bool = True
 ):
     all_edges_for_diagrams = graph.get_edge_list()
 
@@ -86,7 +87,10 @@ def compute_dgm_from_graph(
 
     f = Filtration()
     for vertices, weight in all_edges_for_diagrams:
-        timing = -weight.round(2)
+        if negate:
+            timing = -weight.round(2)
+        else:
+            timing = weight.round(2)
         f.append(Simplex(vertices, timing))
     f.sort()
     m = homology_persistence(f)

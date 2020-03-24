@@ -64,12 +64,15 @@ class Graph(object):
 
         return cls(edge_dict=edge_dict)
 
-    def thresholdize(self, thresholds):
+    def thresholdize(self, thresholds, low_pass: bool):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
             # logger.info(f"layer link {layer_link} and shape of v = {v.todense().shape}")
             # Keeping only edges below a given threhsold
-            loc = v.data < thresholds.get(layer_link, np.inf)
+            if low_pass:
+                loc = v.data < thresholds.get(layer_link, np.inf)
+            else:
+                loc = v.data > thresholds.get(layer_link, np.inf)
             v = coo_matrix(
                 (v.data[loc].round(2), (v.row[loc], v.col[loc])), np.shape(v)
             )
@@ -89,6 +92,20 @@ class Graph(object):
                 )
             else:
                 self._edge_dict[layer_link] = coo_matrix(np.zeros(np.shape(v)))
+
+    def thresholdize_per_graph(self, thresholds: typing.Dict, low_pass: bool):
+        for layer_link in self._edge_dict:
+            v = self._edge_dict[layer_link]
+            q = np.quantile(v.data, thresholds.get(layer_link, 0.0))
+            if low_pass:
+                loc = v.data < q
+            else:
+                loc = v.data > q
+            v = coo_matrix(
+                (v.data[loc], (v.row[loc], v.col[loc])), np.shape(v)
+            )
+            # Changing the sign for the persistent diagram
+            self._edge_dict[layer_link] = v
 
     #def thresholdize_underopt(self, ud):
     #    for layer_link in self._edge_dict:
