@@ -1,6 +1,6 @@
 import typing
 import time
-import pickle
+import random
 
 import numpy as np
 from sklearn.metrics import roc_auc_score
@@ -160,6 +160,9 @@ def evaluate_embeddings(
     Compute the AUC for a given epsilon and returns also the scores
     of the best OneClass SVM
     """
+
+    np.random.seed(42)
+    random.seed(111)
 
     logger.info(f"I will evaluate your embeddings with {kernel_type} kernel !")
     logger.info(f"Found {len(embeddings_train)} clean embeddings for train")
