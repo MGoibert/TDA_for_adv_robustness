@@ -14,7 +14,7 @@ logger = get_logger("Thresholds Underoptimized")
 def _process_raw_quantiles(
     raw_quantiles: str, architecture: Architecture = None
 ) -> typing.Dict[int, float]:
-
+    logger.info(f"Processing raw threshold {raw_quantiles}")
     if not "_" in raw_quantiles:
         # Uniform quantile
         return {
@@ -26,6 +26,7 @@ def _process_raw_quantiles(
     for raw_quantile in raw_quantiles.split("_"):
         layer_idx, value = raw_quantile.split(":")
         ret[int(layer_idx)] = float(value)
+    logger.info(f"Processed threshold = {ret}")
     return ret
 
 
