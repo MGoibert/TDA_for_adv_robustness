@@ -135,6 +135,10 @@ def process_thresholds_underopt(
         f"Size edges kept = {[len(underoptimized_edges[k]) for k in underoptimized_edges.keys()]}"
     )
 
+    underoptimized_edges = {
+        k: set([tuple(edge) for edge in underoptimized_edges[k]]) for k in underoptimized_edges
+    }
+
     return underoptimized_edges
 
 

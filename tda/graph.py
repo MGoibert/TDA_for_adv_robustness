@@ -83,10 +83,11 @@ class Graph(object):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
             if layer_link[1] in ud.keys():
-                idx_map = {k: idx for idx, k in enumerate(zip(v.row, v.col))}
-                sentinel = object()
-                loc = [idx_map.get(tuple(s), sentinel) for s in ud[layer_link[1]]]
-                loc = [i for i in loc if i != sentinel]
+                loc = [
+                    idx
+                    for idx, k in enumerate(zip(v.row, v.col))
+                    if k in ud[layer_link[1]]
+                ]
                 self._edge_dict[layer_link] = coo_matrix(
                     (v.data[loc], (v.row[loc], v.col[loc])), shape=np.shape(v)
                 )
@@ -101,13 +102,11 @@ class Graph(object):
                 loc = v.data < q
             else:
                 loc = v.data > q
-            v = coo_matrix(
-                (v.data[loc], (v.row[loc], v.col[loc])), np.shape(v)
-            )
+            v = coo_matrix((v.data[loc], (v.row[loc], v.col[loc])), np.shape(v))
             # Changing the sign for the persistent diagram
             self._edge_dict[layer_link] = v
 
-    #def thresholdize_underopt(self, ud):
+    # def thresholdize_underopt(self, ud):
     #    for layer_link in self._edge_dict:
     #        v = self._edge_dict[layer_link]
     #        destination_layer = layer_link[1]
@@ -132,7 +131,10 @@ class Graph(object):
             if isinstance(all_weights[layer_link], dict):
                 med, qu = all_weights[layer_link][0.5], all_weights[layer_link][quant]
             else:
-                med, qu = np.quantile(all_weights[layer_link], 0.5), np.quantile(all_weights[layer_link], quant)
+                med, qu = (
+                    np.quantile(all_weights[layer_link], 0.5),
+                    np.quantile(all_weights[layer_link], quant),
+                )
             k = -1 / (qu - med) * np.log(0.001 / 0.999)
             # Apply sigmoid
             val = 1 / (1 + np.exp(-k * (v.data - med)))
