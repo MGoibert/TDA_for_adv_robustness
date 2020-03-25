@@ -81,8 +81,9 @@ class Graph(object):
             v = self._edge_dict[layer_link]
             if layer_link[1] in ud.keys():
                 idx_map = {k: idx for idx, k in enumerate(zip(v.row, v.col))}
-                loc = [idx_map[tuple(s)] for s in ud[layer_link[1]]]
-                loc = [i for i in loc if v.data[i] > 0]
+                sentinel = object()
+                loc = [idx_map.get(tuple(s), sentinel) for s in ud[layer_link[1]]]
+                loc = [i for i in loc if i != sentinel]
                 self._edge_dict[layer_link] = coo_matrix(
                     (v.data[loc], (v.row[loc], v.col[loc])), shape=np.shape(v)
                 )
