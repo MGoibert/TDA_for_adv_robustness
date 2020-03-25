@@ -23,7 +23,7 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             "FashionMNIST"
         ],
         'dataset_size': [
-            100
+            500
         ],
         'attack_type': [
             "FGSM"#, "BIM", "DeepFool", "CW"
@@ -35,13 +35,16 @@ experiment_plan = R3D3ExperimentPlan.from_cartesian_space(
             ThresholdStrategy.UnderoptimizedMagnitudeIncrease
         ],
         'noise': [
-            0.0
+            0.01
         ],
         'n_jobs': [
-            2
+            5
         ],
         'all_epsilons': [
             "0.01;0.1"
+        ],
+        'sigmoidize': [
+            False
         ]
     },
     binary=f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py",
