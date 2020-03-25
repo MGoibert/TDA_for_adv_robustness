@@ -19,8 +19,9 @@ base_configs = cartesian_product(
         "kernel_type": [KernelType.SlicedWasserstein],
         "dataset_size": [500],
         "attack_type": ["FGSM", "DeepFool"],
-        "noise": [0.01],
+        "noise": [0.0],
         "n_jobs": [24],
+        "all_epsilons": ["0.01;0.1;0.4"]
     }
 )
 
@@ -29,53 +30,11 @@ binary = f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py"
 all_experiments = list()
 
 for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
-    [
-        mnist_mlp.name,
-        "MNIST",
-        50,
-        "0:0.1_1:0.1_2:0.0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-    ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.05_2:0.05_4:0.05_5:0.0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-    ],
-    [
-        fashion_mnist_mlp.name,
-        "FashionMNIST",
-        50,
-        "0:0.1_1:0.1_2:0.0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-    ],
     [   # AUC : 0.01: 0.975, 0.1: 0.975
         fashion_mnist_lenet.name,
         "FashionMNIST",
         200,
         "0:0.05_2:0.05_4:0.0_5:0.0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-    ],
-    [
-        svhn_lenet.name,
-        "SVHN",
-        250,
-        "0;1;0.02_-1;0;0.3_1;2;0.3_2;3;0.02",
-        ThresholdStrategy.ActivationValue,
-    ],
-    [
-        svhn_lenet.name,
-        "SVHN",
-        250,
-        "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-    ],
-    [
-        cifar_lenet.name,
-        "CIFAR10",
-        300,
-        "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
     ],
 ]:
