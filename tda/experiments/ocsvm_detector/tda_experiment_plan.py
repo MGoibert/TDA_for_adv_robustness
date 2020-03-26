@@ -58,13 +58,13 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         "0:0.05_2:0.05_4:0.0_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
     ],
-    [
-        svhn_lenet.name,
-        "SVHN",
-        250,
-        "0;1;0.02_-1;0;0.3_1;2;0.3_2;3;0.02",
-        ThresholdStrategy.ActivationValue,
-    ],
+    # [
+    #     svhn_lenet.name,
+    #     "SVHN",
+    #     250,
+    #     "0;1;0.02_-1;0;0.3_1;2;0.3_2;3;0.02",
+    #     ThresholdStrategy.ActivationValue,
+    # ],
     [
         svhn_lenet.name,
         "SVHN",
