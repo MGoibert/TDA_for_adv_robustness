@@ -41,9 +41,12 @@ class Config(typing.NamedTuple):
     kernel_type: str
     # High threshold for the edges of the activation graph
     thresholds: str
-    # Parameters used only for Weisfeiler-Lehman embedding
+    # Which thresholding strategy should we use
     threshold_strategy: str
+    # Are the threshold low pass or not
+    thresholds_are_low_pass: bool
     # Underoptimized threshold or normal threshold?
+    # Parameters used only for Weisfeiler-Lehman embedding
     height: int
     hash_size: int
     node_labels: str
@@ -112,6 +115,7 @@ def get_config() -> Config:
     parser.add_argument("--all_epsilons", type=str, default=None)
     parser.add_argument("--l2_norm_quantile", type=bool, default=True)
     parser.add_argument("--sigmoidize", type=bool, default=False)
+    parser.add_argument("--thresholds_are_low_pass", type=bool, default=True)
 
     args, _ = parser.parse_known_args()
 
@@ -133,9 +137,7 @@ def get_all_embeddings(config: Config):
     if config.sigmoidize:
         logger.info(f"Using inter-class regularization (sigmoid)")
         all_weights = get_stats(
-                dataset=dataset,
-                architecture=architecture,
-                dataset_size=100
+            dataset=dataset, architecture=architecture, dataset_size=100
         )
     else:
         all_weights = None
@@ -150,6 +152,13 @@ def get_all_embeddings(config: Config):
             architecture=architecture,
             dataset_size=100,
         )
+    elif config.threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
+        thresholds = config.thresholds.split("_")
+        thresholds = [val.split(";") for val in thresholds]
+        thresholds = {
+            (int(start), int(end)): float(val) for (start, end, val) in thresholds
+        }
+        logger.info(f"Using thresholds per graph {thresholds}")
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
@@ -215,7 +224,8 @@ def get_all_embeddings(config: Config):
                     edges_to_keep=edges_to_keep,
                     threshold_strategy=config.threshold_strategy,
                     save=save2,
-                    all_weights=all_weights
+                    all_weights_for_sigmoid=all_weights,
+                    thresholds_are_low_pass=config.thresholds_are_low_pass,
                 )
             )
             c += 1
@@ -261,7 +271,7 @@ def get_all_embeddings(config: Config):
 
         # Separate datasets as a function of L2 norms for CW or DeepFool
         if config.attack_type in ["DeepFool", "CW"]:
-            bins = [np.quantile(stats[epsilon], q) for q in np.arange(0,1,0.2)]
+            bins = [np.quantile(stats[epsilon], q) for q in np.arange(0, 1, 0.2)]
             index_l2_norm = np.digitize(stats[epsilon], bins)
             logger.info(f"Quantile for L2 norm = {bins}")
         else:
@@ -322,7 +332,7 @@ def get_all_embeddings(config: Config):
         stats,
         stats_inf,
         index_l2_norm,
-        bins
+        bins,
     )
 
 
@@ -349,7 +359,7 @@ def run_experiment(config: Config):
         stats,
         stats_inf,
         index_l2_norm,
-        bins
+        bins,
     ) = get_all_embeddings(config)
     # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_train.pickle', 'wb') as f:
     #            pickle.dump(embedding_train, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -376,9 +386,13 @@ def run_experiment(config: Config):
         all_adv_embeddings_test=adv_embeddings_test,
         param_space=param_space,
         kernel_type=config.kernel_type,
-        index_l2_norm=index_l2_norm
+        index_l2_norm=index_l2_norm,
     )
-    aucs_l2_norm = {bins[i]: auc_l2_norm[i] for i in range(len(bins))} if auc_l2_norm is not None else None
+    aucs_l2_norm = (
+        {bins[i]: auc_l2_norm[i] for i in range(len(bins))}
+        if auc_l2_norm is not None
+        else None
+    )
     logger.info(f"aucs_l2_norm = {aucs_l2_norm}")
 
     logger.info(aucs_unsupervised)

@@ -47,6 +47,7 @@ class ThresholdStrategy(object):
     UnderoptimizedMagnitudeIncreaseV2 = "UnderoptimizedMagnitudeIncreaseV2"
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
     UnderoptimizedLargeFinalV2 = "UnderoptimizedLargeFinalV2"
+    QuantilePerGraphLayer = "QuantilePerGraphLayer"
 
 
 def get_embedding(
@@ -59,7 +60,8 @@ def get_embedding(
     threshold_strategy: str,
     params: Dict = dict(),
     save=None,
-    all_weights=None
+    all_weights_for_sigmoid=None,
+    thresholds_are_low_pass: bool = True,
 ):
 
     if line.graph is None:
@@ -69,16 +71,20 @@ def get_embedding(
     else:
         graph = line.graph
 
-    if all_weights is not None:
-        graph.sigmoidize(all_weights=all_weights)
+    if all_weights_for_sigmoid is not None:
+        graph.sigmoidize(all_weights=all_weights_for_sigmoid)
     if threshold_strategy == ThresholdStrategy.ActivationValue:
-        graph.thresholdize(thresholds=thresholds)
+        graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
     elif threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
     ]:
         # logger.info(f"Using underoptimized threshold...")
         graph.thresholdize_underopt(edges_to_keep)
+    elif threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
+        graph.thresholdize_per_graph(
+            thresholds=thresholds, low_pass=thresholds_are_low_pass
+        )
 
     # if save is not None:
     #    m = graph.get_adjacency_matrix()
