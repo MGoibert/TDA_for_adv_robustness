@@ -20,7 +20,7 @@ base_configs = cartesian_product(
         "dataset_size": [500],
         "attack_type": ["FGSM", "DeepFool"],
         "noise": [0.0],
-        "n_jobs": [24],
+        "n_jobs": [8],
     }
 )
 
@@ -90,5 +90,5 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
 experiment_plan = R3D3ExperimentPlan(
-    experiments=all_experiments, max_nb_processes=1, db_path=db_path
+    experiments=all_experiments, max_nb_processes=4, db_path=db_path
 )
