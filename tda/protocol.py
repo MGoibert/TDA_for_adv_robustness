@@ -156,7 +156,7 @@ def evaluate_embeddings(
     all_adv_embeddings_test: typing.Dict,
     param_space: typing.List,
     kernel_type: str,
-    index_l2_norm: typing.List,
+    index_l2_norm: typing.List = None
 ) -> (float, float):
     """
     Compute the AUC for a given epsilon and returns also the scores
