@@ -433,7 +433,7 @@ def run_experiment(config: Config):
         sigma_per_layer_inv=sigma_per_class_inv,
     )
 
-    aucs_unsupervised, auc_supervised = evaluate_embeddings(
+    aucs_unsupervised, auc_supervised, _ = evaluate_embeddings(
         embeddings_train=list(embeddings_train),
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,

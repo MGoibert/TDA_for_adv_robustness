@@ -157,7 +157,7 @@ def evaluate_embeddings(
     param_space: typing.List,
     kernel_type: str,
     index_l2_norm: typing.List = None
-) -> (float, float):
+) -> (float, float, float):
     """
     Compute the AUC for a given epsilon and returns also the scores
     of the best OneClass SVM
@@ -165,6 +165,8 @@ def evaluate_embeddings(
 
     np.random.seed(42)
     random.seed(111)
+
+    best_auc_l2_norm = None
 
     logger.info(f"I will evaluate your embeddings with {kernel_type} kernel !")
     logger.info(f"Found {len(embeddings_train)} clean embeddings for train")
