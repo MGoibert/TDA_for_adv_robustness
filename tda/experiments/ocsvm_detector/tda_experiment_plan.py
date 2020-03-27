@@ -29,13 +29,14 @@ binary = f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py"
 
 all_experiments = list()
 
-for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
+for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in [
     [
         mnist_mlp.name,
         "MNIST",
         50,
-        "0:0.1_1:0.1_2:0.0",
+        "0:0.3_1:0.3_2:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        True
     ],
     [
         mnist_lenet.name,
@@ -43,6 +44,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         50,
         "0:0.05_2:0.05_4:0.05_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        False
     ],
     [
         fashion_mnist_mlp.name,
@@ -50,6 +52,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         50,
         "0:0.1_1:0.1_2:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        False
     ],
     [   # AUC : 0.01: 0.975, 0.1: 0.975
         fashion_mnist_lenet.name,
@@ -57,20 +60,15 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         200,
         "0:0.05_2:0.05_4:0.0_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        False
     ],
-    # [
-    #     svhn_lenet.name,
-    #     "SVHN",
-    #     250,
-    #     "0;1;0.02_-1;0;0.3_1;2;0.3_2;3;0.02",
-    #     ThresholdStrategy.ActivationValue,
-    # ],
     [
         svhn_lenet.name,
         "SVHN",
         250,
         "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        False
     ],
     [
         cifar_lenet.name,
@@ -78,6 +76,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         300,
         "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        False
     ],
 ]:
     for config in base_configs:
@@ -87,6 +86,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy in [
         config["epochs"] = nb_epochs
         config["thresholds"] = best_threshold
         config["threshold_strategy"] = threshold_strategy
+        config["sigmoidize"] = sigmoidize
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
