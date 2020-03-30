@@ -386,7 +386,13 @@ def get_feature_datasets(
         epsilon: [line.l2_norm for line in test_adv[epsilon]] for epsilon in epsilons
     }
 
-    return embeddings_train, embeddings_test, adv_embedding_train, adv_embedding_test, stats
+    return (
+        embeddings_train,
+        embeddings_test,
+        adv_embedding_train,
+        adv_embedding_test,
+        stats,
+    )
 
 
 def run_experiment(config: Config):
@@ -428,7 +434,7 @@ def run_experiment(config: Config):
         embeddings_test,
         adv_embedding_train,
         adv_embedding_test,
-        stats
+        stats,
     ) = get_feature_datasets(
         config=config,
         epsilons=all_epsilons,
@@ -443,14 +449,14 @@ def run_experiment(config: Config):
     else:
         stats_for_l2_norm_buckets = dict()
 
-    aucs_unsupervised, auc_supervised, _ = evaluate_embeddings(
+    aucs_unsupervised, auc_supervised, auc_l2_norm = evaluate_embeddings(
         embeddings_train=list(embeddings_train),
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,
         all_adv_embeddings_test=adv_embedding_test,
         param_space=[{"gamma": gamma} for gamma in np.logspace(-3, 3, 6)],
         kernel_type=KernelType.RBF,
-        stats_for_l2_norm_buckets=stats_for_l2_norm_buckets
+        stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
 
     logger.info(aucs_unsupervised)
@@ -465,6 +471,7 @@ def run_experiment(config: Config):
             "aucs_supervised": auc_supervised,
             "aucs_unsupervised": aucs_unsupervised,
             "gaussian_accuracy": gaussian_accuracy,
+            "aucs_l2_norm": auc_l2_norm if len(auc_l2_norm) > 0 else "None",
         },
     )
 

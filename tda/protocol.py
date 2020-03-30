@@ -189,7 +189,7 @@ def evaluate_embeddings(
 
     aucs = dict()
     aucs_supervised = dict()
-    aucs_l2_norm = None
+    aucs_l2_norm = dict()
 
     for key in all_adv_embeddings_train:
 
@@ -329,7 +329,7 @@ def evaluate_embeddings(
         logger.info(f"Best auc unsupervised {best_auc}")
         logger.info(f"Best auc supervised {best_auc_supervised}")
 
-        if aucs_l2_norm is not None:
+        if len(aucs_l2_norm) > 0:
             logger.info(f"Best auc l2 norm = {aucs_l2_norm}")
 
     return aucs, aucs_supervised, aucs_l2_norm
