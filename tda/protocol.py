@@ -170,12 +170,6 @@ def evaluate_embeddings(
     logger.info(f"Found {len(embeddings_train)} clean embeddings for train")
     logger.info(f"Found {len(embeddings_test)} clean embeddings for test")
 
-    # aucs_l2_norm = (
-    #         {bins[i]: auc_l2_norm[i] for i in range(len(bins))}
-    #         if auc_l2_norm is not None
-    #         else None
-    #     )
-
     gram_train_matrices = get_gram_matrix(
         kernel_type=kernel_type,
         embeddings_in=embeddings_train,
@@ -286,8 +280,8 @@ def evaluate_embeddings(
                             (np.ones(len(embeddings_test)), np.zeros(len(pred_for_bin)))
                         )
                         aucs_l2_norm[bin] = roc_auc_score(
-                                y_true=lab_l2_norm,
-                                y_score=list(pred_clean) + list(pred_for_bin),
+                            y_true=lab_l2_norm,
+                            y_score=list(pred_clean) + list(pred_for_bin),
                         )
 
             #######################
