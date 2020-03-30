@@ -7,6 +7,7 @@ import time
 import typing
 import traceback
 import io
+import re
 
 import numpy as np
 import torch
@@ -322,7 +323,9 @@ def get_feature_datasets(
                             f"live_score_recomputed_with_numpy {live_score_recomputed_with_numpy}"
                         )
 
-                        distance = np.linalg.norm(live_score.cpu().detach().numpy()-best_score, 2)
+                        distance = np.linalg.norm(
+                            live_score.cpu().detach().numpy() - best_score, 2
+                        )
 
                         raise RuntimeError(
                             f"Live score {live_score.cpu().detach().numpy()}"
@@ -430,7 +433,7 @@ def run_experiment(config: Config):
         sigma_per_layer_inv=sigma_per_class_inv,
     )
 
-    aucs_unsupervised, auc_supervised = evaluate_embeddings(
+    aucs_unsupervised, auc_supervised, _ = evaluate_embeddings(
         embeddings_train=list(embeddings_train),
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,
@@ -463,8 +466,10 @@ if __name__ == "__main__":
         my_trace = io.StringIO()
         traceback.print_exc(file=my_trace)
 
+        logger.error(my_trace.getvalue())
+
         my_db.update_experiment(
             experiment_id=my_config.experiment_id,
             run_id=my_config.run_id,
-            metrics={"ERROR": my_trace.getvalue()},
+            metrics={"ERROR": re.escape(my_trace.getvalue())},
         )
