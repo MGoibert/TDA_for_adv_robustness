@@ -321,7 +321,7 @@ def get_all_embeddings(config: Config):
         adv_embeddings_test,
         thresholds,
         stats,
-        stats_inf
+        stats_inf,
     )
 
 
@@ -346,7 +346,7 @@ def run_experiment(config: Config):
         adv_embeddings_test,
         thresholds,
         stats,
-        stats_inf
+        stats_inf,
     ) = get_all_embeddings(config)
     # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_train.pickle', 'wb') as f:
     #            pickle.dump(embedding_train, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -393,7 +393,7 @@ def run_experiment(config: Config):
         "name": "Graph",
         "aucs_supervised": aucs_supervised,
         "aucs_unsupervised": aucs_unsupervised,
-        "aucs_l2_norm": auc_l2_norm or "None",
+        "aucs_l2_norm": auc_l2_norm if len(auc_l2_norm) > 0 else "None",
         "time": end_time - start_time,
         "l2_diff": stats,
         "linf_diff": stats_inf,
