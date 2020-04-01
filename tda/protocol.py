@@ -156,7 +156,7 @@ def evaluate_embeddings(
     all_adv_embeddings_test: typing.Dict,
     param_space: typing.List,
     kernel_type: str,
-    index_l2_norm: typing.List = None
+    stats_for_l2_norm_buckets: typing.Dict = dict(),
 ) -> (float, float, float):
     """
     Compute the AUC for a given epsilon and returns also the scores
@@ -165,8 +165,6 @@ def evaluate_embeddings(
 
     np.random.seed(42)
     random.seed(111)
-
-    best_auc_l2_norm = None
 
     logger.info(f"I will evaluate your embeddings with {kernel_type} kernel !")
     logger.info(f"Found {len(embeddings_train)} clean embeddings for train")
@@ -185,6 +183,7 @@ def evaluate_embeddings(
 
     aucs = dict()
     aucs_supervised = dict()
+    aucs_l2_norm = dict()
 
     for key in all_adv_embeddings_train:
 
@@ -198,6 +197,18 @@ def evaluate_embeddings(
         best_nu_param = None
         best_param_supervised = None
 
+        if key in stats_for_l2_norm_buckets:
+            # Separate datasets as a function of L2 norms for CW or DeepFool
+            bins = [
+                np.quantile(stats_for_l2_norm_buckets[key], q)
+                for q in np.arange(0, 1, 0.2)
+            ]
+            index_for_bins = np.digitize(stats_for_l2_norm_buckets[key], bins)
+            logger.info(f"Quantile for L2 norm = {bins}")
+        else:
+            bins = list()
+            index_for_bins = None
+
         adv_embeddings_test = all_adv_embeddings_test[key]
         adv_embeddings_train = all_adv_embeddings_train[key]
 
@@ -210,8 +221,6 @@ def evaluate_embeddings(
             verbatim="clean_test_and_adv",
             save=True,
         )
-        # with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_test_unsupervised_'+str(key)+'.pickle', 'wb') as f:
-        #    pickle.dump(gram_test_and_bad, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
 
         gram_train_supervised = get_gram_matrix(
@@ -252,9 +261,6 @@ def evaluate_embeddings(
                 pred_clean = predictions[: len(embeddings_test)]
                 pred_adv = predictions[len(embeddings_test) :]
 
-                # with open('/Users/m.goibert/Documents/temp/gram_mat/predict_'+str(key)+'_param='+str(i)+'.pickle', 'wb') as f:
-                #    pickle.dump(predictions, f, protocol=pickle.HIGHEST_PROTOCOL)
-
                 auc_c10, auc_true, auc_c90 = score_with_confidence(
                     roc_auc_score, y_true=labels, y_pred=predictions
                 )
@@ -267,26 +273,16 @@ def evaluate_embeddings(
                     best_nu_param = nu
                     best_param = param
                     # For separating into l2 norm buckets
-                    if index_l2_norm is not None:
-                        pred_adv_l2_norm = [
-                            pred_adv[index_l2_norm == i + 1]
-                            for i in range(len(np.unique(index_l2_norm)))
-                        ]
-                        lab_l2_norm = [
-                            np.concatenate(
-                                (np.ones(len(embeddings_test)), np.zeros(len(pred)))
-                            )
-                            for pred in pred_adv_l2_norm
-                        ]
-                        best_auc_l2_norm = [
-                            roc_auc_score(
-                                y_true=lab_l2_norm[i],
-                                y_score=list(pred_clean) + list(pred_adv_l2_norm[i]),
-                            )
-                            for i in range(len(np.unique(index_l2_norm)))
-                        ]
-                    else:
-                        best_auc_l2_norm = None
+                    # (If bins is not empty)
+                    for bin_index in list(sorted(np.unique(index_for_bins))):
+                        pred_for_bin = pred_adv[index_for_bins == bin_index]
+                        lab_l2_norm = np.concatenate(
+                            (np.ones(len(embeddings_test)), np.zeros(len(pred_for_bin)))
+                        )
+                        aucs_l2_norm[(bins+['inf'])[bin_index]] = roc_auc_score(
+                            y_true=lab_l2_norm,
+                            y_score=list(pred_clean) + list(pred_for_bin),
+                        )
 
             #######################
             # Supervised Learning #
@@ -327,7 +323,7 @@ def evaluate_embeddings(
         logger.info(f"Best auc unsupervised {best_auc}")
         logger.info(f"Best auc supervised {best_auc_supervised}")
 
-        if index_l2_norm is not None:
-            logger.info(f"Best auc l2 norm = {best_auc_l2_norm}")
+        if len(aucs_l2_norm) > 0:
+            logger.info(f"Best auc l2 norm = {aucs_l2_norm}")
 
-    return aucs, aucs_supervised, best_auc_l2_norm
+    return aucs, aucs_supervised, aucs_l2_norm
