@@ -25,6 +25,14 @@ _trans = transforms.Compose(
         transforms.Normalize((0.0,), (1.0,)),
     ]
 )
+_trans_BandW = transforms.Compose(
+    [
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.to(device)),
+        transforms.Normalize((0.0,), (1.0,)),
+    ]
+)
 
 torch.manual_seed(1)
 seed(1)
@@ -75,6 +83,14 @@ class Dataset(object):
 
             self.test_and_val_dataset = dset.SVHN(
                 root=_root, split="test", transform=_trans, download=True
+            )
+        elif name == "SVHN_BandW":
+            self.train_dataset = dset.SVHN(
+                root=_root, split="train", transform=_trans_BandW, download=True
+            )
+
+            self.test_and_val_dataset = dset.SVHN(
+                root=_root, split="test", transform=_trans_BandW, download=True
             )
         elif name == "CIFAR10":
             self.train_dataset = dset.CIFAR10(
