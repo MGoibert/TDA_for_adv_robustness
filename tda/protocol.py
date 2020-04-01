@@ -279,7 +279,7 @@ def evaluate_embeddings(
                         lab_l2_norm = np.concatenate(
                             (np.ones(len(embeddings_test)), np.zeros(len(pred_for_bin)))
                         )
-                        aucs_l2_norm[bin_index] = roc_auc_score(
+                        aucs_l2_norm[(bins+['inf'])[bin_index]] = roc_auc_score(
                             y_true=lab_l2_norm,
                             y_score=list(pred_clean) + list(pred_for_bin),
                         )
