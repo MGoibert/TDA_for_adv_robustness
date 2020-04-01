@@ -27,8 +27,7 @@ class EmbeddingType(object):
     AnonymousWalk = "AnonymousWalk"
     WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
-    PersistentDiagramTop100 = "PersistentDiagramTop100"
-    PersistentDiagramTopLifetimes = "PersistentDiagramTopLifetimes"
+    PersistentDiagramReverse = "PersistentDiagramReverse"
     LastLayerSortedLogits = "LastLayerSortedLogits"
     PersistentDiagramRipser = "PersistentDiagramRipser"
     RawGraph = "RawGraph"
@@ -108,13 +107,8 @@ def get_embedding(
         ).todense()
     elif embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_graph(graph)
-    elif embedding_type == EmbeddingType.PersistentDiagramTop100:
-        dgm = compute_dgm_from_graph(graph)
-        return sorted(dgm, key=lambda x: x[1] - x[0])[-100:]
-    elif embedding_type == EmbeddingType.PersistentDiagramTopLifetimes:
-        dgm = compute_dgm_from_graph(graph)
-        lifetimes = [pt[1] - pt[0] for pt in dgm]
-        return sorted(lifetimes)[-10:]
+    elif embedding_type == EmbeddingType.PersistentDiagramReverse:
+        return compute_dgm_from_graph(graph, negate=False)
     elif embedding_type == EmbeddingType.PersistentDiagramRipser:
         return compute_dgm_from_graph_ripser(graph)
     elif embedding_type == EmbeddingType.LastLayerSortedLogits:
