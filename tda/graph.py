@@ -107,7 +107,7 @@ class Graph(object):
     #            v = coo_matrix(np.zeros(np.shape(v)))
     #        self._edge_dict[layer_link] = v
 
-    def sigmoidize(self, all_weights, quant=0.9500000000000001):
+    def sigmoidize(self, all_weights, quant=0.999):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
             # Take median and "good" quantile to scale sigmoid
