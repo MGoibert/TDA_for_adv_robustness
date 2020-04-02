@@ -274,15 +274,16 @@ def evaluate_embeddings(
                     best_param = param
                     # For separating into l2 norm buckets
                     # (If bins is not empty)
-                    for bin_index in list(sorted(np.unique(index_for_bins))):
-                        pred_for_bin = pred_adv[index_for_bins == bin_index]
-                        lab_l2_norm = np.concatenate(
-                            (np.ones(len(embeddings_test)), np.zeros(len(pred_for_bin)))
-                        )
-                        aucs_l2_norm[(bins+['inf'])[bin_index]] = roc_auc_score(
-                            y_true=lab_l2_norm,
-                            y_score=list(pred_clean) + list(pred_for_bin),
-                        )
+                    if index_for_bins is not None:
+                        for bin_index in list(sorted(np.unique(index_for_bins))):
+                            pred_for_bin = pred_adv[index_for_bins == bin_index]
+                            lab_l2_norm = np.concatenate(
+                                (np.ones(len(embeddings_test)), np.zeros(len(pred_for_bin)))
+                            )
+                            aucs_l2_norm[(bins+['inf'])[bin_index]] = roc_auc_score(
+                                y_true=lab_l2_norm,
+                                y_score=list(pred_clean) + list(pred_for_bin),
+                            )
 
             #######################
             # Supervised Learning #
