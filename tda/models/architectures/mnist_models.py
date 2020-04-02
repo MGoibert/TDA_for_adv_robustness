@@ -34,7 +34,7 @@ mnist_mlp = Architecture(
 )
 
 mnist_mlp_relu = Architecture(
-    name="simple_fcn_mnist",
+    name="simple_fcn_mnist_relu",
     preprocess=mnist_preprocess,
     layers=[
         LinearLayer(28 * 28, 500, activ="relu"),
