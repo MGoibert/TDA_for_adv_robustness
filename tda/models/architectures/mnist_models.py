@@ -37,8 +37,8 @@ mnist_mlp_relu = Architecture(
     name="simple_fcn_mnist_relu",
     preprocess=mnist_preprocess,
     layers=[
-        LinearLayer(28 * 28, 500, activ="relu"),
-        LinearLayer(500, 256, activ="relu"),
+        LinearLayer(28 * 28, 500, activ=F.relu),
+        LinearLayer(500, 256, activ=F.relu),
         LinearLayer(256, 10),
         SoftMaxLayer(),
     ],
