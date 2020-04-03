@@ -14,6 +14,7 @@ from .mnist_models import (
 from .svhn_models import (
     svhn_lenet,
     svhn_lenet_bandw,
+    svhn_lenet_bandw2,
     svhn_resnet,
     svhn_resnet_test,
     svhn_cnn_simple,
@@ -33,6 +34,7 @@ known_architectures: List[Architecture] = [
     svhn_cnn_simple,
     svhn_lenet,
     svhn_lenet_bandw,
+    svhn_lenet_bandw2,
     svhn_resnet,
     mnist_lenet,
     mnist_small_mlp,
