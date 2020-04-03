@@ -9,6 +9,7 @@ from .mnist_models import (
     mnist_preprocess2,
     mnist_preprocess_cnn_05,
     mnist_small_mlp,
+    mnist_mlp_relu
 )
 
 from .svhn_models import (
@@ -38,6 +39,7 @@ known_architectures: List[Architecture] = [
     svhn_resnet,
     mnist_lenet,
     mnist_small_mlp,
+    mnist_mlp_relu,
     svhn_resnet_test,
     cifar_lenet,
     fashion_mnist_lenet,
