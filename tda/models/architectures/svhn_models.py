@@ -67,6 +67,21 @@ svhn_lenet_bandw = Architecture(
     ],
 )
 
+svhn_lenet_bandw2 = Architecture(
+    name="svhn_lenet_bandw2",
+    preprocess=svhn_preprocess_bandw,
+    layers=[
+        ConvLayer(1, 3, 5, activ=F.relu),  # output 3 * 28 * 28
+        MaxPool2dLayer(2), # 3 * 14 * 14
+        ConvLayer(3, 6, 5, activ=F.relu), # 6 * 10 * 10
+        MaxPool2dLayer(2),  # output 6 * 5 * 5
+        LinearLayer(6 * 5 * 5, 100, activ=F.relu),
+        LinearLayer(100, 50, activ=F.relu),
+        LinearLayer(50, 10),
+        SoftMaxLayer(),
+    ],
+)
+
 svhn_resnet = Architecture(
     name="svhn_resnet",
     preprocess=svhn_preprocess,
