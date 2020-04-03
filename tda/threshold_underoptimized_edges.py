@@ -119,6 +119,8 @@ def process_thresholds_underopt(
         mat_shapes = [[4704, 3072], [1600, 1176]]
     elif architecture.name in ["svhn_lenet_bandw"]:
         mat_shapes = [[4704, 1024], [1600, 1176]]
+    elif architecture.name in ["svhn_lenet_bandw2"]:
+        mat_shapes = [[2352, 1024], [600, 588]]
     else:
         mat_shapes = None
 
