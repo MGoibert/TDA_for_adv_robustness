@@ -15,6 +15,7 @@ from tda.models.architectures import (
     svhn_lenet,
     svhn_lenet_bandw,
     cifar_lenet,
+    mnist_mlp_relu,
     fashion_mnist_lenet,
     fashion_mnist_mlp,
 )
@@ -134,7 +135,7 @@ def train_network(
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5)
-    elif model.name in [mnist_mlp.name, fashion_mnist_mlp.name]:
+    elif model.name in [mnist_mlp.name, fashion_mnist_mlp.name, mnist_mlp_relu.name]:
         lr = 0.1
         patience = 5
         optimizer = optim.SGD(model.parameters(), lr=lr)
