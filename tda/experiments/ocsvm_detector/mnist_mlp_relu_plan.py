@@ -13,7 +13,7 @@ base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram],
         "kernel_type": [KernelType.SlicedWasserstein],
-        "architecture": [mnist_mlp.name, mnist_mlp_relu.name],
+        "architecture": [mnist_mlp_relu.name, mnist_mlp.name],
         "dataset_size": [500],
         "attack_type": ["FGSM"],
         "noise": [0.0],
