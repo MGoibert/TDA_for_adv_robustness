@@ -1,6 +1,6 @@
 from typing import Optional
 
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, diags
 from torch import nn
 
 
@@ -19,12 +19,7 @@ class Layer(object):
         ret = dict()
         for parentidx in self._activations:
             activ = self._activations[parentidx].reshape(-1)
-            data_for_parent = [
-                self.matrix.data[i] * float(activ[col_idx]) for i, col_idx in enumerate(self.matrix.col)
-            ]
-            ret[parentidx] = coo_matrix(
-                (data_for_parent, (self.matrix.row, self.matrix.col)), self.matrix.shape
-            )
+            ret[parentidx] = coo_matrix(self.matrix @ diags(activ.detach().numpy()))
         return ret
 
     def process(self, x, store_for_graph):
