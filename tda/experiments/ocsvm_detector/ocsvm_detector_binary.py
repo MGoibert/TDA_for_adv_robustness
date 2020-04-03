@@ -371,7 +371,7 @@ def run_experiment(config: Config):
     else:
         stats_for_l2_norm_buckets = dict()
 
-    aucs_unsupervised, aucs_supervised, auc_l2_norm = evaluate_embeddings(
+    evaluation_results = evaluate_embeddings(
         embeddings_train=embedding_train,
         embeddings_test=embedding_test,
         all_adv_embeddings_train=adv_embeddings_train,
@@ -381,22 +381,16 @@ def run_experiment(config: Config):
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
 
-    if auc_l2_norm is not None:
-        logger.info(f"aucs_l2_norm = {auc_l2_norm}")
-
-    logger.info(aucs_unsupervised)
-    logger.info(aucs_supervised)
+    logger.info(evaluation_results)
 
     end_time = time.time()
 
     metrics = {
         "name": "Graph",
-        "aucs_supervised": aucs_supervised,
-        "aucs_unsupervised": aucs_unsupervised,
-        "aucs_l2_norm": auc_l2_norm if len(auc_l2_norm) > 0 else "None",
         "time": end_time - start_time,
         "l2_diff": stats,
         "linf_diff": stats_inf,
+        **evaluation_results
     }
 
     if thresholds is not None:

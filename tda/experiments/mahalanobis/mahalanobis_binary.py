@@ -449,7 +449,7 @@ def run_experiment(config: Config):
     else:
         stats_for_l2_norm_buckets = dict()
 
-    aucs_unsupervised, auc_supervised, auc_l2_norm = evaluate_embeddings(
+    evaluation_results = evaluate_embeddings(
         embeddings_train=list(embeddings_train),
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,
@@ -459,8 +459,7 @@ def run_experiment(config: Config):
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
 
-    logger.info(aucs_unsupervised)
-    logger.info(auc_supervised)
+    logger.info(evaluation_results)
 
     my_db.update_experiment(
         experiment_id=config.experiment_id,
@@ -468,10 +467,8 @@ def run_experiment(config: Config):
         metrics={
             "name": "Mahalanobis",
             "time": time.time() - start_time,
-            "aucs_supervised": auc_supervised,
-            "aucs_unsupervised": aucs_unsupervised,
             "gaussian_accuracy": gaussian_accuracy,
-            "aucs_l2_norm": auc_l2_norm if len(auc_l2_norm) > 0 else "None",
+            **evaluation_results
         },
     )
 
