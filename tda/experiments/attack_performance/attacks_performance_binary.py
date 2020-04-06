@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from r3d3 import ExperimentDB
 
-from tda.graph_dataset import process_sample
+from tda.graph_dataset import process_sample, get_sample_dataset
 from tda.models import Dataset, get_deep_model
 from tda.models.architectures import Architecture
 from tda.models.architectures import get_architecture, svhn_lenet
@@ -18,8 +18,6 @@ from tda.tda_logging import get_logger
 from tda.rootpath import db_path, rootpath
 
 start_time = time.time()
-directory = f"{rootpath}/plots/"
-pathlib.Path(directory).mkdir(exist_ok=True)
 
 my_db = ExperimentDB(db_path=db_path)
 
@@ -48,19 +46,25 @@ class Config(typing.NamedTuple):
     experiment_id: int = int(time.time())
     run_id: int = 0
 
+    @property
+    def result_path(self):
+        directory = f"{rootpath}/results/{self.experiment_id}/{self.run_id}/"
+        pathlib.Path(directory).mkdir(exist_ok=True, parents=True)
+        return directory
+
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--experiment_id', type=int, default=-1)
-    parser.add_argument('--run_id', type=int, default=-1)
-    parser.add_argument('--noise', type=float, default=0.0)
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--dataset', type=str, default="SVHN")
-    parser.add_argument('--architecture', type=str, default=svhn_lenet.name)
-    parser.add_argument('--train_noise', type=float, default=0.0)
-    parser.add_argument('--dataset_size', type=int, default=50)
-    parser.add_argument('--attack_type', type=str, default="FGSM")
-    parser.add_argument('--num_iter', type=int, default=10)
+    parser.add_argument("--experiment_id", type=int, default=-1)
+    parser.add_argument("--run_id", type=int, default=-1)
+    parser.add_argument("--noise", type=float, default=0.0)
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--dataset", type=str, default="SVHN")
+    parser.add_argument("--architecture", type=str, default=svhn_lenet.name)
+    parser.add_argument("--train_noise", type=float, default=0.0)
+    parser.add_argument("--dataset_size", type=int, default=50)
+    parser.add_argument("--attack_type", type=str, default="FGSM")
+    parser.add_argument("--num_iter", type=int, default=10)
 
     args, _ = parser.parse_known_args()
 
@@ -68,44 +72,35 @@ def get_config() -> Config:
 
 
 def compute_adv_accuracy(
-        epsilon: float,
-        noise: float,
-        dataset: Dataset,
-        architecture: Architecture,
-        dataset_size: int = 100,
-        attack_type: str = "FGSM",
-        num_iter: int = 50
+    epsilon: float,
+    noise: float,
+    dataset: Dataset,
+    architecture: Architecture,
+    dataset_size: int = 100,
+    attack_type: str = "FGSM",
+    num_iter: int = 50,
 ) -> float:
     # Else we have to compute the dataset first
 
-    assert architecture.is_trained
+    dataset = get_sample_dataset(
+        epsilon=epsilon,
+        noise=noise,
+        adv=epsilon > 0,
+        dataset=dataset,
+        train=False,
+        succ_adv=False,
+        archi=architecture,
+        dataset_size=dataset_size,
+        attack_type=attack_type,
+        num_iter=num_iter,
+        compute_graph=False,
+    )
 
-    logger.info(f"I am going to generate a dataset of {dataset_size} points...")
+    # Since we set succ_adv to False, we should have
+    # exactly dataset_size points
+    assert len(dataset) == dataset_size
 
-    nb_samples = 0
-    corr = 0
-
-    while nb_samples < dataset_size:
-        sample = dataset.test_and_val_dataset[nb_samples]
-
-        x, y = process_sample(
-            sample=sample,
-            adversarial=epsilon > 0,
-            noise=noise,
-            epsilon=epsilon,
-            model=architecture,
-            num_classes=10,
-            attack_type=attack_type,
-            num_iter=num_iter
-        )
-
-        y_pred = architecture(x).argmax(dim=-1).item()
-
-        if y == y_pred:
-            corr += 1
-
-        nb_samples += 1
-
+    corr = sum([1 for line in dataset if line.y == line.y_pred])
     return corr / dataset_size
 
 
@@ -115,7 +110,7 @@ def get_all_accuracies(config: Config):
         my_db.add_experiment(
             experiment_id=config.experiment_id,
             run_id=config.run_id,
-            config=config._asdict()
+            config=config._asdict(),
         )
 
     if config.attack_type in ["FGSM", "BIM"]:
@@ -129,7 +124,7 @@ def get_all_accuracies(config: Config):
         num_epochs=config.epochs,
         dataset=dataset,
         architecture=get_architecture(config.architecture),
-        train_noise=config.train_noise
+        train_noise=config.train_noise,
     )
 
     accuracies = dict()
@@ -154,10 +149,18 @@ def get_all_accuracies(config: Config):
 
 def plot_and_save(config, accuracies):
     logger.info(accuracies)
-    file_name = directory + str(config.dataset) + "_" + str(config.architecture) + str(config.epochs) + "_" + str(
-        config.attack_type) + ".png"
+    file_name = (
+        config.result_path
+        + str(config.dataset)
+        + "_"
+        + str(config.architecture)
+        + str(config.epochs)
+        + "_"
+        + str(config.attack_type)
+        + ".png"
+    )
     logger.info(f"file name = {file_name}")
-    plt.style.use('ggplot')
+    plt.style.use("ggplot")
     plt.plot(list(accuracies.keys()), list(accuracies.values()), "o-", linewidth=1.5)
     plt.title("Standard and adversarial accuracies")
     plt.xlabel("Perturbation value")
@@ -169,9 +172,7 @@ def plot_and_save(config, accuracies):
     my_db.update_experiment(
         experiment_id=config.experiment_id,
         run_id=config.run_id,
-        metrics={
-            "accuracies": accuracies
-        }
+        metrics={"accuracies": accuracies},
     )
 
     end_time = time.time()
@@ -183,5 +184,3 @@ if __name__ == "__main__":
     config = get_config()
     accuracies = get_all_accuracies(config)
     plot_and_save(config, accuracies)
-
-
