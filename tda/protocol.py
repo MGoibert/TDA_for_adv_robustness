@@ -295,7 +295,7 @@ def evaluate_embeddings(
                     best_metrics = metrics
                     best_nu_param = nu
                     best_param = param
-                    best_predictions = (pred_clean, pred_adv)
+                    best_predictions = (list(pred_clean), list(pred_adv))
                     # For separating into l2 norm buckets
                     # (If bins is not empty)
                     if index_for_bins is not None:
@@ -347,7 +347,7 @@ def evaluate_embeddings(
             ):
                 best_metrics_supervised = metrics
                 best_param_supervised = param
-                best_predictions_supervised = (pred_clean, pred_adv)
+                best_predictions_supervised = (list(pred_clean), list(pred_adv))
 
         all_metrics[key] = {key: best_metrics[key]._asdict() for key in best_metrics}
         all_metrics_supervised[key] = {
