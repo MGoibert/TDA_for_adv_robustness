@@ -108,15 +108,32 @@ def get_protocolar_datasets(
     return train_clean, test_clean, train_adv, test_adv
 
 
+##############
+# Evaluation #
+##############
+
+
+class Metric(typing.NamedTuple):
+    upper_bound: float
+    value: float
+    lower_bound: float
+
+    def is_better_than(self, other_metric: "Metric"):
+        return self.value > other_metric.value
+
+
+worst_metric = Metric(upper_bound=-np.infty, value=-np.infty, lower_bound=-np.infty)
+
+
 def score_with_confidence(
-    scorer,
-    y_true,
-    y_pred,
-    n_bootstraps=100,
-    bootstrap_size=None,
-    random_state=None,
+    scorer: typing.Callable,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    n_bootstraps: int = 100,
+    bootstrap_size: int = None,
+    random_state: int = None,
     **kwargs,
-):
+) -> Metric:
     """
     Adapted from Olivier Grisel's https://stackoverflow.com/a/19132400/1080358
     """
@@ -146,7 +163,7 @@ def score_with_confidence(
     c10 = 2 * true_score - np.percentile(b_scores, 90)
     c90 = 2 * true_score - np.percentile(b_scores, 10)
 
-    return c10, true_score, c90
+    return Metric(lower_bound=c10, value=true_score, upper_bound=c90)
 
 
 def evaluate_embeddings(
@@ -157,7 +174,7 @@ def evaluate_embeddings(
     param_space: typing.List,
     kernel_type: str,
     stats_for_l2_norm_buckets: typing.Dict = dict(),
-) -> (float, float, float):
+) -> typing.Dict:
     """
     Compute the AUC for a given epsilon and returns also the scores
     of the best OneClass SVM
@@ -181,18 +198,21 @@ def evaluate_embeddings(
 
     logger.info(f"Computed all unsupervised Gram train matrices !")
 
-    aucs = dict()
-    aucs_supervised = dict()
+    scorers = {"auc": roc_auc_score}
+
+    all_metrics = dict()
+    all_metrics_supervised = dict()
+    all_predictions = dict()
+    all_predictions_supervised = dict()
     aucs_l2_norm = dict()
 
     for key in all_adv_embeddings_train:
 
-        best_auc = 0.0
-        best_auc_supervised = 0.0
-        best_auc_c10 = 0.0
-        best_auc_c90 = 0.0
-        best_auc_supervised_c10 = 0.0
-        best_auc_supervised_c90 = 0.0
+        best_metrics = dict()
+        best_metrics_supervised = dict()
+        best_predictions = (None, None)
+        best_predictions_supervised = (None, None)
+
         best_param = None
         best_nu_param = None
         best_param_supervised = None
@@ -261,17 +281,21 @@ def evaluate_embeddings(
                 pred_clean = predictions[: len(embeddings_test)]
                 pred_adv = predictions[len(embeddings_test) :]
 
-                auc_c10, auc_true, auc_c90 = score_with_confidence(
-                    roc_auc_score, y_true=labels, y_pred=predictions
+                metrics = {
+                    name: score_with_confidence(
+                        scorers[name], y_true=labels, y_pred=predictions
+                    )
+                    for name in scorers
+                }
+                logger.info(
+                    f"[nu={nu}] AUC score for param = {param} : {metrics['auc'].value}"
                 )
-                logger.info(f"[nu={nu}] AUC score for param = {param} : {auc_true}")
 
-                if auc_true > best_auc:
-                    best_auc = auc_true
-                    best_auc_c10 = auc_c10
-                    best_auc_c90 = auc_c90
+                if metrics["auc"].is_better_than(best_metrics.get("auc", worst_metric)):
+                    best_metrics = metrics
                     best_nu_param = nu
                     best_param = param
+                    best_predictions = (list(pred_clean), list(pred_adv))
                     # For separating into l2 norm buckets
                     # (If bins is not empty)
                     if index_for_bins is not None:
@@ -283,9 +307,12 @@ def evaluate_embeddings(
                                     np.zeros(len(pred_for_bin)),
                                 )
                             )
-                            aucs_l2_norm[(bins + ["inf"])[bin_index]] = roc_auc_score(
+                            aucs_l2_norm[
+                                (bins + ["inf"])[bin_index]
+                            ] = score_with_confidence(
+                                roc_auc_score,
                                 y_true=lab_l2_norm,
-                                y_score=list(pred_clean) + list(pred_for_bin),
+                                y_pred=np.array(list(pred_clean) + list(pred_for_bin)),
                             )
 
             #######################
@@ -302,32 +329,50 @@ def evaluate_embeddings(
 
             predictions = detector.decision_function(gram_test_supervised[i])
 
-            auc_c10, auc_true, auc_c90 = score_with_confidence(
-                roc_auc_score, y_true=labels, y_pred=predictions
+            pred_clean = predictions[: len(embeddings_test)]
+            pred_adv = predictions[len(embeddings_test) :]
+
+            metrics = {
+                name: score_with_confidence(
+                    scorers[name], y_true=labels, y_pred=predictions
+                )
+                for name in scorers
+            }
+            logger.info(
+                f"Supervised AUC score for param = {param} : {metrics['auc'].value}"
             )
-            logger.info(f"Supervised AUC score for param = {param} : {auc_true}")
 
-            if auc_true > best_auc_supervised:
-                best_auc_supervised = auc_true
-                best_auc_supervised_c10 = auc_c10
-                best_auc_supervised_c90 = auc_c90
+            if metrics["auc"].is_better_than(
+                best_metrics_supervised.get("auc", worst_metric)
+            ):
+                best_metrics_supervised = metrics
                 best_param_supervised = param
+                best_predictions_supervised = (list(pred_clean), list(pred_adv))
 
-        aucs[key] = (best_auc_c10, best_auc, best_auc_c90)
-        aucs_supervised[key] = (
-            best_auc_supervised_c10,
-            best_auc_supervised,
-            best_auc_supervised_c90,
-        )
+        all_metrics[key] = {key: best_metrics[key]._asdict() for key in best_metrics}
+        all_metrics_supervised[key] = {
+            key: best_metrics_supervised[key]._asdict()
+            for key in best_metrics_supervised
+        }
+        all_predictions[key] = best_predictions
+        all_predictions_supervised[key] = best_predictions_supervised
 
         logger.info(f"Best param unsupervised {best_param}")
         logger.info(f"Best nu param unsupervised {best_nu_param}")
         logger.info(f"Best param supervised {best_param_supervised}")
 
-        logger.info(f"Best auc unsupervised {best_auc}")
-        logger.info(f"Best auc supervised {best_auc_supervised}")
+        logger.info(f"Best metrics unsupervised {best_metrics}")
+        logger.info(f"Best metrics supervised {best_metrics_supervised}")
 
         if len(aucs_l2_norm) > 0:
             logger.info(f"Best auc l2 norm = {aucs_l2_norm}")
 
-    return aucs, aucs_supervised, aucs_l2_norm
+    evaluation_results = {
+        "unsupervised_metrics": all_metrics,
+        "supervised_metrics": all_metrics_supervised,
+        "unsupervised_predictions": all_predictions,
+        "supervised_predictions": all_predictions_supervised,
+        "aucs_l2_norm": aucs_l2_norm if len(aucs_l2_norm) > 0 else "None",
+    }
+
+    return evaluation_results
