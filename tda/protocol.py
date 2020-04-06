@@ -122,6 +122,9 @@ class Metric(typing.NamedTuple):
         return self.value > other_metric.value
 
 
+worst_metric = Metric(upper_bound=-np.infty, value=-np.infty, lower_bound=-np.infty)
+
+
 def score_with_confidence(
     scorer: typing.Callable,
     y_true: np.ndarray,
@@ -288,7 +291,7 @@ def evaluate_embeddings(
                     f"[nu={nu}] AUC score for param = {param} : {metrics['auc'].value}"
                 )
 
-                if metrics["auc"].is_better_than(best_metrics["auc"]):
+                if metrics["auc"].is_better_than(best_metrics.get("auc", worst_metric)):
                     best_metrics = metrics
                     best_nu_param = nu
                     best_param = param
@@ -339,7 +342,9 @@ def evaluate_embeddings(
                 f"Supervised AUC score for param = {param} : {metrics['auc'].value}"
             )
 
-            if metrics["auc"].is_better_than(best_metrics_supervised["auc"]):
+            if metrics["auc"].is_better_than(
+                best_metrics_supervised.get("auc", worst_metric)
+            ):
                 best_metrics_supervised = metrics
                 best_param_supervised = param
                 best_predictions_supervised = (pred_clean, pred_adv)
