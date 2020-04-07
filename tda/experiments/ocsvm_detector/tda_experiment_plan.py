@@ -15,13 +15,13 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram],
-        "kernel_type": [KernelType.SlicedWasserstein],
+        "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
         "dataset_size": [500],
         "attack_type": ["FGSM"],
         "noise": [0.0],
         "n_jobs": [8],
         "all_epsilons": ["0.01;0.1;0.4"],
+        "raw_graph_pca": [-1]
     }
 )
 
@@ -87,6 +87,11 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         config["thresholds"] = best_threshold
         config["threshold_strategy"] = threshold_strategy
         config["sigmoidize"] = sigmoidize
+
+        if config["embedding_type"] == EmbeddingType.PersistentDiagram:
+            config["kernel_type"] = KernelType.SlicedWasserstein
+        elif config["embedding_type"] == EmbeddingType.RawGraph:
+            config["kernel_type"] = KernelType.RBF
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
