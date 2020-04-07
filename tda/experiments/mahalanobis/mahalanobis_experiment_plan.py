@@ -17,7 +17,7 @@ base_configs = cartesian_product(
         "dataset_size": [500],
         "number_of_samples_for_mu_sigma": [500],
         "preproc_epsilon": [1e-2],
-        "noise": [0.01],
+        "noise": [0.0],
         "successful_adv": [1],
     }
 )
