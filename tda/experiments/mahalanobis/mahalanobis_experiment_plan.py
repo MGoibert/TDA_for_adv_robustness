@@ -19,6 +19,7 @@ base_configs = cartesian_product(
         "preproc_epsilon": [1e-2],
         "noise": [0.0],
         "successful_adv": [1],
+        "all_epsilons": ["0.01;0.1;0.4"],
     }
 )
 

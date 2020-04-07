@@ -390,7 +390,7 @@ def run_experiment(config: Config):
         "time": end_time - start_time,
         "l2_diff": stats,
         "linf_diff": stats_inf,
-        **evaluation_results
+        **evaluation_results,
     }
 
     if thresholds is not None:

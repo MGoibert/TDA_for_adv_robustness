@@ -21,7 +21,7 @@ base_configs = cartesian_product(
         "attack_type": ["FGSM"],
         "noise": [0.0],
         "n_jobs": [8],
-        "all_epsilons": ["0.01;0.1;0.4"]
+        "all_epsilons": ["0.01;0.1;0.4"],
     }
 )
 
@@ -36,7 +36,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         50,
         "0:0.3_1:0.3_2:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True
+        True,
     ],
     [
         mnist_lenet.name,
@@ -44,7 +44,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         50,
         "0:0.05_2:0.05_4:0.05_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
     [
         fashion_mnist_mlp.name,
@@ -52,15 +52,15 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         50,
         "0:0.1_1:0.1_2:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
-    [   # AUC : 0.01: 0.975, 0.1: 0.975
+    [  # AUC : 0.01: 0.975, 0.1: 0.975
         fashion_mnist_lenet.name,
         "FashionMNIST",
         200,
         "0:0.05_2:0.05_4:0.0_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
     [
         svhn_lenet.name,
@@ -68,7 +68,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         250,
         "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
     [
         cifar_lenet.name,
@@ -76,7 +76,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         300,
         "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
 ]:
     for config in base_configs:

@@ -22,6 +22,7 @@ base_configs = cartesian_product(
         "perc_of_nn": [0.2],
         "successful_adv": [1],
         "train_noise": [0.0],
+        "all_epsilons": ["0.01;0.1;0.4"],
     }
 )
 

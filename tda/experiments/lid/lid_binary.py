@@ -60,6 +60,8 @@ class Config(typing.NamedTuple):
     experiment_id: int = int(time.time())
     run_id: int = 0
 
+    all_epsilons: typing.List[float] = None
+
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser()
@@ -76,8 +78,12 @@ def get_config() -> Config:
     parser.add_argument("--batch_size", type=int, default=100)
     parser.add_argument("--perc_of_nn", type=float, default=0.2)
     parser.add_argument("--successful_adv", type=int, default=1)
+    parser.add_argument("--all_epsilons", type=str)
 
     args, _ = parser.parse_known_args()
+
+    if args.all_epsilons is not None:
+        args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
 
     return Config(**args.__dict__)
 
@@ -257,11 +263,13 @@ def run_experiment(config: Config):
         train_noise=config.train_noise,
     )
 
-    if config.attack_type in ["FGSM", "BIM"]:
-        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]
-        # all_epsilons = np.linspace(1e-2, 1.0, 10)
+    if config.attack_type not in ["FGSM", "BIM"]:
+        all_epsilons = [1.0]
+    elif config.all_epsilons is None:
+        all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        # all_epsilons = [0.01]
     else:
-        all_epsilons = [1.0]  # Not used for DeepFool and CW
+        all_epsilons = config.all_epsilons
 
     (
         embeddings_train,
@@ -293,11 +301,7 @@ def run_experiment(config: Config):
     my_db.update_experiment(
         experiment_id=config.experiment_id,
         run_id=config.run_id,
-        metrics={
-            "name": "LID",
-            "time": time.time() - start_time,
-            **evaluation_results
-        },
+        metrics={"name": "LID", "time": time.time() - start_time, **evaluation_results},
     )
 
     logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !")
