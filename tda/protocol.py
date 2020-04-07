@@ -277,7 +277,7 @@ def evaluate_embeddings(
                 logger.info(f"Trained model in {time.time() - start_time} secs")
 
                 # Testing model
-                predictions = ocs.score_samples(gram_test_and_bad[i])
+                predictions = ocs.decision_function(gram_test_and_bad[i])
                 pred_clean = predictions[: len(embeddings_test)]
                 pred_adv = predictions[len(embeddings_test) :]
 
