@@ -15,13 +15,13 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram],
-        "kernel_type": [KernelType.SlicedWasserstein],
+        "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
         "dataset_size": [500],
         "attack_type": ["FGSM"],
         "noise": [0.0],
         "n_jobs": [8],
-        "all_epsilons": ["0.01;0.1;0.4"]
+        "all_epsilons": ["0.01;0.1;0.4"],
+        "raw_graph_pca": [-1]
     }
 )
 
@@ -36,7 +36,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         50,
         "0:0.3_1:0.3_2:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True
+        True,
     ],
     [
         mnist_lenet.name,
@@ -44,39 +44,39 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         50,
         "0:0.05_2:0.05_4:0.05_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
     [
         fashion_mnist_mlp.name,
         "FashionMNIST",
         50,
-        "0:0.1_1:0.1_2:0.0",
+        "0:0.025_1:0.025_2:0.025_3:0.025_4:0.025",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        True,
     ],
-    [   # AUC : 0.01: 0.975, 0.1: 0.975
+    [  # AUC : 0.01: 0.975, 0.1: 0.975
         fashion_mnist_lenet.name,
         "FashionMNIST",
         200,
         "0:0.05_2:0.05_4:0.0_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
     [
         svhn_lenet.name,
         "SVHN",
         250,
-        "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
+        "0:0.2_2:0.4_4:0.4",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        True,
     ],
     [
         cifar_lenet.name,
         "CIFAR10",
         300,
-        "0:0.1_2:0.1_4:0.1_5:0.1_6:0.0",
+        "0:0.05_2:0.05_4:0.05_5:0.05_6:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False
+        False,
     ],
 ]:
     for config in base_configs:
@@ -87,6 +87,11 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         config["thresholds"] = best_threshold
         config["threshold_strategy"] = threshold_strategy
         config["sigmoidize"] = sigmoidize
+
+        if config["embedding_type"] == EmbeddingType.PersistentDiagram:
+            config["kernel_type"] = KernelType.SlicedWasserstein
+        elif config["embedding_type"] == EmbeddingType.RawGraph:
+            config["kernel_type"] = KernelType.RBF
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
