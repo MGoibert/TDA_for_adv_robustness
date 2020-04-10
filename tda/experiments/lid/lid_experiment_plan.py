@@ -15,13 +15,14 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "attack_type": ["FGSM", "DeepFool"],
+        "attack_type": ["FGSM"],
         "noise": [0.0],
         "dataset_size": [500],
         "batch_size": [100],
         "perc_of_nn": [0.2],
         "successful_adv": [1],
         "train_noise": [0.0],
+        "all_epsilons": ["0.01;0.1;0.4"],
     }
 )
 

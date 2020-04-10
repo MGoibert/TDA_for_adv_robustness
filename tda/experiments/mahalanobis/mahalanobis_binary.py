@@ -57,6 +57,8 @@ class Config(typing.NamedTuple):
     experiment_id: int = int(time.time())
     run_id: int = 0
 
+    all_epsilons: typing.List[float] = None
+
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser(
@@ -74,8 +76,12 @@ def get_config() -> Config:
     parser.add_argument("--preproc_epsilon", type=float, default=0.0)
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--successful_adv", type=int, default=0)
+    parser.add_argument("--all_epsilons", type=str)
 
     args, _ = parser.parse_known_args()
+
+    if args.all_epsilons is not None:
+        args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
 
     return Config(**args.__dict__)
 
@@ -423,11 +429,13 @@ def run_experiment(config: Config):
         config=config, dataset=dataset, architecture=architecture
     )
 
-    if config.attack_type in ["FGSM", "BIM"]:
-        all_epsilons = [0.01, 0.025, 0.05, 0.1, 0.4, 1.0]
-        # all_epsilons = np.linspace(1e-2, 1.0, 10)
+    if config.attack_type not in ["FGSM", "BIM"]:
+        all_epsilons = [1.0]
+    elif config.all_epsilons is None:
+        all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        # all_epsilons = [0.01]
     else:
-        all_epsilons = [1.0]  # Not used for DeepFool and CW
+        all_epsilons = config.all_epsilons
 
     (
         embeddings_train,
@@ -468,7 +476,7 @@ def run_experiment(config: Config):
             "name": "Mahalanobis",
             "time": time.time() - start_time,
             "gaussian_accuracy": gaussian_accuracy,
-            **evaluation_results
+            **evaluation_results,
         },
     )
 
