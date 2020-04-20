@@ -25,6 +25,7 @@ def get_protocolar_datasets(
     attack_type: str,
     all_epsilons: typing.List,
     compute_graph: bool = False,
+    transfered_attacks: bool = False
 ):
     logger.info("I will produce for you the protocolar datasets !")
 
@@ -36,9 +37,11 @@ def get_protocolar_datasets(
         train=False,
         succ_adv=succ_adv,
         archi=archi,
+        attack_type=attack_type,
         dataset_size=dataset_size // 2,  # 8,
         offset=0,
         compute_graph=compute_graph,
+        transfered_attacks=transfered_attacks
     )
 
     if noise > 0.0:
@@ -50,9 +53,11 @@ def get_protocolar_datasets(
             train=False,
             succ_adv=succ_adv,
             archi=archi,
+            attack_type=attack_type,
             dataset_size=dataset_size // 2,  # 8,
             offset=0,
             compute_graph=compute_graph,
+            transfered_attacks=transfered_attacks
         )
 
     test_clean = get_sample_dataset(
@@ -63,9 +68,11 @@ def get_protocolar_datasets(
         train=False,
         succ_adv=succ_adv,
         archi=archi,
+        attack_type=attack_type,
         dataset_size=dataset_size // 2,  # 8,
         offset=dataset_size // 2,  # 8,
         compute_graph=compute_graph,
+        transfered_attacks=transfered_attacks
     )
 
     if noise > 0.0:
@@ -77,9 +84,11 @@ def get_protocolar_datasets(
             train=False,
             succ_adv=succ_adv,
             archi=archi,
+            attack_type=attack_type,
             dataset_size=dataset_size // 2,  # 8,
             offset=dataset_size // 2,  # 8,
             compute_graph=compute_graph,
+            transfered_attacks=transfered_attacks
         )
 
     train_adv = dict()
@@ -99,6 +108,7 @@ def get_protocolar_datasets(
             dataset_size=dataset_size,
             offset=dataset_size,
             compute_graph=compute_graph,
+            transfered_attacks=transfered_attacks
         )
 
         train_adv[epsilon], test_adv[epsilon] = train_test_split(
