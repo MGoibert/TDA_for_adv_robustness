@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import typing
+import glob
+import pathlib
 
 import numpy as np
 import torch
@@ -12,8 +14,14 @@ from tda.tda_logging import get_logger
 from tda.models.architectures import Architecture, mnist_mlp
 from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
+from tda.rootpath import rootpath
 
 logger = get_logger("GraphDataset")
+
+def saved_adv_path():
+    directory = f"{rootpath}/saved_adversaries/"
+    pathlib.Path(directory).mkdir(exist_ok=True, parents=True)
+    return str(directory)
 
 
 # One-hot vector based on scalar
@@ -135,7 +143,8 @@ def get_sample_dataset(
         num_iter: int = 10,
         offset: int = 0,
         per_class: bool = False,
-        compute_graph: bool = False
+        compute_graph: bool = False,
+        transfered_attacks: bool = False
 ) -> typing.List[DatasetLine]:
     logger.info(f"Using source dataset {dataset.name}")
 
@@ -152,28 +161,49 @@ def get_sample_dataset(
 
     current_sample_id = offset
 
-    source_dataset = dataset.train_dataset if train else dataset.test_and_val_dataset
+    if transfered_attacks:
+        pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
+        path = glob.glob(pathname)
+        source_dataset = torch.load(path[0])[f"{attack_type}"]
+        lsd = len(source_dataset["y"]) if attack_type not in ["FGSM", "BIM"] else len(source_dataset[0.1]["y"])
+    else:
+        source_dataset = dataset.train_dataset if train else dataset.test_and_val_dataset
+        lsd = len(source_dataset)
 
     ret = list()
 
-    while nb_samples < dataset_size and current_sample_id < len(source_dataset):
+    while nb_samples < dataset_size and current_sample_id < lsd:
 
         sample = None
         processed_sample = None
         y_pred = None
 
         while processed_sample is None:
-            sample = source_dataset[current_sample_id]
-            processed_sample = process_sample(
-                sample=sample,
-                adversarial=adv,
-                noise=noise,
-                epsilon=epsilon,
-                model=archi,
-                num_classes=10,
-                attack_type=attack_type,
-                num_iter=num_iter
-            )
+            if transfered_attacks:
+                if attack_type in ["FGSM", "BIM"]:
+                    sample = [source_dataset[epsilon]["x"][current_sample_id], source_dataset[epsilon]["y"][current_sample_id]]
+                    if adv:
+                        processed_sample = [source_dataset[epsilon]["x_adv"][current_sample_id], source_dataset[epsilon]["y"][current_sample_id]]
+                    else:
+                        processed_sample = sample
+                else:
+                    sample = [source_dataset["x"][current_sample_id], source_dataset["y"][current_sample_id]]
+                    if adv:
+                        processed_sample = [source_dataset["x_adv"][current_sample_id], source_dataset["y"][current_sample_id]]
+                    else:
+                        processed_sample = sample
+            else:
+                sample = source_dataset[current_sample_id]
+                processed_sample = process_sample(
+                    sample=sample,
+                    adversarial=adv,
+                    noise=noise,
+                    epsilon=epsilon,
+                    model=archi,
+                    num_classes=10,
+                    attack_type=attack_type,
+                    num_iter=num_iter
+                )
 
             assert sample[1] == processed_sample[1]
 
@@ -182,7 +212,7 @@ def get_sample_dataset(
                 logger.debug(f"Rejecting point (epsilon={epsilon}, y={sample[1]}, y_pred={y_pred}, adv={adv})")
                 processed_sample = None
                 current_sample_id += 1
-                if current_sample_id >= len(source_dataset):
+                if current_sample_id >= lsd:
                     break
 
         if processed_sample is None:
