@@ -82,6 +82,11 @@ class Config(typing.NamedTuple):
 
     all_epsilons: typing.List[float] = None
 
+def str2bool(value):
+    if value in [True, "True", 'true']:
+        return True
+    else:
+        return False
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser(
@@ -114,7 +119,7 @@ def get_config() -> Config:
     parser.add_argument("--n_jobs", type=int, default=1)
     parser.add_argument("--all_epsilons", type=str, default=None)
     parser.add_argument("--l2_norm_quantile", type=bool, default=True)
-    parser.add_argument("--sigmoidize", type=bool, default=False)
+    parser.add_argument("--sigmoidize", type=str2bool, default=False)
     parser.add_argument("--thresholds_are_low_pass", type=bool, default=True)
 
     args, _ = parser.parse_known_args()
@@ -152,6 +157,7 @@ def get_all_embeddings(config: Config):
             architecture=architecture,
             dataset_size=100,
         )
+        logger.info(f"I am here with threshold {thresholds}")
     elif config.threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
         thresholds = config.thresholds.split("_")
         thresholds = [val.split(";") for val in thresholds]
@@ -381,7 +387,8 @@ def run_experiment(config: Config):
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
 
-    logger.info(evaluation_results)
+    logger.info(f"Threshold final = {thresholds}")
+    logger.info(f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}")
 
     end_time = time.time()
 
