@@ -74,7 +74,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         cifar_lenet.name,
         "CIFAR10",
         300,
-        "0:0_2:0_4:0_5:0.5_6:0.1",
+        "0:0_2:0_4:0_5:0.1_6:0.3",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         False,
     ],
