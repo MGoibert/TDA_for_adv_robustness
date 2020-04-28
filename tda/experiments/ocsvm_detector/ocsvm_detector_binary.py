@@ -71,6 +71,8 @@ class Config(typing.NamedTuple):
     num_iter: int
     # PCA Parameter for RawGraph (-1 = No PCA)
     raw_graph_pca: int
+    # Whether to use pre-saved adversarial examples or not
+    transfered_attacks: bool = False
     l2_norm_quantile: bool = True
     sigmoidize: bool = False
     # Default parameters when running interactively for instance
@@ -115,6 +117,7 @@ def get_config() -> Config:
     parser.add_argument("--successful_adv", type=int, default=1)
     parser.add_argument("--raw_graph_pca", type=int, default=-1)
     parser.add_argument("--attack_type", type=str, default="FGSM")
+    parser.add_argument("--transfered_attacks", type=str2bool, default=False)
     parser.add_argument("--num_iter", type=int, default=10)
     parser.add_argument("--n_jobs", type=int, default=1)
     parser.add_argument("--all_epsilons", type=str, default=None)
@@ -157,7 +160,6 @@ def get_all_embeddings(config: Config):
             architecture=architecture,
             dataset_size=100,
         )
-        logger.info(f"I am here with threshold {thresholds}")
     elif config.threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
         thresholds = config.thresholds.split("_")
         thresholds = [val.split(";") for val in thresholds]
@@ -201,6 +203,7 @@ def get_all_embeddings(config: Config):
         attack_type=config.attack_type,
         all_epsilons=all_epsilons,
         compute_graph=False,
+        transfered_attacks=config.transfered_attacks
     )
 
     def chunks(lst, n):

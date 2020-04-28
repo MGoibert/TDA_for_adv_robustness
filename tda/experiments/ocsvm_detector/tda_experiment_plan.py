@@ -8,10 +8,12 @@ from tda.models.architectures import (
     fashion_mnist_lenet,
     fashion_mnist_mlp,
     svhn_lenet,
+    svhn_lenet_bandw,
     cifar_lenet,
 )
 from tda.rootpath import rootpath, db_path
 from copy import deepcopy
+
 
 base_configs = cartesian_product(
     {
@@ -76,7 +78,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         300,
         "0:0_2:0_4:0_5:0.1_6:0.3",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False,
+        True
     ],
 ]:
     for config in base_configs:
