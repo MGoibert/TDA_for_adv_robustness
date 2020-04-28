@@ -55,6 +55,10 @@ class Config(typing.NamedTuple):
     attack_type: str
     # Should we filter out non successful_adversaries
     successful_adv: int
+    # Pruning
+    first_pruned_iter : int = 10
+    prune_percentile : float = 0.0
+    tot_prune_percentile : float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -79,6 +83,9 @@ def get_config() -> Config:
     parser.add_argument("--perc_of_nn", type=float, default=0.2)
     parser.add_argument("--successful_adv", type=int, default=1)
     parser.add_argument("--all_epsilons", type=str)
+    parser.add_argument("--first_pruned_iter", type=int, default=10)
+    parser.add_argument("--prune_percentile", type=float, default=0.0)
+    parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
 
     args, _ = parser.parse_known_args()
 
@@ -261,6 +268,9 @@ def run_experiment(config: Config):
         dataset=dataset,
         architecture=get_architecture(config.architecture),
         train_noise=config.train_noise,
+        prune_percentile=config.prune_percentile,
+        tot_prune_percentile=config.tot_prune_percentile,
+        first_pruned_iter=config.first_pruned_iter,
     )
 
     if config.attack_type not in ["FGSM", "BIM"]:

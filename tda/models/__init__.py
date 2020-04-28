@@ -68,7 +68,7 @@ def compute_test_acc(model, test_loader):
     print("Test accuracy =", acc)
     return acc
 
-def go_training(model, x, y, epoch, optimizer, loss_func, train_noise=0, prune_percentile=0, mask_=None):
+def go_training(model, x, y, epoch, optimizer, loss_func, train_noise=0, prune_percentile=0, first_pruned_iter=10, mask_=None):
 
     x = x.double()
     y = y.to(device)
@@ -83,13 +83,19 @@ def go_training(model, x, y, epoch, optimizer, loss_func, train_noise=0, prune_p
 
     # Training with noise
     if train_noise > 0:
-        x_noisy = torch.clamp(x + train_noise * torch.randn(x.size()), 0, 1).double()
-        y_noisy = y_batch
-        y_pred = model(x)
-        y_pred_noisy = model(x_noisy)
-        loss = 0.75 * loss_func(y_pred, y) + 0.25 * loss_func(y_pred_noisy, y_noisy)
-        loss.backward()
-        optimizer.step()
+        if epoch >= 25: # Warm start
+            x_noisy = torch.clamp(x + train_noise * torch.randn(x.size()), 0, 1).double()
+            y_noisy = y_batch
+            y_pred = model(x)
+            y_pred_noisy = model(x_noisy)
+            loss = 0.75 * loss_func(y_pred, y) + 0.25 * loss_func(y_pred_noisy, y_noisy)
+            loss.backward()
+            optimizer.step()
+        else:
+            y_pred = model(x)
+            loss = loss_func(y_pred, y)
+            loss.backward()
+            optimizer.step()
 
     # Training with prune percentile
     if prune_percentile > 0:
@@ -111,7 +117,8 @@ def train_network(
     num_epochs: int,
     train_noise: float = 0.0,
     prune_percentile: float = 0.0,
-    first_pruned_iter: int = 1,
+    tot_prune_percentile: float = 0.0,
+    first_pruned_iter: int = 10,
 ) -> Architecture:
     """
     Helper function to train an arbitrary model
@@ -121,8 +128,12 @@ def train_network(
 
     logger.info(f"Learnig on device {device}")
 
+    nb_iter_prune = 0
     if prune_percentile != 0.0:
+        nb_iter_prune = int(np.log(1-tot_prune_percentile)/np.log(1-prune_percentile))+1
+        num_epochs = first_pruned_iter*nb_iter_prune + num_epochs
         init_weight_dict = copy.deepcopy(model.state_dict())
+        logger.info(f"Training pruned NN: {nb_iter_prune} pruning iter so {num_epochs} epochs")
 
     if model.name in [mnist_lenet.name, fashion_mnist_lenet.name]:
         lr = 0.001
@@ -166,7 +177,7 @@ def train_network(
                 mask_ = None
             go_training(model, x_batch, y_batch, epoch,
                 optimizer, loss_func, train_noise=train_noise,
-                prune_percentile=prune_percentile, mask_=mask_)
+                prune_percentile=prune_percentile, first_pruned_iter=first_pruned_iter, mask_=mask_)
 
         model.set_eval_mode()
         for x_val, y_val in val_loader:
@@ -176,16 +187,16 @@ def train_network(
             val_loss = loss_func(y_val_pred, y_val)
             logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")
             loss_history.append(val_loss.item())
-        if True:  # epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
+        if (prune_percentile == 0) or (epoch>first_pruned_iter*nb_iter_prune):  # epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
             scheduler.step(val_loss)
         if epoch % 10 == 0:
             logger.info(f"Val acc = {compute_val_acc(model, val_loader)}")
 
         if (
-            epoch % first_pruned_iter == 0
+            (epoch+1) % first_pruned_iter == 0
             and epoch != 0
             and prune_percentile != 0.0
-            and epoch < 0.9 * (num_epochs - first_pruned_iter)
+            and epoch < first_pruned_iter*nb_iter_prune
         ):
             logger.info(f"Pruned net epoch {epoch}")
             model, mask_ = prune_model(
@@ -206,6 +217,9 @@ def get_deep_model(
     dataset: Dataset,
     architecture: Architecture = mnist_mlp,
     train_noise: float = 0.0,
+    prune_percentile: float = 0.0,
+    tot_prune_percentile: float = 0.0,
+    first_pruned_iter: int = 10,
     with_details: bool = False,
     force_retrain: bool = False,
     pretrained_pth: str = None,
@@ -231,10 +245,12 @@ def get_deep_model(
 
     if train_noise > 0.0:
         nprefix = f"{train_noise}_"
+    elif tot_prune_percentile > 0.0:
+        nprefix = f"pruned_{tot_prune_percentile}_"
     else:
         nprefix = ""
 
-        model_filename = (
+    model_filename = (
             f"{rootpath}/trained_models/{dataset.name}_"
             f"{architecture.name}_"
             f"{nprefix}"
@@ -267,6 +283,9 @@ def get_deep_model(
             loss_func,
             num_epochs,
             train_noise,
+            prune_percentile,
+            tot_prune_percentile,
+            first_pruned_iter,
         )
 
         # Saving model
@@ -292,7 +311,8 @@ def get_deep_model(
     return architecture
 
 
-def prune_model(model, percentile=10, init_weight=None):
+def prune_model(model, percentile=0.1, init_weight=None):
+    percentile = 100*percentile
     count_nonzero = 0
     count_tot = 0
     mask_dict = dict()

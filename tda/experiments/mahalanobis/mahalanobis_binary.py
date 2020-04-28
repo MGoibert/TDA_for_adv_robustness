@@ -52,7 +52,10 @@ class Config(typing.NamedTuple):
     number_of_samples_for_mu_sigma: int
     # Should we filter out non successful_adversaries
     successful_adv: int
-
+    # Pruning
+    first_pruned_iter : int = 10
+    prune_percentile : float = 0.0
+    tot_prune_percentile : float = 0.0
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
     run_id: int = 0
@@ -77,6 +80,9 @@ def get_config() -> Config:
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--successful_adv", type=int, default=0)
     parser.add_argument("--all_epsilons", type=str)
+    parser.add_argument("--first_pruned_iter", type=int, default=10)
+    parser.add_argument("--prune_percentile", type=float, default=0.0)
+    parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
 
     args, _ = parser.parse_known_args()
 
@@ -419,6 +425,9 @@ def run_experiment(config: Config):
         dataset=dataset,
         architecture=get_architecture(config.architecture),
         train_noise=0.0,
+        prune_percentile=config.prune_percentile,
+        tot_prune_percentile=config.tot_prune_percentile,
+        first_pruned_iter=config.first_pruned_iter,
     )
 
     (
