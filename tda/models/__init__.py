@@ -128,9 +128,10 @@ def train_network(
 
     logger.info(f"Learnig on device {device}")
 
-    nb_iter_prune = 0
+    nepochs = 0
     if prune_percentile != 0.0:
         nb_iter_prune = int(np.log(1-tot_prune_percentile)/np.log(1-prune_percentile))+1
+        nepochs = num_epochs
         num_epochs = first_pruned_iter*nb_iter_prune + num_epochs
         init_weight_dict = copy.deepcopy(model.state_dict())
         logger.info(f"Training pruned NN: {nb_iter_prune} pruning iter so {num_epochs} epochs")
@@ -189,9 +190,10 @@ def train_network(
             loss_history.append(val_loss.item())
         if (prune_percentile == 0) or (epoch>first_pruned_iter*nb_iter_prune):  # epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
             scheduler.step(val_loss)
-        if epoch % 10 == 0:
+        if epoch % 10 == 9:
             logger.info(f"Val acc = {compute_val_acc(model, val_loader)}")
-
+        if epoch > 0:
+            save_pruned_model(model, current_pruned_percentile, first_pruned_iter, epoch, nepochs)
         if (
             (epoch+1) % first_pruned_iter == 0
             and epoch != 0
@@ -205,8 +207,9 @@ def train_network(
         c = 0
         for i, p in enumerate(model.parameters()):
             c += np.count_nonzero(p.data.cpu())
+        current_pruned_percentile = c/sum(p.numel() for p in model.parameters())
         logger.info(
-            f"percentage non zero parameters = {c/sum(p.numel() for p in model.parameters())}"
+            f"percentage non zero parameters = {current_pruned_percentile}"
         )
 
     return model, loss_history
@@ -310,6 +313,21 @@ def get_deep_model(
 
     return architecture
 
+def save_pruned_model(architecture, current_pruned_percentile, first_pruned_iter, epoch, num_epochs):
+    current_pruned_percentile = np.round(current_pruned_percentile,2)
+    if ((current_pruned_percentile > 0.01)
+        and (epoch > first_pruned_iter)
+        and ((epoch+1) % (2*first_pruned_iter) == first_pruned_iter)):
+        nprefix = f"pruned_{current_pruned_percentile}_"
+        model_filename = (
+            f"{rootpath}/trained_models/"
+            f"{architecture.name}_"
+            f"{nprefix}"
+            f"{num_epochs}_"
+            f"epochs.model"
+        )
+        logger.info(f"Save intermediate pruned model at {model_filename} = {model_filename} \n")
+        torch.save(architecture, model_filename)
 
 def prune_model(model, percentile=0.1, init_weight=None):
     percentile = 100*percentile
