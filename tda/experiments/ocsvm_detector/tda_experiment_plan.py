@@ -14,18 +14,16 @@ from tda.models.architectures import (
 from tda.rootpath import rootpath, db_path
 from copy import deepcopy
 
-threshold_list = [
-"0:0_2:0_4:0_5:0.1_6:0.2", "0:0_2:0_4:0_5:0.1_6:0.4", "0:0_2:0_4:0_5:0.2_6:0.1", "0:0_2:0_4:0_5:0.3_6:0.1", "0:0_2:0_4:0_5:0.3_6:0.3"
-]
+
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram],
+        "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
         "dataset_size": [500],
         "attack_type": ["FGSM"],
         "noise": [0.0],
-        "all_epsilons": ["0.1"],
-        "n_jobs": [20],
-        "thresholds": threshold_list
+        "n_jobs": [8],
+        "all_epsilons": ["0.01;0.1;0.4"],
+        "raw_graph_pca": [-1]
     }
 )
 
@@ -38,7 +36,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         mnist_mlp.name,
         "MNIST",
         50,
-        "0:0.01_1:0_2:0",
+        "0:0.1_1:0.1_2:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
@@ -88,6 +86,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         config["architecture"] = model
         config["dataset"] = dataset
         config["epochs"] = nb_epochs
+        config["thresholds"] = best_threshold
         config["threshold_strategy"] = threshold_strategy
         config["sigmoidize"] = sigmoidize
 
@@ -99,5 +98,5 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
 experiment_plan = R3D3ExperimentPlan(
-    experiments=all_experiments, max_nb_processes=1, db_path=db_path
+    experiments=all_experiments, max_nb_processes=4, db_path=db_path
 )
