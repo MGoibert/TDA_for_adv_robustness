@@ -31,12 +31,12 @@ binary = f"{rootpath}/tda/experiments/ocsvm_detector/ocsvm_detector_binary.py"
 
 all_experiments = list()
 
-for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in [
+for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_rawgraph in [
     [
         mnist_mlp.name,
         "MNIST",
         50,
-        "0:0.1_1:0.1_2:0.0",
+        "0:0.01_1:0_2:0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
@@ -46,7 +46,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         50,
         "0:0.05_2:0.05_4:0.05_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False,
+        True,
     ],
     [
         fashion_mnist_mlp.name,
@@ -62,7 +62,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         200,
         "0:0.05_2:0.05_4:0.0_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False,
+        True,
     ],
     [
         svhn_lenet.name,
@@ -88,10 +88,11 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize in
         config["epochs"] = nb_epochs
         config["thresholds"] = best_threshold
         config["threshold_strategy"] = threshold_strategy
-        config["sigmoidize"] = sigmoidize
+        config["sigmoidize"] = sigmoidize_rawgraph
 
         if config["embedding_type"] == EmbeddingType.PersistentDiagram:
             config["kernel_type"] = KernelType.SlicedWasserstein
+            config["sigmoidize"] = True
         elif config["embedding_type"] == EmbeddingType.RawGraph:
             config["kernel_type"] = KernelType.RBF
 
