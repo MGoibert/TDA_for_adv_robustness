@@ -249,7 +249,7 @@ def get_deep_model(
     if train_noise > 0.0:
         nprefix = f"{train_noise}_"
     elif tot_prune_percentile > 0.0:
-        nprefix = f"pruned_{tot_prune_percentile}_"
+        nprefix = f"pruned_{1.0-tot_prune_percentile}_"
     else:
         nprefix = ""
 
@@ -274,7 +274,8 @@ def get_deep_model(
         x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
         architecture.build_matrices()
-        filename = architecture.get_model_initial_savepath()
+        #filename = architecture.get_model_initial_savepath()
+        filename = f"{rootpath}/trained_models/{architecture.name}_{nprefix}{num_epochs}_epochs_inital.model"
         torch.save(architecture, filename)
         logger.info(f"Saved initial model in {filename}")
 
@@ -326,7 +327,7 @@ def save_pruned_model(architecture, current_pruned_percentile, first_pruned_iter
             f"{num_epochs}_"
             f"epochs.model"
         )
-        logger.info(f"Save intermediate pruned model at {model_filename} = {model_filename} \n")
+        logger.info(f"Save intermediate pruned model at {model_filename} \n")
         torch.save(architecture, model_filename)
 
 def prune_model(model, percentile=0.1, init_weight=None):
@@ -339,12 +340,12 @@ def prune_model(model, percentile=0.1, init_weight=None):
         # We only prune weight parameters (not bias)
         if len(param.data.size()) > 1:
             if i < num_param - 1:
-                perc = np.percentile(abs(param.data[param.data != 0.0]), percentile)
+                perc = np.percentile(abs(param.data.cpu()[param.data.cpu() != 0.0]), percentile)
             else:
                 perc = np.percentile(
-                    abs(param.data[param.data != 0.0]), percentile / 2.0
+                    abs(param.data.cpu()[param.data.cpu() != 0.0]), percentile / 2.0
                 )
-            mask = torch.tensor(np.where(abs(param.data) < perc, 0, 1)).double()
+            mask = torch.tensor(np.where(abs(param.data.cpu()) < perc, 0, 1)).double().to(device)
             mask_dict[i] = mask
             param.data = mask * param.data
             param.grad.data = mask * param.grad.data
