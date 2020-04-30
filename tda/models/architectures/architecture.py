@@ -68,14 +68,16 @@ class Architecture(nn.Module):
             i: layer.matrix for i, layer in enumerate(self.layers) if layer.graph_layer
         }
 
-    def get_model_initial_savepath(self):
-        return f"{rootpath}/trained_models/{self.name}_initial.model"
+    def get_model_initial_savepath(self, received_name):
+        #return f"{rootpath}/trained_models/{self.name}_initial.model"
+        self.path_to_initial = received_name
 
     def get_initial_model(self) -> "Architecture":
         """
         Return the initial version of the model if available
         """
-        return torch.load(self.get_model_initial_savepath(), map_location=device)
+        #return torch.load(self.get_model_initial_savepath(), map_location=device)
+        return torch.load(self.path_to_initial, map_location=device)
 
     def get_initial_model_v2(self) -> "Architecture":
         self.name

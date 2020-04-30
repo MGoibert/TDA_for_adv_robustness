@@ -260,6 +260,9 @@ def get_deep_model(
             f"{num_epochs}_"
             f"epochs.model"
         )
+
+    ### HHHEEEEERRRRRREEEE tod remove
+    #model_filename = "/Users/m.goibert/sshfs/TDA_for_adv_robustness/trained_models/svhn_lenet_pruned_1.0_300_epochs.model"
     logger.info(f"Filename = {model_filename} \n")
 
     try:
@@ -275,8 +278,9 @@ def get_deep_model(
         architecture.forward(x, store_for_graph=False, output="final")
         architecture.build_matrices()
         #filename = architecture.get_model_initial_savepath()
-        filename = f"{rootpath}/trained_models/{architecture.name}_{nprefix}{num_epochs}_epochs_inital.model"
-        torch.save(architecture, filename)
+        init_filename = f"{rootpath}/trained_models/{dataset.name}_{architecture.name}_{nprefix}{num_epochs}_epochs_inital.model"
+        architecture.get_model_initial_savepath(init_filename)
+        torch.save(architecture, init_filename)
         logger.info(f"Saved initial model in {filename}")
 
         # Train the NN
