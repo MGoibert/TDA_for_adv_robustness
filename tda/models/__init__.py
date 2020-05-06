@@ -243,43 +243,32 @@ def get_deep_model(
         state_dict = {key.replace(".", "_"): state_dict[key] for key in state_dict}
         architecture.load_state_dict(state_dict)
         architecture.epochs = "custom"
+        architecture.train_noise = 0.0
+        architecture.tot_prune_percentile = 0.0
+
         return architecture, loss_func
+
+    architecture.epochs = num_epochs
+    architecture.train_noise = train_noise
+    architecture.tot_prune_percentile = 0.0
 
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
-
-    if train_noise > 0.0:
-        nprefix = f"{train_noise}_"
-    elif tot_prune_percentile > 0.0:
-        nprefix = f"pruned_{np.round(1.0-tot_prune_percentile,2)}_"
-    else:
-        nprefix = ""
-
-    model_filename = (
-            f"{rootpath}/trained_models/{dataset.name}_"
-            f"{architecture.name}_"
-            f"{nprefix}"
-            f"{num_epochs}_"
-            f"epochs.model"
-        )
-    logger.info(f"Filename = {model_filename} \n")
 
     try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
 
-        architecture = torch.load(model_filename, map_location=device)
-        logger.info(f"Loaded successfully model from {model_filename}")
+        architecture = torch.load(architecture.get_model_savepath(), map_location=device)
+        logger.info(f"Loaded successfully model from {architecture.get_model_savepath()}")
     except FileNotFoundError:
-        logger.info(f"Unable to find model in {model_filename}... Retraining it...")
+        logger.info(f"Unable to find model in {architecture.get_model_savepath()}... Retraining it...")
 
         x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
         architecture.build_matrices()
-        #filename = architecture.get_model_initial_savepath()
-        filename = f"{rootpath}/trained_models/{architecture.name}_{nprefix}{num_epochs}_epochs_inital.model"
-        torch.save(architecture, filename)
-        logger.info(f"Saved initial model in {filename}")
+        torch.save(architecture, architecture.get_model_savepath(initial=True))
+        logger.info(f"Saved initial model in {architecture.get_model_savepath(initial=True)}")
 
         # Train the NN
         train_network(
@@ -295,7 +284,7 @@ def get_deep_model(
         )
 
         # Saving model
-        torch.save(architecture, model_filename)
+        torch.save(architecture, architecture.get_model_savepath())
 
         # Compute accuracies
         val_accuracy = compute_val_acc(architecture, dataset.val_loader)
@@ -306,7 +295,6 @@ def get_deep_model(
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
     architecture.is_trained = True
-    architecture.epochs = num_epochs
 
     if with_details:
         return architecture, val_accuracy, test_accuracy

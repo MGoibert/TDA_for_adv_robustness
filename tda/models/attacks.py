@@ -74,7 +74,7 @@ class BIM(_BaseAttack):
     def run(self, data, target, epsilon, num_classes=10, epsilon_iter=None):
         target = target.detach()
         if epsilon_iter is None:
-            epsilon_iter = 5 * epsilon / self.num_iter
+            epsilon_iter = 2 * epsilon / self.num_iter
         #logger.info(f"BIM num iter = {self.num_iter} and epsilon iter = {epsilon_iter}")
 
         x_ori = data.data
