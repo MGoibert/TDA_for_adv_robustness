@@ -86,7 +86,7 @@ class Architecture(nn.Module):
         return self.get_full_name()
 
     def get_full_name(self, initial: bool = False):
-        nb_epochs = self.epochs if not initial else 0
+        postfix = "_init" if initial else ""
 
         nprefix = ""
         if hasattr(self, "train_noise") and self.train_noise > 0.0:
@@ -95,7 +95,7 @@ class Architecture(nn.Module):
         if hasattr(self, "tot_prune_percentile") and self.tot_prune_percentile > 0.0:
             nprefix += f"_p_{1.0 - self.tot_prune_percentile}"
 
-        return f"{self.name}_e_{nb_epochs}{nprefix}"
+        return f"{self.name}_e_{self.epochs}{nprefix}{postfix}"
 
     def set_train_mode(self):
         for layer in self.layers:
