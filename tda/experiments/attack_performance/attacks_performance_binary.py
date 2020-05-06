@@ -41,6 +41,10 @@ class Config(typing.NamedTuple):
     attack_type: str
     # Parameter used by DeepFool and CW
     num_iter: int
+    # Pruning
+    first_pruned_iter : int = 10
+    prune_percentile : float = 0.0
+    tot_prune_percentile : float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -65,6 +69,10 @@ def get_config() -> Config:
     parser.add_argument("--dataset_size", type=int, default=50)
     parser.add_argument("--attack_type", type=str, default="FGSM")
     parser.add_argument("--num_iter", type=int, default=10)
+    parser.add_argument("--first_pruned_iter", type=int, default=10)
+    parser.add_argument("--prune_percentile", type=float, default=0.0)
+    parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
+
 
     args, _ = parser.parse_known_args()
 
@@ -125,6 +133,9 @@ def get_all_accuracies(config: Config):
         dataset=dataset,
         architecture=get_architecture(config.architecture),
         train_noise=config.train_noise,
+        prune_percentile=config.prune_percentile,
+        tot_prune_percentile=config.tot_prune_percentile,
+        first_pruned_iter=config.first_pruned_iter,
     )
 
     accuracies = dict()

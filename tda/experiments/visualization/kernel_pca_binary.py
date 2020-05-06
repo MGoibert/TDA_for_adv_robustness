@@ -70,6 +70,10 @@ class Config(typing.NamedTuple):
     num_iter: int
     # Should we use the same images clean vs attack when training the detector
     identical_train_samples: int
+    # Pruning
+    first_pruned_iter : int = 10
+    prune_percentile : float = 0.0
+    tot_prune_percentile : float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -97,6 +101,9 @@ def get_config() -> Config:
     parser.add_argument('--attack_type', type=str, default="FGSM")
     parser.add_argument('--num_iter', type=int, default=10)
     parser.add_argument('--identical_train_samples', type=int, default=1)
+    parser.add_argument("--first_pruned_iter", type=int, default=10)
+    parser.add_argument("--prune_percentile", type=float, default=0.0)
+    parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
 
     args, _ = parser.parse_known_args()
     return Config(**args.__dict__)
@@ -175,7 +182,10 @@ def get_all_embeddings(config: Config):
         num_epochs=config.epochs,
         dataset=dataset,
         architecture=architecture,
-        train_noise=config.train_noise
+        train_noise=config.train_noise,
+        prune_percentile=config.prune_percentile,
+        tot_prune_percentile=config.tot_prune_percentile,
+        first_pruned_iter=config.first_pruned_iter,
     )
 
     thresholds = process_thresholds(

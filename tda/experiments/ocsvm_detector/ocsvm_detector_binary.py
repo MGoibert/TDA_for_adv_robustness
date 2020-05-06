@@ -75,6 +75,10 @@ class Config(typing.NamedTuple):
     transfered_attacks: bool = False
     l2_norm_quantile: bool = True
     sigmoidize: bool = False
+    # Pruning
+    first_pruned_iter : int = 10
+    prune_percentile : float = 0.0
+    tot_prune_percentile : float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -124,6 +128,9 @@ def get_config() -> Config:
     parser.add_argument("--l2_norm_quantile", type=bool, default=True)
     parser.add_argument("--sigmoidize", type=str2bool, default=False)
     parser.add_argument("--thresholds_are_low_pass", type=bool, default=True)
+    parser.add_argument("--first_pruned_iter", type=int, default=10)
+    parser.add_argument("--prune_percentile", type=float, default=0.0)
+    parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
 
     args, _ = parser.parse_known_args()
 
@@ -141,6 +148,9 @@ def get_all_embeddings(config: Config):
         dataset=dataset,
         architecture=architecture,
         train_noise=config.train_noise,
+        prune_percentile=config.prune_percentile,
+        tot_prune_percentile=config.tot_prune_percentile,
+        first_pruned_iter=config.first_pruned_iter,
     )
     if config.sigmoidize:
         logger.info(f"Using inter-class regularization (sigmoid)")
