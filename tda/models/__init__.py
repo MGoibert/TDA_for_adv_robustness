@@ -213,7 +213,7 @@ def train_network(
         logger.info(
             f"percentage non zero parameters = {current_pruned_percentile}"
         )
-        assert architecture.tot_prune_percentile == np.round(1.0 - current_pruned_percentile, 2)
+        assert model.tot_prune_percentile == np.round(1.0 - current_pruned_percentile, 2)
 
     return model, loss_history
 
