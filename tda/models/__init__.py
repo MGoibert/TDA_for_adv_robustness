@@ -213,6 +213,7 @@ def train_network(
         logger.info(
             f"percentage non zero parameters = {current_pruned_percentile}"
         )
+        assert architecture.tot_prune_percentile == np.round(1.0 - current_pruned_percentile, 2)
 
     return model, loss_history
 
@@ -309,16 +310,8 @@ def save_pruned_model(architecture, current_pruned_percentile, first_pruned_iter
     if ((tot_prune_percentile > 0.0)
         and (epoch > 0)
         and ((epoch+1) % (2*first_pruned_iter) == first_pruned_iter)):
-        nprefix = f"pruned_{current_pruned_percentile}_"
-        model_filename = (
-            f"{rootpath}/trained_models/"
-            f"{architecture.name}_"
-            f"{nprefix}"
-            f"{num_epochs}_"
-            f"epochs.model"
-        )
-        logger.info(f"Save intermediate pruned model at {model_filename} \n")
-        torch.save(architecture, model_filename)
+        logger.info(f"Save intermediate pruned model at {architecture.get_model_savepath()}")
+        torch.save(architecture, architecture.get_model_savepath())
 
 def prune_model(model, percentile=0.1, init_weight=None):
     percentile = 100*percentile
@@ -344,5 +337,7 @@ def prune_model(model, percentile=0.1, init_weight=None):
             count_tot += np.prod(param.data.size())
             count_nonzero += np.count_nonzero(param.data.cpu())
     logger.info(f"Percentage pruned = {1 - count_nonzero/count_tot}")
+    pruned_count = np.round(1 - count_nonzero/count_tot, 2)
+    architecture.tot_prune_percentile = pruned_count
 
     return model, mask_dict
