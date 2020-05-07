@@ -21,6 +21,7 @@ base_configs = cartesian_product(
         "successful_adv": [1],
         "train_noise": [0.0],
         "all_epsilons": ["0.01;0.1;0.4"],
+        "num_iter" : [50],
     }
 )
 
@@ -31,10 +32,8 @@ all_experiments = list()
 for model, dataset, nb_epochs, perc_of_nn, batch_size in [
     [mnist_mlp.name, "MNIST", 50, 0.1, 250],  # Not benched
     [mnist_lenet.name, "MNIST", 50, 0.08, 250],
-    [fashion_mnist_mlp.name, "FashionMNIST", 50, 0.1, 250],  # Not benched
-    [fashion_mnist_lenet.name, "FashionMNIST", 200, 0.02, 250],
-    [svhn_lenet.name, "SVHN", 250, 0.1, 250],
-    [svhn_lenet_bandw2.name, "SVHN_BandW", 200, 0.1, 250],  # Not benched
+    [fashion_mnist_lenet.name, "FashionMNIST", 100, 0.02, 250],
+    [svhn_lenet.name, "SVHN", 300, 0.1, 250],
     [cifar_lenet.name, "CIFAR10", 300, 0.3, 100],
 ]:
     for config in base_configs:

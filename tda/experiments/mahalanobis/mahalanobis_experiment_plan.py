@@ -30,9 +30,8 @@ all_experiments = list()
 for model, dataset, nb_epochs in [
     [mnist_mlp.name, "MNIST", 50],
     [mnist_lenet.name, "MNIST", 50],
-    [fashion_mnist_mlp.name, "FashionMNIST", 50],
-    [fashion_mnist_lenet.name, "FashionMNIST", 200],
-    [svhn_lenet.name, "SVHN", 250],
+    [fashion_mnist_lenet.name, "FashionMNIST", 100],
+    [svhn_lenet.name, "SVHN", 300],
     [cifar_lenet.name, "CIFAR10", 300],
 ]:
     for config in base_configs:
@@ -44,5 +43,5 @@ for model, dataset, nb_epochs in [
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
 experiment_plan = R3D3ExperimentPlan(
-    experiments=all_experiments, max_nb_processes=4, db_path=db_path
+    experiments=all_experiments, max_nb_processes=2, db_path=db_path
 )

@@ -31,8 +31,8 @@ binary = f"{rootpath}/tda/experiments/lid/lid_binary.py"
 all_experiments = list()
 
 for model, dataset, nb_epochs, perc_of_nn, batch_size in [
-    [mnist_lenet.name, "MNIST", 50, 0.08, 250],
-    [fashion_mnist_lenet.name, "FashionMNIST", 100, 0.02, 250],
+    [mnist_lenet.name, "MNIST", 50, 0.2, 100],
+    [fashion_mnist_lenet.name, "FashionMNIST", 100, 0.2, 100],
     [svhn_lenet.name, "SVHN", 300, 0.1, 250],
     [cifar_lenet.name, "CIFAR10", 300, 0.3, 100],
 ]:

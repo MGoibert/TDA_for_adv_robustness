@@ -325,7 +325,7 @@ def get_feature_datasets(
                     live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
 
                     if not np.isclose(
-                        live_score.cpu().detach().numpy(), best_score, atol=1e-4
+                        live_score.cpu().detach().numpy(), best_score, atol=1e-3
                     ):
                         debug_messages = list()
 
