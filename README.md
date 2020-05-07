@@ -97,6 +97,8 @@ r3d3-xp --experiment_file tda/experiments/thomas/embedding_separability_wl_gram.
 
 Under the hood it will create an experiment_id and run_ids for you, create the cartesian product of the grid and call the binary n times for all the possibilities.
 
+The results will be stored in the r3d3.db database.
+
 ## 3) Analyzing experiments
 
 You can easily explore the results using the `ExperimentDB` object from `r3d3`
@@ -130,3 +132,33 @@ db.show_experiment(
 ````
 
 Remark: I personally use jupyter notebooks with [qgrid](https://github.com/quantopian/qgrid) to explore the results.
+
+For example, this code explores the results of one experiment:
+
+````python
+from tda.rootpath import db_path
+from r3d3.experiment_db import ExperimentDB
+import qgrid
+import pandas as pd
+import numpy as np
+
+db_path = 'my/path/to/r3d3.db'
+my_db = ExperimentDB(db_path)
+
+# Print the dataframe of all experiments
+my_db.list_all_experiments()
+
+# Show the interesting results for one experiment (exp_id = 1588797205)
+db.show_experiment(exp,
+        params={
+            "architecture": "architecture",
+            "embedding_type": "embedding_type",
+            "threshold": "thresholds",
+            "attack_type": "attack_type"
+        },
+        metrics={
+            "supervised_metrics": "supervised_metrics",
+            "unsupervised_metrics": "unsupervised_metrics",
+            "name" : "name"
+        })
+````
