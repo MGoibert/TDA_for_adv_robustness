@@ -17,12 +17,12 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
-        "dataset_size": [500],
-        "attack_type": ["FGSM_art"],
+        "embedding_type": [EmbeddingType.PersistentDiagram],
+        "dataset_size": [250],
+        "attack_type": ["FGSM", "FGSM_art"],
         "noise": [0.0],
         "n_jobs": [8],
-        "all_epsilons": ["0.01;0.1;0.4"],
+        "all_epsilons": ["0.1"],
         "raw_graph_pca": [-1]
     }
 )
@@ -40,46 +40,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.05_2:0.05_4:0.05_5:0.0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
-        fashion_mnist_mlp.name,
-        "FashionMNIST",
-        50,
-        "0:0.01_1:0.01_2:0.01_3:0.01_4:0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [  # AUC : 0.01: 0.975, 0.1: 0.975
-        fashion_mnist_lenet.name,
-        "FashionMNIST",
-        200,
-        "0:0.05_2:0.05_4:0.0_5:0.0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
-        svhn_lenet.name,
-        "SVHN",
-        250,
-        "0:0_2:0.5_4:0.5_5:0_6:0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        False,
-    ],
-    [
-        cifar_lenet.name,
-        "CIFAR10",
-        300,
-        "0:0_2:0_4:0_5:0.1_6:0.3",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True
-    ],
+
 ]:
     for config in base_configs:
         config = deepcopy(config)

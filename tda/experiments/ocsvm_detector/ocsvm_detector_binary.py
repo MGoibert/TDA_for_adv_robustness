@@ -196,7 +196,7 @@ def get_all_embeddings(config: Config):
             method=config.threshold_strategy,
         )
 
-    if config.attack_type not in ["FGSM", "BIM"]:
+    if config.attack_type not in ["FGSM", "BIM", "FGSM_art"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]

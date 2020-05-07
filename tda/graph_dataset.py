@@ -16,6 +16,9 @@ from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 
+from art.attacks import FastGradientMethod
+from art.classifiers import PyTorchClassifier
+
 logger = get_logger("GraphDataset")
 
 def saved_adv_path():
@@ -58,7 +61,7 @@ def ce_loss(outputs, labels, num_classes=None):
     return -res
 
 
-def adversarial_generation(model, x, y,
+def adversarial_generation(model: Architecture, x, y,
                            epsilon=0.25,
                            loss_func=ce_loss,
                            num_classes=10,
@@ -78,6 +81,22 @@ def adversarial_generation(model, x, y,
         attacker = DeepFool(model, num_classes=num_classes, num_iter=num_iter)
     elif attack_type == "CW":
         attacker = CW(model, lims=lims, num_iter=num_iter)
+    elif attack_type == "FGSM_art":
+
+        if "svhn" in model.name or "cifar" in model.name:
+            input_shape = (3, 32, 32)
+        elif "mnist" in model.name:
+            input_shape = (1, 28, 28)
+
+        classifier = PyTorchClassifier(
+            model=model,
+            clip_values=(0, 1),
+            loss=torch.nn.CrossEntropyLoss(),
+            optimizer=None,
+            input_shape=input_shape,
+            nb_classes=10,
+        )
+        attacker = FastGradientMethod(classifier=classifier, eps=epsilon)
     else:
         raise NotImplementedError(attack_type)
 
@@ -89,6 +108,9 @@ def adversarial_generation(model, x, y,
         x_adv = attacker(x, y)
     elif attack_type == "DeepFool":
         x_adv = attacker(x, y)
+    elif attack_type == "FGSM_art":
+        x_adv = torch.Tensor(attacker.generate(x.detach()))
+        x_adv.to(device)
 
     return x_adv
 
