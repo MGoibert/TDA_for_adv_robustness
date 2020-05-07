@@ -52,6 +52,8 @@ class Config(typing.NamedTuple):
     number_of_samples_for_mu_sigma: int
     # Should we filter out non successful_adversaries
     successful_adv: int
+    # Transfered attacks
+    transfered_attacks: bool = False
     # Pruning
     first_pruned_iter : int = 10
     prune_percentile : float = 0.0
@@ -62,6 +64,11 @@ class Config(typing.NamedTuple):
 
     all_epsilons: typing.List[float] = None
 
+def str2bool(value):
+    if value in [True, "True", 'true']:
+        return True
+    else:
+        return False
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser(
@@ -79,6 +86,7 @@ def get_config() -> Config:
     parser.add_argument("--preproc_epsilon", type=float, default=0.0)
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--successful_adv", type=int, default=0)
+    parser.add_argument("--transfered_attacks", type=str2bool, default=False)
     parser.add_argument("--all_epsilons", type=str)
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
@@ -254,6 +262,7 @@ def get_feature_datasets(
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
         all_epsilons=epsilons,
+        transfered_attacks=config.transfered_attacks,
     )
 
     def create_dataset(input_dataset: typing.List[DatasetLine]) -> typing.List:

@@ -83,6 +83,7 @@ def go_training(model, x, y, epoch, optimizer, loss_func, train_noise=0, prune_p
 
     # Training with noise
     if train_noise > 0:
+        logger.info(f"Training with noise...")
         if epoch >= 25: # Warm start
             x_noisy = torch.clamp(x + train_noise * torch.randn(x.size()), 0, 1).double()
             y_noisy = y_batch
@@ -99,6 +100,7 @@ def go_training(model, x, y, epoch, optimizer, loss_func, train_noise=0, prune_p
 
     # Training with prune percentile
     if prune_percentile > 0:
+        logger.info(f"Training with pruning...")
         for i, (name, param) in enumerate(model.named_parameters()):
             if (
                 len(param.data.size()) > 1
@@ -129,7 +131,7 @@ def train_network(
     logger.info(f"Learnig on device {device}")
 
     nepochs = 0
-    if prune_percentile != 0.0:
+    if prune_percentile > 0.0:
         nb_iter_prune = int(np.log(1-tot_prune_percentile)/np.log(1-prune_percentile))+1
         nepochs = num_epochs
         num_epochs = first_pruned_iter*nb_iter_prune + num_epochs
@@ -188,16 +190,16 @@ def train_network(
             val_loss = loss_func(y_val_pred, y_val)
             logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")
             loss_history.append(val_loss.item())
-        if (prune_percentile == 0) or (epoch>first_pruned_iter*nb_iter_prune):  # epoch > num_epochs-first_pruned_iter and prune_percentile != 0.0:
+        if (prune_percentile == 0.0) or (epoch>first_pruned_iter*nb_iter_prune):
             scheduler.step(val_loss)
         if epoch % 10 == 9:
             logger.info(f"Val acc = {compute_val_acc(model, val_loader)}")
         if epoch > 0:
-            save_pruned_model(model, current_pruned_percentile, first_pruned_iter, epoch, nepochs)
+            save_pruned_model(model, current_pruned_percentile, first_pruned_iter, tot_prune_percentile, epoch, nepochs)
         if (
             (epoch+1) % first_pruned_iter == 0
             and epoch != 0
-            and prune_percentile != 0.0
+            and prune_percentile > 0.0
             and epoch < first_pruned_iter*nb_iter_prune
         ):
             logger.info(f"Pruned net epoch {epoch}")
@@ -211,6 +213,7 @@ def train_network(
         logger.info(
             f"percentage non zero parameters = {current_pruned_percentile}"
         )
+        assert model.tot_prune_percentile == np.round(1.0 - current_pruned_percentile, 2)
 
     return model, loss_history
 
@@ -241,47 +244,32 @@ def get_deep_model(
         state_dict = {key.replace(".", "_"): state_dict[key] for key in state_dict}
         architecture.load_state_dict(state_dict)
         architecture.epochs = "custom"
+        architecture.train_noise = 0.0
+        architecture.tot_prune_percentile = 0.0
+
         return architecture, loss_func
+
+    architecture.epochs = num_epochs
+    architecture.train_noise = train_noise
+    architecture.tot_prune_percentile = 0.0
 
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
-
-    if train_noise > 0.0:
-        nprefix = f"{train_noise}_"
-    elif tot_prune_percentile > 0.0:
-        nprefix = f"pruned_{1.0-tot_prune_percentile}_"
-    else:
-        nprefix = ""
-
-    model_filename = (
-            f"{rootpath}/trained_models/{dataset.name}_"
-            f"{architecture.name}_"
-            f"{nprefix}"
-            f"{num_epochs}_"
-            f"epochs.model"
-        )
-
-    ### HHHEEEEERRRRRREEEE tod remove
-    #model_filename = "/Users/m.goibert/sshfs/TDA_for_adv_robustness/trained_models/svhn_lenet_pruned_1.0_300_epochs.model"
-    logger.info(f"Filename = {model_filename} \n")
 
     try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
 
-        architecture = torch.load(model_filename, map_location=device)
-        logger.info(f"Loaded successfully model from {model_filename}")
+        architecture = torch.load(architecture.get_model_savepath(), map_location=device)
+        logger.info(f"Loaded successfully model from {architecture.get_model_savepath()}")
     except FileNotFoundError:
-        logger.info(f"Unable to find model in {model_filename}... Retraining it...")
+        logger.info(f"Unable to find model in {architecture.get_model_savepath()}... Retraining it...")
 
         x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
         architecture.build_matrices()
-        #filename = architecture.get_model_initial_savepath()
-        init_filename = f"{rootpath}/trained_models/{dataset.name}_{architecture.name}_{nprefix}{num_epochs}_epochs_inital.model"
-        architecture.get_model_initial_savepath(init_filename)
-        torch.save(architecture, init_filename)
-        logger.info(f"Saved initial model in {filename}")
+        torch.save(architecture, architecture.get_model_savepath(initial=True))
+        logger.info(f"Saved initial model in {architecture.get_model_savepath(initial=True)}")
 
         # Train the NN
         train_network(
@@ -297,7 +285,7 @@ def get_deep_model(
         )
 
         # Saving model
-        torch.save(architecture, model_filename)
+        torch.save(architecture, architecture.get_model_savepath())
 
         # Compute accuracies
         val_accuracy = compute_val_acc(architecture, dataset.val_loader)
@@ -308,7 +296,6 @@ def get_deep_model(
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
     architecture.is_trained = True
-    architecture.epochs = num_epochs
 
     if with_details:
         return architecture, val_accuracy, test_accuracy
@@ -318,21 +305,13 @@ def get_deep_model(
 
     return architecture
 
-def save_pruned_model(architecture, current_pruned_percentile, first_pruned_iter, epoch, num_epochs):
+def save_pruned_model(architecture, current_pruned_percentile, first_pruned_iter, tot_prune_percentile, epoch, num_epochs):
     current_pruned_percentile = np.round(current_pruned_percentile,2)
-    if ((current_pruned_percentile > 0.01)
-        and (epoch > first_pruned_iter)
+    if ((tot_prune_percentile > 0.0)
+        and (epoch > 0)
         and ((epoch+1) % (2*first_pruned_iter) == first_pruned_iter)):
-        nprefix = f"pruned_{current_pruned_percentile}_"
-        model_filename = (
-            f"{rootpath}/trained_models/"
-            f"{architecture.name}_"
-            f"{nprefix}"
-            f"{num_epochs}_"
-            f"epochs.model"
-        )
-        logger.info(f"Save intermediate pruned model at {model_filename} \n")
-        torch.save(architecture, model_filename)
+        logger.info(f"Save intermediate pruned model at {architecture.get_model_savepath()}")
+        torch.save(architecture, architecture.get_model_savepath())
 
 def prune_model(model, percentile=0.1, init_weight=None):
     percentile = 100*percentile
@@ -358,5 +337,7 @@ def prune_model(model, percentile=0.1, init_weight=None):
             count_tot += np.prod(param.data.size())
             count_nonzero += np.count_nonzero(param.data.cpu())
     logger.info(f"Percentage pruned = {1 - count_nonzero/count_tot}")
+    pruned_count = np.round(1 - count_nonzero/count_tot, 2)
+    architecture.tot_prune_percentile = pruned_count
 
     return model, mask_dict

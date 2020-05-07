@@ -165,7 +165,7 @@ def get_sample_dataset(
         pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
         path = glob.glob(pathname)
         logger.info(f"Using transfered attacks file {path}")
-        source_dataset = torch.load(path[0], map_location="cpu")[f"{attack_type}"]
+        source_dataset = torch.load(path[0], map_location=device)[f"{attack_type}"]
         lsd = len(source_dataset["y"]) if attack_type not in ["FGSM", "BIM"] else len(source_dataset[epsilon]["y"])
     else:
         source_dataset = dataset.train_dataset if train else dataset.test_and_val_dataset

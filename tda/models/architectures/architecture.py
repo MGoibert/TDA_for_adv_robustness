@@ -55,6 +55,8 @@ class Architecture(nn.Module):
         self.is_trained = False
 
         self.epochs = 0
+        self.train_noise = 0.0
+        self.tot_prune_percentile = 0.0
 
         self.to(device)
 
@@ -68,25 +70,32 @@ class Architecture(nn.Module):
             i: layer.matrix for i, layer in enumerate(self.layers) if layer.graph_layer
         }
 
-    def get_model_initial_savepath(self, received_name):
-        #return f"{rootpath}/trained_models/{self.name}_initial.model"
-        self.path_to_initial = received_name
+    def get_model_savepath(self, initial: bool = False):
+        return f"{rootpath}/trained_models/{self.get_full_name(initial=initial)}.model"
 
     def get_initial_model(self) -> "Architecture":
         """
         Return the initial version of the model if available
         """
-        #return torch.load(self.get_model_initial_savepath(), map_location=device)
-        return torch.load(self.path_to_initial, map_location=device)
-
-    def get_initial_model_v2(self) -> "Architecture":
-        self.name
+        return torch.load(self.get_model_savepath(initial=True), map_location=device)
 
     def __repr__(self):
-        return f"{self.name}_{self.epochs}"
+        return self.get_full_name()
 
     def __str__(self):
-        return f"{self.name}_{self.epochs}"
+        return self.get_full_name()
+
+    def get_full_name(self, initial: bool = False):
+        postfix = "_init" if initial else ""
+
+        nprefix = ""
+        if hasattr(self, "train_noise") and self.train_noise > 0.0:
+            nprefix += f"_tn_{self.train_noise}"
+
+        if hasattr(self, "tot_prune_percentile") and self.tot_prune_percentile > 0.0:
+            nprefix += f"_p_{1.0 - self.tot_prune_percentile}"
+
+        return f"{self.name}_e_{self.epochs}{nprefix}{postfix}"
 
     def set_train_mode(self):
         for layer in self.layers:
