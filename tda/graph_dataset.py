@@ -20,7 +20,7 @@ from art.attacks import (
     FastGradientMethod,
     ProjectedGradientDescent,
     DeepFool as DeepFoolArt,
-    CarliniLInfMethod,
+    CarliniL2Method,
 )
 
 logger = get_logger("GraphDataset")
@@ -104,7 +104,7 @@ def adversarial_generation(
     elif attack_type == "DeepFool_art":
         attacker = DeepFoolArt(classifier=model.get_art_classifier(), max_iter=num_iter)
     elif attack_type == "CW_art":
-        attacker = CarliniLInfMethod(
+        attacker = CarliniL2Method(
             classifier=model.get_art_classifier(), max_iter=num_iter
         )
     else:
