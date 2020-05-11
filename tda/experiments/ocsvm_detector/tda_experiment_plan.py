@@ -8,7 +8,6 @@ from tda.models.architectures import (
     fashion_mnist_lenet,
     fashion_mnist_mlp,
     svhn_lenet,
-    svhn_lenet_bandw,
     cifar_lenet,
 )
 from tda.rootpath import rootpath, db_path
@@ -19,7 +18,7 @@ base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
         "dataset_size": [500],
-        "attack_type": ["FGSM_art"],
+        "attack_type": ["FGSM"],
         "noise": [0.0],
         "n_jobs": [8],
         "all_epsilons": ["0.01;0.1;0.4"],

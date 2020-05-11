@@ -15,7 +15,7 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "attack_type": ["FGSM_art"],
+        "attack_type": ["FGSM"],
         "noise": [0.0],
         "dataset_size": [500],
         "successful_adv": [1],

@@ -13,7 +13,7 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "attack_type": ["FGSM_art"],
+        "attack_type": ["FGSM"],
         "dataset_size": [500],
         "number_of_samples_for_mu_sigma": [500],
         "preproc_epsilon": [1e-2],
