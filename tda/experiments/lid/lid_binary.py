@@ -282,7 +282,7 @@ def run_experiment(config: Config):
         first_pruned_iter=config.first_pruned_iter,
     )
 
-    if config.attack_type not in ["FGSM", "BIM", "FGSM_art"]:
+    if config.attack_type not in ["FGSM", "BIM", "FGSM_art", "BIM_art"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
