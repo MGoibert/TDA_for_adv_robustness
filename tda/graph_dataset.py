@@ -118,7 +118,7 @@ def adversarial_generation(
         x_adv = attacker(x, y)
     elif attack_type == "DeepFool":
         x_adv = attacker(x, y)
-    elif attack_type == "FGSM_art":
+    elif attack_type in ["FGSM_art", "BIM_art", "DeepFool_art", "CW_art"]:
         x_adv = torch.Tensor(attacker.generate(x.detach()))
         x_adv.to(device)
 
