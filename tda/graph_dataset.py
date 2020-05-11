@@ -99,13 +99,18 @@ def adversarial_generation(
         )
     elif attack_type == "BIM_art":
         attacker = ProjectedGradientDescent(
-            classifier=model.get_art_classifier(), max_iter=num_iter, eps=epsilon
+            classifier=model.get_art_classifier(),
+            max_iter=num_iter,
+            eps=epsilon,
+            eps_step=2 * epsilon / num_iter,
         )
     elif attack_type == "DeepFool_art":
         attacker = DeepFoolArt(classifier=model.get_art_classifier(), max_iter=num_iter)
     elif attack_type == "CW_art":
         attacker = CarliniL2Method(
-            classifier=model.get_art_classifier(), max_iter=num_iter
+            classifier=model.get_art_classifier(),
+            max_iter=num_iter,
+            binary_search_steps=15,
         )
     else:
         raise NotImplementedError(attack_type)
