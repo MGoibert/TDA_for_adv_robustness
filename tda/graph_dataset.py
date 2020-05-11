@@ -16,7 +16,15 @@ from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 
+from art.attacks import (
+    FastGradientMethod,
+    ProjectedGradientDescent,
+    DeepFool as DeepFoolArt,
+    CarliniL2Method,
+)
+
 logger = get_logger("GraphDataset")
+
 
 def saved_adv_path():
     directory = f"{rootpath}/saved_adversaries/"
@@ -53,18 +61,25 @@ def ce_loss(outputs, labels, num_classes=None):
         for i in range(size):
             labels[i] = labels[i].unsqueeze(-1)
 
-    res = 1. / size * sum([torch.dot(torch.log(outputs[i]), labels[i])
-                           for i in range(size)])
+    res = (
+        1.0
+        / size
+        * sum([torch.dot(torch.log(outputs[i]), labels[i]) for i in range(size)])
+    )
     return -res
 
 
-def adversarial_generation(model, x, y,
-                           epsilon=0.25,
-                           loss_func=ce_loss,
-                           num_classes=10,
-                           attack_type='FGSM',
-                           num_iter=10,
-                           lims=(0, 1)):
+def adversarial_generation(
+    model: Architecture,
+    x,
+    y,
+    epsilon=0.25,
+    loss_func=ce_loss,
+    num_classes=10,
+    attack_type="FGSM",
+    num_iter=10,
+    lims=(0, 1),
+):
     """
     Create an adversarial example (FGMS only for now)
     """
@@ -78,6 +93,25 @@ def adversarial_generation(model, x, y,
         attacker = DeepFool(model, num_classes=num_classes, num_iter=num_iter)
     elif attack_type == "CW":
         attacker = CW(model, lims=lims, num_iter=num_iter)
+    elif attack_type == "FGSM_art":
+        attacker = FastGradientMethod(
+            classifier=model.get_art_classifier(), eps=epsilon
+        )
+    elif attack_type == "BIM_art":
+        attacker = ProjectedGradientDescent(
+            classifier=model.get_art_classifier(),
+            max_iter=num_iter,
+            eps=epsilon,
+            eps_step=2 * epsilon / num_iter,
+        )
+    elif attack_type == "DeepFool_art":
+        attacker = DeepFoolArt(classifier=model.get_art_classifier(), max_iter=num_iter)
+    elif attack_type == "CW_art":
+        attacker = CarliniL2Method(
+            classifier=model.get_art_classifier(),
+            max_iter=num_iter,
+            binary_search_steps=15,
+        )
     else:
         raise NotImplementedError(attack_type)
 
@@ -89,19 +123,22 @@ def adversarial_generation(model, x, y,
         x_adv = attacker(x, y)
     elif attack_type == "DeepFool":
         x_adv = attacker(x, y)
+    elif attack_type in ["FGSM_art", "BIM_art", "DeepFool_art", "CW_art"]:
+        x_adv = torch.Tensor(attacker.generate(x.detach()))
+        x_adv.to(device)
 
     return x_adv
 
 
 def process_sample(
-        sample: typing.Tuple,
-        adversarial: bool,
-        noise: float = 0,
-        epsilon: float = 0,
-        model: typing.Optional[torch.nn.Module] = None,
-        num_classes: int = 10,
-        attack_type: str = "FGSM",
-        num_iter: int = 10
+    sample: typing.Tuple,
+    adversarial: bool,
+    noise: float = 0,
+    epsilon: float = 0,
+    model: typing.Optional[torch.nn.Module] = None,
+    num_classes: int = 10,
+    attack_type: str = "FGSM",
+    num_iter: int = 10,
 ):
     # Casting to double
     x, y = sample
@@ -110,8 +147,15 @@ def process_sample(
     # If we use adversarial or noisy example!
 
     if adversarial:
-        x = adversarial_generation(model, x, y, epsilon, num_classes=num_classes, attack_type=attack_type,
-                                   num_iter=num_iter)
+        x = adversarial_generation(
+            model,
+            x,
+            y,
+            epsilon,
+            num_classes=num_classes,
+            attack_type=attack_type,
+            num_iter=num_iter,
+        )
     if noise > 0:
         x = torch.clamp(x + noise * torch.randn(x.size(), device=device), 0, 1).double()
 
@@ -131,20 +175,20 @@ class DatasetLine(typing.NamedTuple):
 
 @cached
 def get_sample_dataset(
-        epsilon: float,
-        noise: float,
-        adv: bool,
-        dataset: Dataset,
-        train: bool,
-        succ_adv: bool,
-        archi: Architecture = mnist_mlp,
-        dataset_size: int = 100,
-        attack_type: str = "FGSM",
-        num_iter: int = 10,
-        offset: int = 0,
-        per_class: bool = False,
-        compute_graph: bool = False,
-        transfered_attacks: bool = False
+    epsilon: float,
+    noise: float,
+    adv: bool,
+    dataset: Dataset,
+    train: bool,
+    succ_adv: bool,
+    archi: Architecture = mnist_mlp,
+    dataset_size: int = 100,
+    attack_type: str = "FGSM",
+    num_iter: int = 10,
+    offset: int = 0,
+    per_class: bool = False,
+    compute_graph: bool = False,
+    transfered_attacks: bool = False,
 ) -> typing.List[DatasetLine]:
     logger.info(f"Using source dataset {dataset.name}")
 
@@ -166,9 +210,15 @@ def get_sample_dataset(
         path = glob.glob(pathname)
         logger.info(f"Using transfered attacks file {path}")
         source_dataset = torch.load(path[0], map_location=device)[f"{attack_type}"]
-        lsd = len(source_dataset["y"]) if attack_type not in ["FGSM", "BIM"] else len(source_dataset[epsilon]["y"])
+        lsd = (
+            len(source_dataset["y"])
+            if attack_type not in ["FGSM", "BIM"]
+            else len(source_dataset[epsilon]["y"])
+        )
     else:
-        source_dataset = dataset.train_dataset if train else dataset.test_and_val_dataset
+        source_dataset = (
+            dataset.train_dataset if train else dataset.test_and_val_dataset
+        )
         lsd = len(source_dataset)
 
     ret = list()
@@ -182,15 +232,27 @@ def get_sample_dataset(
         while processed_sample is None:
             if transfered_attacks:
                 if attack_type in ["FGSM", "BIM"]:
-                    sample = [source_dataset[epsilon]["x"][current_sample_id], source_dataset[epsilon]["y"][current_sample_id]]
+                    sample = [
+                        source_dataset[epsilon]["x"][current_sample_id],
+                        source_dataset[epsilon]["y"][current_sample_id],
+                    ]
                     if adv:
-                        processed_sample = [source_dataset[epsilon]["x_adv"][current_sample_id], source_dataset[epsilon]["y"][current_sample_id]]
+                        processed_sample = [
+                            source_dataset[epsilon]["x_adv"][current_sample_id],
+                            source_dataset[epsilon]["y"][current_sample_id],
+                        ]
                     else:
                         processed_sample = sample
                 else:
-                    sample = [source_dataset["x"][current_sample_id], source_dataset["y"][current_sample_id]]
+                    sample = [
+                        source_dataset["x"][current_sample_id],
+                        source_dataset["y"][current_sample_id],
+                    ]
                     if adv:
-                        processed_sample = [source_dataset["x_adv"][current_sample_id], source_dataset["y"][current_sample_id]]
+                        processed_sample = [
+                            source_dataset["x_adv"][current_sample_id],
+                            source_dataset["y"][current_sample_id],
+                        ]
                     else:
                         processed_sample = sample
             else:
@@ -203,14 +265,16 @@ def get_sample_dataset(
                     model=archi,
                     num_classes=10,
                     attack_type=attack_type,
-                    num_iter=num_iter
+                    num_iter=num_iter,
                 )
 
             assert sample[1] == processed_sample[1]
 
             y_pred = archi(processed_sample[0]).argmax(dim=-1).item()
             if adv and succ_adv and y_pred == sample[1]:
-                logger.debug(f"Rejecting point (epsilon={epsilon}, y={sample[1]}, y_pred={y_pred}, adv={adv})")
+                logger.debug(
+                    f"Rejecting point (epsilon={epsilon}, y={sample[1]}, y_pred={y_pred}, adv={adv})"
+                )
                 processed_sample = None
                 current_sample_id += 1
                 if current_sample_id >= lsd:
@@ -221,9 +285,19 @@ def get_sample_dataset(
 
         # Ok we have found a point
         l2_norm = np.linalg.norm(
-            torch.abs((processed_sample[0].double() - sample[0].double()).flatten()).cpu().detach().numpy(), 2)
+            torch.abs((processed_sample[0].double() - sample[0].double()).flatten())
+            .cpu()
+            .detach()
+            .numpy(),
+            2,
+        )
         linf_norm = np.linalg.norm(
-            torch.abs((processed_sample[0].double() - sample[0].double()).flatten()).cpu().detach().numpy(), np.inf)
+            torch.abs((processed_sample[0].double() - sample[0].double()).flatten())
+            .cpu()
+            .detach()
+            .numpy(),
+            np.inf,
+        )
 
         nb_samples += 1
         if nb_samples % 10 == 0:
@@ -236,26 +310,30 @@ def get_sample_dataset(
 
         if compute_graph:
             graph = Graph.from_architecture_and_data_point(
-                architecture=archi,
-                x=processed_sample[0].double())
+                architecture=archi, x=processed_sample[0].double()
+            )
         else:
             graph = None
 
-        ret.append(DatasetLine(
-            graph=graph,
-            x=processed_sample[0],
-            y=processed_sample[1],
-            y_pred=y_pred,
-            y_adv=adv,
-            l2_norm=l2_norm,
-            linf_norm=linf_norm,
-            sample_id=current_sample_id
-        ))
+        ret.append(
+            DatasetLine(
+                graph=graph,
+                x=processed_sample[0],
+                y=processed_sample[1],
+                y_pred=y_pred,
+                y_adv=adv,
+                l2_norm=l2_norm,
+                linf_norm=linf_norm,
+                sample_id=current_sample_id,
+            )
+        )
 
         current_sample_id += 1
 
     if nb_samples < dataset_size:
-        logger.warn(f"I was only able to generate {nb_samples} points even if {dataset_size} was requested. "
-                    f"This is probably a lack of adversarial points.")
+        logger.warn(
+            f"I was only able to generate {nb_samples} points even if {dataset_size} was requested. "
+            f"This is probably a lack of adversarial points."
+        )
 
     return ret
