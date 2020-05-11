@@ -19,7 +19,7 @@ base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram],
         "dataset_size": [250],
-        "attack_type": ["FGSM", "FGSM_art"],
+        "attack_type": ["FGSM", "FGSM_art", "DeepFool", "DeepFool_art", "CW", "CW_art", "BIM", "BIM_art"],
         "noise": [0.0],
         "n_jobs": [8],
         "all_epsilons": ["0.1"],
