@@ -83,7 +83,9 @@ def adversarial_generation(model: Architecture, x, y,
         attacker = CW(model, lims=lims, num_iter=num_iter)
     elif attack_type == "FGSM_art":
 
-        if "svhn" in model.name or "cifar" in model.name:
+        if "bandw" in model.name:
+            input_shape = (1, 32, 32)
+        elif "svhn" in model.name or "cifar" in model.name:
             input_shape = (3, 32, 32)
         elif "mnist" in model.name:
             input_shape = (1, 28, 28)
