@@ -41,6 +41,7 @@ class KernelType(object):
 
 
 class ThresholdStrategy(object):
+    NoThreshold = "NoThreshold"
     ActivationValue = "ActivationValue"
     UnderoptimizedMagnitudeIncrease = "UnderoptimizedMagnitudeIncrease"
     UnderoptimizedMagnitudeIncreaseV2 = "UnderoptimizedMagnitudeIncreaseV2"

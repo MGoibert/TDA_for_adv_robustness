@@ -30,7 +30,8 @@ base_configs = cartesian_product(
         "threshold_strategy": [
             ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
             ThresholdStrategy.UnderoptimizedLargeFinal,
-            ThresholdStrategy.ActivationValue
+            ThresholdStrategy.NoThreshold
+            # ThresholdStrategy.ActivationValue
         ],
         "thresholds_are_low_pass": [
             True, False
