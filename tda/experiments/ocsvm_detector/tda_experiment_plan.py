@@ -58,7 +58,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
     [  # AUC : 0.01: 0.975, 0.1: 0.975
         fashion_mnist_lenet.name,
         "FashionMNIST",
-        200,
+        100,
         "0:0.05_2:0.05_4:0.0_5:0.0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
@@ -66,7 +66,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
     [
         svhn_lenet.name,
         "SVHN",
-        250,
+        300,
         "0:0_2:0.5_4:0.5_5:0_6:0",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         False,
