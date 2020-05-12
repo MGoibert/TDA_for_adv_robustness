@@ -185,6 +185,7 @@ def get_all_embeddings(config: Config):
             raw_thresholds=config.thresholds,
             architecture=architecture,
             method=config.threshold_strategy,
+            thresholds_are_low_pass=config.thresholds_are_low_pass
         )
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2,
