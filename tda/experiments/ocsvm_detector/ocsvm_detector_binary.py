@@ -180,6 +180,7 @@ def get_all_embeddings(config: Config):
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
+        ThresholdStrategy.UnderoptimizedRandom
     ]:
         edges_to_keep = process_thresholds_underopt(
             raw_thresholds=config.thresholds,

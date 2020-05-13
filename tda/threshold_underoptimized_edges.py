@@ -8,6 +8,8 @@ from tda.models import Architecture
 from tda.tda_logging import get_logger
 from tda.embeddings import ThresholdStrategy
 
+from functools import reduce
+
 logger = get_logger("Thresholds Underoptimized")
 
 
@@ -34,7 +36,7 @@ def underopt_edges(
     method: str,
     model: Architecture,
     model_init: Architecture,
-    thresholds_are_low_pass: bool,
+    thresholds_are_low_pass: bool
 ):
     limit_val = dict()
     qtest = dict()
@@ -48,6 +50,10 @@ def underopt_edges(
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer_idx] = torch.abs(param)
+            elif method == ThresholdStrategy.UnderoptimizedRandom:
+                n = reduce(lambda x, y: x*y, param.shape, 1)
+                limit_val[layer_idx] = torch.abs(param).reshape(-1)[torch.randperm(n)].reshape(param.shape)
+
             qtest[layer_idx] = np.quantile(
                 limit_val[layer_idx], quantiles.get(layer_idx, 0.0)
             )

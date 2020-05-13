@@ -47,6 +47,7 @@ class ThresholdStrategy(object):
     UnderoptimizedMagnitudeIncreaseV2 = "UnderoptimizedMagnitudeIncreaseV2"
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
     UnderoptimizedLargeFinalV2 = "UnderoptimizedLargeFinalV2"
+    UnderoptimizedRandom = "UnderoptimizedRandom"
     QuantilePerGraphLayer = "QuantilePerGraphLayer"
 
 
@@ -78,6 +79,7 @@ def get_embedding(
     elif threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
+        ThresholdStrategy.UnderoptimizedRandom
     ]:
         # logger.info(f"Using underoptimized threshold...")
         graph.thresholdize_underopt(edges_to_keep)
