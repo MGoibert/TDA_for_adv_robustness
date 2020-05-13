@@ -30,8 +30,8 @@ base_configs = cartesian_product(
         "threshold_strategy": [
             ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
             ThresholdStrategy.UnderoptimizedLargeFinal,
-            ThresholdStrategy.NoThreshold
-            # ThresholdStrategy.ActivationValue
+            ThresholdStrategy.NoThreshold,
+            ThresholdStrategy.ActivationValue
         ],
         "thresholds_are_low_pass": [
             True, False
@@ -49,6 +49,9 @@ for config in base_configs:
         config["kernel_type"] = KernelType.SlicedWasserstein
     elif config["embedding_type"] == EmbeddingType.RawGraph:
         config["kernel_type"] = KernelType.RBF
+
+    if config["threshold_strategy"] == ThresholdStrategy.ActivationValue:
+        config["thresholds"] = "-1;0;0.025_0;1;0.005_1;2;0.025_2;3;0.005_3;4;0.025_4;5;0.025"
 
     all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
