@@ -25,7 +25,7 @@ base_configs = cartesian_product(
         "raw_graph_pca": [-1],
         "architecture": [mnist_lenet.name],
         "epochs": [50],
-        "thresholds": ["0:0.05_2:0.05_4:0.05_5:0.0"],
+        "thresholds": ["0:0.025_2:0.025_4:0.025_5:0.025"],
         "sigmoidize": [True],
         "threshold_strategy": [
             ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
