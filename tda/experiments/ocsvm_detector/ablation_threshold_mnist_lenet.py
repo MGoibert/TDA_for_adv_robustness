@@ -21,7 +21,7 @@ base_configs = cartesian_product(
         "attack_type": ["FGSM"],
         "noise": [0.0],
         "n_jobs": [8],
-        "all_epsilons": ["0.01;0.1;0.4"],
+        "all_epsilons": ["0.1"],
         "raw_graph_pca": [-1],
         "architecture": [mnist_lenet.name],
         "epochs": [50],
