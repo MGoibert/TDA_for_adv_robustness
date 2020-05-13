@@ -18,7 +18,7 @@ base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
         "dataset_size": [500],
-        "attack_type": ["FGSM"],
+        "attack_type": ["DeepFool"],
         "noise": [0.0],
         "n_jobs": [8],
         "all_epsilons": ["0.1"],
