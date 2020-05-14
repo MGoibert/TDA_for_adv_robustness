@@ -9,6 +9,7 @@ from tda.tda_logging import get_logger
 from tda.embeddings import ThresholdStrategy
 from numpy.random import Generator, PCG64
 import time
+import os
 
 from functools import reduce
 
@@ -55,7 +56,7 @@ def underopt_edges(
             elif method == ThresholdStrategy.UnderoptimizedRandom:
                 n = reduce(lambda x, y: x*y, param.shape, 1)
                 # Ensuring we select different edges each time
-                gen = Generator(PCG64(int(time.time())))
+                gen = Generator(PCG64(int(time.time()+os.getpid())))
                 limit_val[layer_idx] = torch.abs(param).reshape(-1)[gen.permutation(n)].reshape(param.shape)
 
             qtest[layer_idx] = np.quantile(
