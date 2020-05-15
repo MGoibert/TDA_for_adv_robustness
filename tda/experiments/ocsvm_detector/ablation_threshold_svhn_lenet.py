@@ -53,6 +53,7 @@ for config in base_configs:
         config["kernel_type"] = KernelType.SlicedWasserstein
     elif config["embedding_type"] == EmbeddingType.RawGraph:
         config["kernel_type"] = KernelType.RBF
+        config["sigmoidize"] = False
 
     if config["threshold_strategy"] == ThresholdStrategy.ActivationValue:
         config[
