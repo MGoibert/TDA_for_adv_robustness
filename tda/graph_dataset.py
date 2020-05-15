@@ -85,6 +85,12 @@ def adversarial_generation(
     """
     y = torch.tensor([y])
     x.requires_grad = True
+    if "art" in attack_type:
+        model = model.get_art_classifier(clip_values=lims)
+        if hasattr(x, "numpy"):
+            x = x.detach().cpu().numpy()
+            y = y.detach().cpu().numpy()
+
     if attack_type == "FGSM":
         attacker = FGSM(model, loss_func)
     elif attack_type == "BIM":
@@ -95,20 +101,19 @@ def adversarial_generation(
         attacker = CW(model, lims=lims, num_iter=num_iter)
     elif attack_type == "FGSM_art":
         attacker = FastGradientMethod(
-            classifier=model.get_art_classifier(), eps=epsilon
-        )
+            classifier=model, eps=epsilon)
     elif attack_type == "BIM_art":
         attacker = ProjectedGradientDescent(
-            classifier=model.get_art_classifier(),
+            classifier=model,
             max_iter=num_iter,
             eps=epsilon,
             eps_step=2 * epsilon / num_iter,
         )
     elif attack_type == "DeepFool_art":
-        attacker = DeepFoolArt(classifier=model.get_art_classifier(), max_iter=num_iter)
+        attacker = DeepFoolArt(classifier=model, max_iter=num_iter)
     elif attack_type == "CW_art":
         attacker = CarliniL2Method(
-            classifier=model.get_art_classifier(),
+            classifier=model,
             max_iter=num_iter,
             binary_search_steps=15,
         )
@@ -124,21 +129,22 @@ def adversarial_generation(
     elif attack_type == "DeepFool":
         x_adv = attacker(x, y)
     elif attack_type in ["FGSM_art", "BIM_art", "DeepFool_art", "CW_art"]:
-        x_adv = torch.Tensor(attacker.generate(x.detach()))
+        x_adv = torch.Tensor(attacker.generate(x))
         x_adv.to(device)
 
     return x_adv
 
 
 def process_sample(
-    sample: typing.Tuple,
-    adversarial: bool,
-    noise: float = 0,
-    epsilon: float = 0,
-    model: typing.Optional[torch.nn.Module] = None,
-    num_classes: int = 10,
-    attack_type: str = "FGSM",
-    num_iter: int = 10,
+        sample: typing.Tuple,
+        adversarial: bool,
+        noise: float = 0,
+        epsilon: float = 0,
+        model: typing.Optional[torch.nn.Module] = None,
+        num_classes: int = 10,
+        attack_type: str = "FGSM",
+        num_iter: int = 10,
+        lims: typing.Tuple=(0, 1)
 ):
     # Casting to double
     x, y = sample
@@ -155,7 +161,7 @@ def process_sample(
             num_classes=num_classes,
             attack_type=attack_type,
             num_iter=num_iter,
-        )
+            lims=lims)
     if noise > 0:
         x = torch.clamp(x + noise * torch.randn(x.size(), device=device), 0, 1).double()
 
@@ -189,6 +195,7 @@ def get_sample_dataset(
     per_class: bool = False,
     compute_graph: bool = False,
     transfered_attacks: bool = False,
+    lims: typing.Tuple=(0, 1)
 ) -> typing.List[DatasetLine]:
     logger.info(f"Using source dataset {dataset.name}")
 
@@ -266,6 +273,7 @@ def get_sample_dataset(
                     num_classes=10,
                     attack_type=attack_type,
                     num_iter=num_iter,
+                    lims=lims
                 )
 
             assert sample[1] == processed_sample[1]
