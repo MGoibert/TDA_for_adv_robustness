@@ -160,7 +160,7 @@ class Graph(object):
         )
         return shapes
 
-    def get_edge_list(self):
+    def get_edge_list_old(self):
         """
         Generate the list of edges of the multipartite graph
         """
@@ -185,6 +185,28 @@ class Graph(object):
                 weight = mat.data[i]
                 ret.append(([source_vertex, target_vertex], weight))
         return ret
+
+    def get_edge_iter(self):
+        """
+        Iterate over edges of the multipartite graph
+        """
+        shapes = self._get_shapes()
+        all_layer_indices = sorted(list(shapes.keys()))
+        vertex_offset = [0] + list(np.cumsum([shapes[idx]
+                                              for idx in all_layer_indices]))
+        vertex_offset = vertex_offset[:-1]
+        for source_layer, target_layer in self._edge_dict:
+            offset_source = vertex_offset[source_layer + 1]
+            offset_target = vertex_offset[target_layer + 1]
+            mat = self._edge_dict[(source_layer, target_layer)]
+            source_vertices = mat.col + offset_source
+            target_vertices = mat.row + offset_target
+            for edge, weight in zip(zip(source_vertices, target_vertices),
+                                    mat.data):
+                yield edge, weight
+
+    def get_edge_list(self):
+        return list(self.get_edge_iter())
 
     def get_adjacency_matrix(self) -> np.matrix:
         edges = self.get_edge_list()
