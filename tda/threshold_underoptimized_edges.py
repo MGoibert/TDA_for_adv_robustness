@@ -39,7 +39,7 @@ def underopt_edges(
     method: str,
     model: Architecture,
     model_init: Architecture,
-    thresholds_are_low_pass: bool
+    thresholds_are_low_pass: bool,
 ):
     limit_val = dict()
     qtest = dict()
@@ -49,19 +49,32 @@ def underopt_edges(
             param = layer.func.state_dict()["weight"]
             param_init = model_init.layers[layer_idx].func.state_dict()["weight"]
 
-            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
+            if method in [
+                ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+                ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
+            ]:
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer_idx] = torch.abs(param)
             elif method == ThresholdStrategy.UnderoptimizedRandom:
-                n = reduce(lambda x, y: x*y, param.shape, 1)
+                n = reduce(lambda x, y: x * y, param.shape, 1)
                 # Ensuring we select different edges each time
-                gen = Generator(PCG64(int(time.time()+os.getpid())))
-                limit_val[layer_idx] = torch.abs(param).reshape(-1)[gen.permutation(n)].reshape(param.shape)
+                gen = Generator(PCG64(int(time.time() + os.getpid())))
+                limit_val[layer_idx] = (
+                    torch.abs(param)
+                    .reshape(-1)[gen.permutation(n)]
+                    .reshape(param.shape)
+                )
 
             qtest[layer_idx] = np.quantile(
                 limit_val[layer_idx], quantiles.get(layer_idx, 0.0)
             )
+
+            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement:
+                qtest[layer_idx] = np.quantile(
+                    limit_val[layer_idx], 1.0-quantiles.get(layer_idx, 0.0)
+                )
+                thresholds_are_low_pass = not thresholds_are_low_pass
 
             if thresholds_are_low_pass:
                 underoptimized_edges[layer_idx] = (
@@ -74,10 +87,10 @@ def underopt_edges(
             else:
                 underoptimized_edges[layer_idx] = (
                     (limit_val[layer_idx] >= qtest[layer_idx])
-                        .nonzero()
-                        .cpu()
-                        .numpy()
-                        .tolist()
+                    .nonzero()
+                    .cpu()
+                    .numpy()
+                    .tolist()
                 )
 
     return underoptimized_edges
