@@ -65,9 +65,8 @@ def model_to_architecture(model: nn.Module,
     Notes
     -----
     For the heuristic to work, input model should have been constructed
-    using torch.nn modules and not functions. For example, torch.nn.ReLU
-    should've been used rather than F.relu; nn.MaxPool2D rather than
-    F.max_pool2d, etc., etc.
+    using torch.nn modules and not functions, whenever possible.
+    For example, torch.nn.ReLU should've been used rather than F.relu; etc.
     """
     layers = _get_layers(model)
     model_arch = Architecture(name=name, layers=layers,
