@@ -119,7 +119,7 @@ class Architecture(nn.Module):
 
         return [link for link in self.layer_links if link[1] == softmax_layer_idx][0][0]
 
-    def get_art_classifier(self):
+    def get_art_classifier(self, clip_values):
         if not hasattr(self, "art_classifier") or self.art_classifier is None:
             if "bandw" in self.name:
                 input_shape = (1, 32, 32)
@@ -127,10 +127,12 @@ class Architecture(nn.Module):
                 input_shape = (3, 32, 32)
             elif "mnist" in self.name:
                 input_shape = (1, 28, 28)
+            else:
+                raise NotImplementedError(self.name)
 
             self.art_classifier = PyTorchClassifier(
                 model=self,
-                clip_values=(0, 1),
+                clip_values=clip_values,
                 loss=torch.nn.CrossEntropyLoss(),
                 optimizer=None,
                 input_shape=input_shape,

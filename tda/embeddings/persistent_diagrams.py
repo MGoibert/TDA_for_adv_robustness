@@ -63,8 +63,8 @@ except Exception as e:
     persim_sw = None
 
 
-def _prepare_edges_for_diagram(graph: Graph) -> typing.Dict:
-    all_edges_for_diagrams = graph.get_edge_list()
+def _prepare_edges_for_diagram_old(graph: Graph) -> typing.Dict:
+    all_edges_for_diagrams = graph.get_edge_list_old()
 
     timing_by_vertex = dict()
 
@@ -81,6 +81,23 @@ def _prepare_edges_for_diagram(graph: Graph) -> typing.Dict:
     ]
 
     return all_edges_for_diagrams
+
+
+def _prepare_edges_for_diagram(graph: Graph) -> typing.Dict:
+    timing_by_vertex = {}
+    for (src, tgt), weight in graph.get_edge_iter():
+        # prepare edge
+        yield [src, tgt], weight
+
+        # update vertex data
+        if weight > timing_by_vertex.get(src, -max_float):
+            timing_by_vertex[src] = weight
+        if weight > timing_by_vertex.get(tgt, -max_float):
+            timing_by_vertex[tgt] = weight
+
+    # yield vertices
+    for vertex in timing_by_vertex:
+        yield [vertex], timing_by_vertex[vertex]
 
 
 def compute_dgm_from_graph(graph: Graph, astuple: bool = True, negate: bool = True):
