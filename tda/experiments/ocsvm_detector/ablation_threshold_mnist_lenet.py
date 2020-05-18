@@ -16,9 +16,9 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
+        "embedding_type": [EmbeddingType.PersistentDiagram],
         "dataset_size": [500],
-        "attack_type": ["DeepFool"],
+        "attack_type": ["FGSM"],
         "noise": [0.0],
         "n_jobs": [8],
         "all_epsilons": ["0.1"],
@@ -29,16 +29,14 @@ base_configs = cartesian_product(
         "sigmoidize": [True],
         "threshold_strategy": [
             ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-            ThresholdStrategy.UnderoptimizedLargeFinal,
-            # ThresholdStrategy.NoThreshold,
-            # ThresholdStrategy.ActivationValue,
+            ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
             ThresholdStrategy.UnderoptimizedRandom,
             ThresholdStrategy.UnderoptimizedRandom,
-            ThresholdStrategy.UnderoptimizedRandom
+            ThresholdStrategy.UnderoptimizedRandom,
+            ThresholdStrategy.UnderoptimizedRandom,
+            ThresholdStrategy.UnderoptimizedRandom,
         ],
-        "thresholds_are_low_pass": [
-            True
-        ]
+        "thresholds_are_low_pass": [True],
     }
 )
 
@@ -54,7 +52,9 @@ for config in base_configs:
         config["kernel_type"] = KernelType.RBF
 
     if config["threshold_strategy"] == ThresholdStrategy.ActivationValue:
-        config["thresholds"] = "-1;0;0.025_0;1;0.005_1;2;0.025_2;3;0.005_3;4;0.025_4;5;0.025"
+        config[
+            "thresholds"
+        ] = "-1;0;0.025_0;1;0.005_1;2;0.025_2;3;0.005_3;4;0.025_4;5;0.025"
 
     all_experiments.append(R3D3Experiment(binary=binary, config=config))
 

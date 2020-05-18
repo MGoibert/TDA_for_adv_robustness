@@ -16,9 +16,9 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
+        "embedding_type": [EmbeddingType.PersistentDiagram],
         "dataset_size": [500],
-        "attack_type": ["FGSM", "DeepFool"],
+        "attack_type": ["FGSM"],
         "dataset": ["SVHN"],
         "noise": [0.0],
         "n_jobs": [8],
@@ -30,10 +30,12 @@ base_configs = cartesian_product(
         "sigmoidize": [True],
         "threshold_strategy": [
             ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-            ThresholdStrategy.UnderoptimizedLargeFinal,
-            # ThresholdStrategy.NoThreshold,
-            # ThresholdStrategy.ActivationValue,
-            ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement
+            ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
+            ThresholdStrategy.UnderoptimizedRandom,
+            ThresholdStrategy.UnderoptimizedRandom,
+            ThresholdStrategy.UnderoptimizedRandom,
+            ThresholdStrategy.UnderoptimizedRandom,
+            ThresholdStrategy.UnderoptimizedRandom,
         ],
         "thresholds_are_low_pass": [True],
     }
