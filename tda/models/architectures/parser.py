@@ -10,10 +10,19 @@ import tda.models.layers as tda_layers
 from tda.models import Architecture
 
 
+def _unroll_children(model):
+    for child in model.children():
+        if len(list(child.children())):
+            for grandchild in _unroll_children(child):
+                yield grandchild
+        else:
+            yield child
+
+
 def _get_layers(model):
     layers_ = []
     layers = []
-    for layer in model.children():
+    for layer in _unroll_children(model):
         layer_name = layer.__class__.__name__
         layers_.append((layer, layer_name))
 
