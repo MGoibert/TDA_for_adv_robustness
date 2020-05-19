@@ -7,6 +7,11 @@ from scipy.sparse import coo_matrix
 from tda.models import Architecture
 from tda.tda_logging import get_logger
 from tda.embeddings import ThresholdStrategy
+from numpy.random import Generator, PCG64
+import time
+import os
+
+from functools import reduce
 
 logger = get_logger("Thresholds Underoptimized")
 
@@ -30,7 +35,11 @@ def _process_raw_quantiles(
 
 
 def underopt_edges(
-    quantiles: typing.Dict, method: str, model: Architecture, model_init: Architecture
+    quantiles: typing.Dict,
+    method: str,
+    model: Architecture,
+    model_init: Architecture,
+    thresholds_are_low_pass: bool,
 ):
     limit_val = dict()
     qtest = dict()
@@ -40,18 +49,49 @@ def underopt_edges(
             param = layer.func.state_dict()["weight"]
             param_init = model_init.layers[layer_idx].func.state_dict()["weight"]
 
-            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
+            if method in [
+                ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+                ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
+            ]:
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer_idx] = torch.abs(param)
-            qtest[layer_idx] = np.quantile(limit_val[layer_idx], quantiles.get(layer_idx, 0.0))
-            underoptimized_edges[layer_idx] = (
-                (limit_val[layer_idx] < qtest[layer_idx])
-                .nonzero()
-                .cpu()
-                .numpy()
-                .tolist()
+            elif method == ThresholdStrategy.UnderoptimizedRandom:
+                n = reduce(lambda x, y: x * y, param.shape, 1)
+                # Ensuring we select different edges each time
+                gen = Generator(PCG64(int(time.time() + os.getpid())))
+                limit_val[layer_idx] = (
+                    torch.abs(param)
+                    .reshape(-1)[gen.permutation(n)]
+                    .reshape(param.shape)
+                )
+
+            qtest[layer_idx] = np.quantile(
+                limit_val[layer_idx], quantiles.get(layer_idx, 0.0)
             )
+
+            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement:
+                qtest[layer_idx] = np.quantile(
+                    limit_val[layer_idx], 1.0-quantiles.get(layer_idx, 0.0)
+                )
+                thresholds_are_low_pass = not thresholds_are_low_pass
+
+            if thresholds_are_low_pass:
+                underoptimized_edges[layer_idx] = (
+                    (limit_val[layer_idx] < qtest[layer_idx])
+                    .nonzero()
+                    .cpu()
+                    .numpy()
+                    .tolist()
+                )
+            else:
+                underoptimized_edges[layer_idx] = (
+                    (limit_val[layer_idx] >= qtest[layer_idx])
+                    .nonzero()
+                    .cpu()
+                    .numpy()
+                    .tolist()
+                )
 
     return underoptimized_edges
 
@@ -93,10 +133,14 @@ def kernel_to_edge_idx(kernel_idx, kernel_shape, mat_shape):
 
 
 def process_thresholds_underopt(
-    raw_thresholds: str, architecture: Architecture, method: str,
+    raw_thresholds: str,
+    architecture: Architecture,
+    method: str,
+    thresholds_are_low_pass: bool = True,
 ) -> typing.Dict:
     """
 
+    :param thresholds_are_low_pass: if True keep underopt ; if False keep the opt edges
     :param method:
     :param raw_thresholds:
     :param architecture:
@@ -111,6 +155,7 @@ def process_thresholds_underopt(
         method=method,
         model=architecture,
         model_init=architecture_init,
+        thresholds_are_low_pass=thresholds_are_low_pass,
     )
 
     if architecture.name in ["mnist_lenet", "fashion_mnist_lenet"]:
@@ -140,7 +185,8 @@ def process_thresholds_underopt(
     )
 
     underoptimized_edges = {
-        k: set([tuple(edge) for edge in underoptimized_edges[k]]) for k in underoptimized_edges
+        k: set([tuple(edge) for edge in underoptimized_edges[k]])
+        for k in underoptimized_edges
     }
 
     return underoptimized_edges

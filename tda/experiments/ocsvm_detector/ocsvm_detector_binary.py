@@ -127,7 +127,7 @@ def get_config() -> Config:
     parser.add_argument("--all_epsilons", type=str, default=None)
     parser.add_argument("--l2_norm_quantile", type=bool, default=True)
     parser.add_argument("--sigmoidize", type=str2bool, default=False)
-    parser.add_argument("--thresholds_are_low_pass", type=bool, default=True)
+    parser.add_argument("--thresholds_are_low_pass", type=str2bool, default=True)
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
@@ -180,11 +180,14 @@ def get_all_embeddings(config: Config):
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
+        ThresholdStrategy.UnderoptimizedRandom,
+        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement
     ]:
         edges_to_keep = process_thresholds_underopt(
             raw_thresholds=config.thresholds,
             architecture=architecture,
             method=config.threshold_strategy,
+            thresholds_are_low_pass=config.thresholds_are_low_pass
         )
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2,
