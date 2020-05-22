@@ -5,15 +5,15 @@ Author: Elvis Dohmatob <e.dohmatob@criteo.com>
 
 import numpy as np
 from joblib import Parallel, delayed
-import persim
 
 
-def compute_persistence_images(dgms, pixels=(20, 20), n_jobs=1, flatten=False,
-                               **kwargs):
-    """Convert persistence diagrams to intensity images."""
+def persistence_diagrams_to_images(dgms, resolution=(20, 20), bandwidth=1.,
+                                   backend="gudhi", n_jobs=1, flatten=False,
+                                   **kwargs):
+    assert isinstance(resolution, (list, tuple))
+    assert len(resolution) == 2
+
     # inf-imputation
-    assert isinstance(pixels, (list, tuple))
-    assert len(pixels) == 2
     sup = -np.inf
     dgms = [np.asanyarray(dgm).copy() for dgm in dgms]
     for dgm in dgms:
@@ -23,11 +23,22 @@ def compute_persistence_images(dgms, pixels=(20, 20), n_jobs=1, flatten=False,
         mask = np.isinf(dgm)
         dgm[mask] = sup
 
-    # the actual transformation
-    extractor = persim.PersImage(pixels, **kwargs)
+    if backend == "persim":
+        import persim
+        extractor = persim.PersImage(pixels=resolution, spread=bandwidth,
+                                     **kwargs)
+
+    elif backend == "gudhi":
+        from gudhi.representations.vector_methods import PersistenceImage
+        extractor = PersistenceImage(resolution=resolution,
+                                     bandwidth=bandwidth, **kwargs)
+        extractor.fit(dgms)
+    else:
+        raise NotImplementedError(backend)
     persimgs = Parallel(n_jobs=n_jobs)(
-        delayed(extractor.transform)([dgm]) for dgm in dgms)
-    persimgs = [stuff[0] for stuff in persimgs]
-    if flatten:
-        persimgs = [persimg.ravel() for persimg in persimgs]
-    return persimgs, extractor
+        delayed(extractor.transform)([np.asanyarray(dgm)]) for dgm in dgms)
+    if not flatten:
+        persimgs = [np.reshape(persimg, resolution) for persimg in persimgs]
+    else:
+        persimgs = [np.ravel(persimg) for persimg in persimgs]
+    return persimgs

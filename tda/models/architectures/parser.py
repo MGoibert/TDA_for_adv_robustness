@@ -6,8 +6,12 @@ Author: Elvis Dohmatob <e.dohmatob@criteo.com>
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 import tda.models.layers as tda_layers
 from tda.models import Architecture
+from tda.tda_logging import get_logger
+
+logger = get_logger("Arch-parser")
 
 
 def _unroll_children(model):
@@ -64,9 +68,10 @@ def _get_layers(model):
     return layers
 
 
-def model_to_architecture(model: nn.Module,
-                          name: str=None,
-                          x: torch.Tensor=None) -> Architecture:
+def model_to_architecture(model: (nn.Module, Architecture),
+                          name: str=None, device=None,
+                          x: torch.Tensor=None,
+                          **kwargs) -> Architecture:
     """
     Tries to parse an arbitrary pytorch model into a format
     compatible with the tda pipelines.
@@ -77,9 +82,23 @@ def model_to_architecture(model: nn.Module,
     using torch.nn modules and not functions, whenever possible.
     For example, torch.nn.ReLU should've been used rather than F.relu; etc.
     """
-    layers = _get_layers(model)
-    model_arch = Architecture(name=name, layers=layers,
-                              preprocess=lambda x: x.unsqueeze(0))
+    if isinstance(model, Architecture):
+        model_arch = model
+        for key, val in kwargs.items():
+            setattr(model_arch, key, val)
+        try:
+            model_arch = torch.load(model_arch.get_model_savepath(),
+                                    map_location=device)
+            logger.info(f"Loaded successfully model from %s" % (
+                model_arch.get_model_savepath()))
+        except FileNotFoundError:
+            logger.info(f"Unable to find model in %s" % (
+                model_arch.get_model_savepath()))
+            raise
+    else:
+        layers = _get_layers(model)
+        model_arch = Architecture(name=name, layers=layers,
+                                  preprocess=lambda x: x.unsqueeze(0))
     model_arch.set_eval_mode()
     model_arch.is_trained = True
 

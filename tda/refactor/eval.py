@@ -20,7 +20,7 @@ from sklearn.preprocessing import StandardScaler
 from tda.embeddings import get_gram_matrix
 from tda.protocol import score_with_confidence
 from tda.embeddings import KernelType
-from tda.embeddings.persistence_landscape import compute_persistence_images
+from tda.embeddings.persistence_landscape import persistence_diagrams_to_images
 from tda.tda_logging import get_logger
 
 logger = get_logger("REFACTOR")
@@ -49,13 +49,20 @@ def evaluate_embeddings(kernel_type: KernelType,
         # compute features
         merged_embeddings_test = list(embeddings_test) + \
                                  list(all_adv_embeddings_test[eps])
-        merged_embeddings_train = list(embeddings_train)
         if supervised:
-            merged_embeddings_train += list(all_adv_embeddings_train[eps])
+            n_train_pos = len(embeddings_train)
+            n_train_neg = len(all_adv_embeddings_train[eps])
+            flags_train_true = np.concatenate((np.ones(n_train_pos),
+                                               np.zeros(n_train_neg)))
+            merged_embeddings_train = list(embeddings_train) + \
+                                      list(all_adv_embeddings_train[eps])
+        else:
+            flags_train_true = None
+            merged_embeddings_train = list(embeddings_train)
         kwargs = {}
         if kernel_type == KernelType.SlicedWasserstein:
             kwargs["kernel"] = "precomputed"
-            if grid_features_train is None:
+            if supervised or grid_features_train is None:
                 grid_features_train = get_gram_matrix(
                     kernel_type=kernel_type,
                     embeddings_in=merged_embeddings_train,
@@ -68,15 +75,15 @@ def evaluate_embeddings(kernel_type: KernelType,
                 embeddings_out=merged_embeddings_train,
                 params=param_space)
         elif kernel_type == KernelType.PersistenceLandscape:
-            if grid_features_train is None:
-                grid_features_train = [compute_persistence_images(
+            if supervised or grid_features_train is None:
+                grid_features_train = [persistence_diagrams_to_images(
                     merged_embeddings_train,
                     n_jobs=n_jobs,
-                    flatten=True, **fixture)[0]
+                    flatten=True, **fixture)
                     for fixture in param_space]
-            grid_features_test = [compute_persistence_images(
+            grid_features_test = [persistence_diagrams_to_images(
                 merged_embeddings_test, n_jobs=n_jobs, flatten=True,
-                **fixture)[0] for fixture in param_space]
+                **fixture) for fixture in param_space]
         else:
             raise NotImplementedError(kernel_type)
         assert len(grid_features_test) == len(param_space)
@@ -88,11 +95,6 @@ def evaluate_embeddings(kernel_type: KernelType,
                                           np.zeros(n_test_neg)))
 
         if supervised:
-            n_train_pos = len(embeddings_train)
-            n_train_neg = len(all_adv_embeddings_train[eps])
-            flags_train_true = np.concatenate((np.ones(n_train_pos),
-                                               np.zeros(n_train_neg)))
-
             # XXX we use logistic regression instead of 2-class SVM
             if detector is None:
                 if kernel_type == KernelType.SlicedWasserstein:
@@ -104,8 +106,11 @@ def evaluate_embeddings(kernel_type: KernelType,
                                                max_iter=1000,
                                                random_state=random_state,
                                                n_jobs=n_jobs)
-                    detector = Pipeline([("preproc", StandardScaler()),
-                                         ("detector", clf)])
+                    detector = clf
+                    #######################################################
+                    # detector = Pipeline([("preproc", StandardScaler()), #
+                    #                      ("detector", clf)])            #
+                    #######################################################
         else:
             flags_train_true = None
             if detector is None:
