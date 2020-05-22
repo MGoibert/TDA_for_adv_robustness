@@ -1,6 +1,6 @@
 """
 Synopsis: Utilities to utomatically infer architecture of a pytorch model
-Author: Elvis Dohmatob <gmdopp@gmail.com>
+Author: Elvis Dohmatob <e.dohmatob@criteo.com>
 """
 
 import torch
