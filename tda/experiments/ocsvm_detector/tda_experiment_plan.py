@@ -62,7 +62,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         "SVHN",
         300,
         #"0:0_2:0.5_4:0.5_5:0_6:0",
-        "0:0.01_2:0.01_4:0.01_5:0.01_6:0.01"
+        "0:0.01_2:0.01_4:0.01_5:0.01_6:0.01",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         False,
     ],
