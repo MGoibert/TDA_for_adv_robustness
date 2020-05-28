@@ -45,9 +45,7 @@ class ThresholdStrategy(object):
     ActivationValue = "ActivationValue"
     UnderoptimizedMagnitudeIncrease = "UnderoptimizedMagnitudeIncrease"
     UnderoptimizedMagnitudeIncreaseComplement = "UnderoptimizedMagnitudeIncreaseComplement"
-    UnderoptimizedMagnitudeIncreaseV2 = "UnderoptimizedMagnitudeIncreaseV2"
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
-    UnderoptimizedLargeFinalV2 = "UnderoptimizedLargeFinalV2"
     UnderoptimizedRandom = "UnderoptimizedRandom"
     QuantilePerGraphLayer = "QuantilePerGraphLayer"
 

@@ -72,7 +72,7 @@ def underopt_edges(
 
             if method == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement:
                 qtest[layer_idx] = np.quantile(
-                    limit_val[layer_idx], 1.0-quantiles.get(layer_idx, 0.0)
+                    limit_val[layer_idx], 1.0 - quantiles.get(layer_idx, 0.0)
                 )
                 thresholds_are_low_pass = not thresholds_are_low_pass
 
@@ -190,56 +190,3 @@ def process_thresholds_underopt(
     }
 
     return underoptimized_edges
-
-
-def thresholdize_underopt_v2(
-    raw_thresholds: str, architecture: Architecture, method: str,
-):
-    """
-
-    :param method:
-    :param raw_thresholds:
-    :param architecture:
-    :return:
-    """
-
-    quantiles_per_layer = _process_raw_quantiles(raw_thresholds)
-
-    architecture_init = architecture.get_initial_model()
-
-    matrices = architecture.get_layer_matrices()
-    matrices_init = architecture_init.get_layer_matrices()
-
-    for layer_idx in matrices.keys():
-
-        if matrices[layer_idx] is not None:
-
-            arr = np.array(matrices[layer_idx].data)
-            arr_init = np.array(matrices_init[layer_idx].data)
-
-            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2:
-                value = np.abs(arr) - np.abs(arr_init)
-            elif method == ThresholdStrategy.UnderoptimizedLargeFinalV2:
-                value = np.abs(arr)
-            else:
-                raise NotImplementedError(f"Unknown method {method}")
-
-            min_value = np.quantile(value, quantiles_per_layer[layer_idx])
-
-            loc = arr < min_value
-
-            # Thresholding the matrix
-            logger.info(f"Applying underopt threshold to layer {layer_idx} !")
-            matrix_shape = architecture.layers[layer_idx].matrix.shape
-            logger.info(f"Matrix shape is {matrix_shape}")
-
-            architecture.layers[layer_idx].matrix = coo_matrix(
-                (
-                    architecture.layers[layer_idx].matrix.data[loc],
-                    (
-                        architecture.layers[layer_idx].matrix.row[loc],
-                        architecture.layers[layer_idx].matrix.col[loc],
-                    ),
-                ),
-                shape=matrix_shape,
-            )

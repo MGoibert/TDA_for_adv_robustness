@@ -21,10 +21,7 @@ from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 from tda.tda_logging import get_logger
-from tda.threshold_underoptimized_edges import (
-    process_thresholds_underopt,
-    thresholdize_underopt_v2,
-)
+from tda.threshold_underoptimized_edges import process_thresholds_underopt
 from tda.thresholds import process_thresholds
 from tda.graph_stats import get_stats
 
@@ -76,9 +73,9 @@ class Config(typing.NamedTuple):
     l2_norm_quantile: bool = True
     sigmoidize: bool = False
     # Pruning
-    first_pruned_iter : int = 10
-    prune_percentile : float = 0.0
-    tot_prune_percentile : float = 0.0
+    first_pruned_iter: int = 10
+    prune_percentile: float = 0.0
+    tot_prune_percentile: float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -88,11 +85,13 @@ class Config(typing.NamedTuple):
 
     all_epsilons: typing.List[float] = None
 
+
 def str2bool(value):
-    if value in [True, "True", 'true']:
+    if value in [True, "True", "true"]:
         return True
     else:
         return False
+
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser(
@@ -181,22 +180,13 @@ def get_all_embeddings(config: Config):
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
         ThresholdStrategy.UnderoptimizedRandom,
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement
+        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
     ]:
         edges_to_keep = process_thresholds_underopt(
             raw_thresholds=config.thresholds,
             architecture=architecture,
             method=config.threshold_strategy,
-            thresholds_are_low_pass=config.thresholds_are_low_pass
-        )
-    elif config.threshold_strategy in [
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2,
-        ThresholdStrategy.UnderoptimizedLargeFinalV2,
-    ]:
-        thresholdize_underopt_v2(
-            raw_thresholds=config.thresholds,
-            architecture=architecture,
-            method=config.threshold_strategy,
+            thresholds_are_low_pass=config.thresholds_are_low_pass,
         )
 
     if config.attack_type not in ["FGSM", "BIM", "FGSM_art", "BIM_art"]:
@@ -216,7 +206,7 @@ def get_all_embeddings(config: Config):
         attack_type=config.attack_type,
         all_epsilons=all_epsilons,
         compute_graph=False,
-        transfered_attacks=config.transfered_attacks
+        transfered_attacks=config.transfered_attacks,
     )
 
     def chunks(lst, n):
@@ -404,7 +394,9 @@ def run_experiment(config: Config):
     )
 
     logger.info(f"Threshold final = {thresholds}")
-    logger.info(f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}")
+    logger.info(
+        f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}"
+    )
 
     end_time = time.time()
 
