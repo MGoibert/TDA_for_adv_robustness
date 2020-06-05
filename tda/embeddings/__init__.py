@@ -54,12 +54,10 @@ def get_embedding(
     embedding_type: str,
     line: DatasetLine,
     architecture: Architecture,
-    dataset: Dataset,
     edges_to_keep,
     thresholds: Dict,
     threshold_strategy: str,
     params: Dict = dict(),
-    save=None,
     all_weights_for_sigmoid=None,
     thresholds_are_low_pass: bool = True,
 ):
@@ -81,19 +79,11 @@ def get_embedding(
         ThresholdStrategy.UnderoptimizedRandom,
         ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement
     ]:
-        # logger.info(f"Using underoptimized threshold...")
         graph.thresholdize_underopt(edges_to_keep)
     elif threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
         graph.thresholdize_per_graph(
             thresholds=thresholds, low_pass=thresholds_are_low_pass
         )
-
-    # if save is not None:
-    #    m = graph.get_adjacency_matrix()
-    #    logger.info(f"m = {m[:3,:3]} and type = {type(m)} and shape = {m.shape}")
-    #    new_m = np.zeros([m.shape[0], m.shape[1]])
-    #    with open(f'{rootpath}/graph_'+save+'.pickle', 'wb') as f:
-    #        pickle.dump(m, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     if embedding_type == EmbeddingType.AnonymousWalk:
         walk = AnonymousWalks(G=graph.to_nx_graph())

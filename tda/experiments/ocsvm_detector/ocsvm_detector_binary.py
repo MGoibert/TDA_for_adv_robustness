@@ -214,11 +214,10 @@ def get_all_embeddings(config: Config):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
-    def embedding_getter(line_chunk, save=False):
+    def embedding_getter(line_chunk):
         ret = list()
         c = 0
         for line in line_chunk:
-            save2 = save + "_" + str(c) if save else False
             ret.append(
                 get_embedding(
                     embedding_type=config.embedding_type,
@@ -231,11 +230,9 @@ def get_all_embeddings(config: Config):
                         "raw_graph_pca": config.raw_graph_pca,
                     },
                     architecture=architecture,
-                    dataset=dataset,
                     thresholds=thresholds,
                     edges_to_keep=edges_to_keep,
                     threshold_strategy=config.threshold_strategy,
-                    save=save2,
                     all_weights_for_sigmoid=all_weights,
                     thresholds_are_low_pass=config.thresholds_are_low_pass,
                 )
@@ -243,20 +240,20 @@ def get_all_embeddings(config: Config):
             c += 1
         return ret
 
-    def process(input_dataset, save=False):
+    def process(input_dataset):
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
         ret = Parallel(n_jobs=config.n_jobs)(
-            delayed(embedding_getter)(chunk, save) for chunk in my_chunks
+            delayed(embedding_getter)(chunk) for chunk in my_chunks
         )
         ret = [item for sublist in ret for item in sublist]
         return ret
 
     # Clean train
-    clean_embeddings_train = process(train_clean, save="clean_train")
+    clean_embeddings_train = process(train_clean)
     logger.info(f"Clean train dataset " f"({len(clean_embeddings_train)} points) !!")
 
     # Clean test
-    clean_embeddings_test = process(test_clean, save="clean_test")
+    clean_embeddings_test = process(test_clean)
     logger.info(f"Clean test dataset " f"({len(clean_embeddings_test)} points) !!")
 
     adv_embeddings_train = dict()
@@ -272,7 +269,7 @@ def get_all_embeddings(config: Config):
             f"  ({len(adv_embeddings_train[epsilon])} points) !"
         )
 
-        adv_embeddings_test[epsilon] = process(test_adv[epsilon], save="adv_test")
+        adv_embeddings_test[epsilon] = process(test_adv[epsilon])
         logger.info(
             f"Adversarial test dataset for espilon = {epsilon} "
             f"({len(adv_embeddings_test[epsilon])} points)  !"

@@ -17,9 +17,6 @@ from tda.protocol import get_protocolar_datasets
 from tda.thresholds import process_thresholds
 
 
-# from tda.models.datasets import Dataset
-
-
 def test_simple_graph():
     simple_archi: Architecture = Architecture(
         preprocess=lambda x: x,
