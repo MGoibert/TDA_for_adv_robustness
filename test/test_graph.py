@@ -34,11 +34,6 @@ def test_simple_graph():
     graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix().todense()
 
-    from matplotlib import pyplot as plt
-
-    plt.imshow(adjacency_matrix)
-    plt.savefig("/Users/t.ricatte/test.png")
-
     assert np.shape(adjacency_matrix) == (19, 19)
 
     assert len(graph.get_edge_list()) == 38
@@ -66,11 +61,6 @@ def test_simple_resnet_graph():
 
     graph = Graph.from_architecture_and_data_point(simple_archi, simple_example)
     adjacency_matrix = graph.get_adjacency_matrix().todense()
-
-    from matplotlib import pyplot as plt
-
-    plt.imshow(adjacency_matrix)
-    plt.savefig("/Users/t.ricatte/test.png")
 
     assert np.shape(adjacency_matrix) == (26, 26)
 
@@ -324,21 +314,21 @@ def test_kernel():
     param_space = [{"M": 20, "sigma": 0.5}]
     print(f"Clean matrix ! \n")
     gram_train_matrices = get_gram_matrix(
-        kernel_type=KernelType.SlicedWassersteinOldVersion,
+        kernel_type=KernelType.SlicedWasserstein,
         embeddings_in=clean,
         embeddings_out=None,
         params=param_space,
     )
     print(f"Adv matrix ! \n")
     gram_adv_matrices = get_gram_matrix(
-        kernel_type=KernelType.SlicedWassersteinOldVersion,
+        kernel_type=KernelType.SlicedWasserstein,
         embeddings_in=adv,
         embeddings_out=None,
         params=param_space,
     )
     print(f"Clean vs adv matrix ! \n")
     gram_cleanvsadv_matrices = get_gram_matrix(
-        kernel_type=KernelType.SlicedWassersteinOldVersion,
+        kernel_type=KernelType.SlicedWasserstein,
         embeddings_in=list(clean) + list(adv),
         embeddings_out=adv,
         params=param_space,

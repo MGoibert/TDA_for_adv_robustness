@@ -111,62 +111,6 @@ def compute_dgm_from_graph(graph: Graph, astuple: bool = True, negate: bool = Tr
         return ret
 
 
-def sliced_wasserstein_distance_old_version(
-    dgm1, dgm2, M=10, verbatim=False, save=False
-):
-    # logger.info(f"Sliced Wass. Kernel ")
-    n = len(dgm1) + len(dgm2)
-    vec1 = [(0.0, 0.0) for _ in range(n)]
-    vec2 = [(0.0, 0.0) for _ in range(n)]
-    for i, pt1 in enumerate(dgm1):
-        vec1[i] = (pt1[0], pt1[1])
-        vec2[i] = ((pt1[0] + pt1[1]) / 2.0, (pt1[0] + pt1[1]) / 2.0)
-    for i, pt2 in enumerate(dgm2):
-        vec2[i + len(dgm1)] = (pt2[0], pt2[1])
-        vec1[i + len(dgm1)] = ((pt2[0] + pt2[1]) / 2.0, (pt2[0] + pt2[1]) / 2.0)
-    sw = 0
-    theta = -np.pi / 2
-    s = np.pi / M
-    max_diff = np.repeat(0, 10)
-    pt1 = list(np.repeat(0, 10))
-    pt2 = list(np.repeat(0, 10))
-    for _ in range(M):
-        v1 = [np.dot(pt1, (np.cos(theta), np.sin(theta))) for pt1 in vec1]
-        v2 = [np.dot(pt2, (np.cos(theta), np.sin(theta))) for pt2 in vec2]
-        v1 = np.nan_to_num(v1)
-        v2 = np.nan_to_num(v2)
-        v1, vec1 = (list(t) for t in zip(*sorted(zip(v1, vec1))))
-        v2, vec2 = (list(t) for t in zip(*sorted(zip(v2, vec2))))
-        # v1.sort()
-        # v2.sort()
-        diff = np.nan_to_num(np.array(v1) - np.array(v2))
-        for i in range(len(max_diff)):
-            if max(np.abs(diff)) > max_diff[i]:
-                max_diff[i] = max(np.abs(diff))
-                idx = np.argmax(np.abs(diff))
-                pt1[i] = vec1[idx]
-                pt2[i] = vec2[idx]
-                break
-        sw = sw + s * np.linalg.norm(diff, ord=1)
-        theta = theta + s
-    if save:
-        save_dict = {
-            "dgm1": dgm1,
-            "dgm2": dgm2,
-            "sw": sw,
-            "max_diff": max_diff,
-            "pt1": pt1,
-            "pt2": pt2,
-        }
-        with open(
-            "/Users/m.goibert/Documents/temp/gram_mat/pt_diff_" + verbatim + ".pickle",
-            "wb",
-        ) as f:
-            pickle.dump(save_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
-    # logger.info(f"Max diff = {max_diff} (/ {sw}) and pt1 = {pt1} and pt2 = {pt2}")
-    return (1 / np.pi) * sw
-
-
 def sliced_wasserstein_distance(dgm1, dgm2, M=10):
     # logger.info(f"Sliced Wass. Kernel ")
     n = len(dgm1) + len(dgm2)

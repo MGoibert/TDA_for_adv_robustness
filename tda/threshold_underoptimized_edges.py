@@ -1,17 +1,15 @@
+import os
+import time
 import typing
+from functools import reduce
 
 import numpy as np
 import torch
-from scipy.sparse import coo_matrix
+from numpy.random import Generator, PCG64
 
+from tda.embeddings import ThresholdStrategy
 from tda.models import Architecture
 from tda.tda_logging import get_logger
-from tda.embeddings import ThresholdStrategy
-from numpy.random import Generator, PCG64
-import time
-import os
-
-from functools import reduce
 
 logger = get_logger("Thresholds Underoptimized")
 

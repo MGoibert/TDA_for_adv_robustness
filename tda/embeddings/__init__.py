@@ -10,7 +10,6 @@ from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import (
     sliced_wasserstein_kernel,
-    sliced_wasserstein_distance_old_version,
     compute_dgm_from_graph,
     compute_dgm_from_graph_ripser,
 )
@@ -24,12 +23,7 @@ logger = get_logger("Embeddings")
 
 
 class EmbeddingType(object):
-    AnonymousWalk = "AnonymousWalk"
-    WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
-    PersistentDiagramReverse = "PersistentDiagramReverse"
-    LastLayerSortedLogits = "LastLayerSortedLogits"
-    PersistentDiagramRipser = "PersistentDiagramRipser"
     RawGraph = "RawGraph"
 
 
@@ -37,14 +31,15 @@ class KernelType(object):
     Euclidean = "Euclidean"
     RBF = "RBF"
     SlicedWasserstein = "SlicedWasserstein"
-    SlicedWassersteinOldVersion = "SlicedWassersteinOldVersion"
 
 
 class ThresholdStrategy(object):
     NoThreshold = "NoThreshold"
     ActivationValue = "ActivationValue"
     UnderoptimizedMagnitudeIncrease = "UnderoptimizedMagnitudeIncrease"
-    UnderoptimizedMagnitudeIncreaseComplement = "UnderoptimizedMagnitudeIncreaseComplement"
+    UnderoptimizedMagnitudeIncreaseComplement = (
+        "UnderoptimizedMagnitudeIncreaseComplement"
+    )
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
     UnderoptimizedRandom = "UnderoptimizedRandom"
     QuantilePerGraphLayer = "QuantilePerGraphLayer"
@@ -77,7 +72,7 @@ def get_embedding(
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
         ThresholdStrategy.UnderoptimizedRandom,
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement
+        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
     ]:
         graph.thresholdize_underopt(edges_to_keep)
     elif threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
@@ -85,27 +80,8 @@ def get_embedding(
             thresholds=thresholds, low_pass=thresholds_are_low_pass
         )
 
-    if embedding_type == EmbeddingType.AnonymousWalk:
-        walk = AnonymousWalks(G=graph.to_nx_graph())
-        embedding = walk.embed(steps=params["steps"], method="sampling", verbose=False)[
-            0
-        ]
-        return embedding
-    elif embedding_type == EmbeddingType.WeisfeilerLehman:
-        return get_wl_embedding(
-            graph=graph,
-            height=params["height"],
-            hash_size=params["hash_size"],
-            node_labels=params["node_labels"],
-        ).todense()
-    elif embedding_type == EmbeddingType.PersistentDiagram:
+    if embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_graph(graph)
-    elif embedding_type == EmbeddingType.PersistentDiagramReverse:
-        return compute_dgm_from_graph(graph, negate=False)
-    elif embedding_type == EmbeddingType.PersistentDiagramRipser:
-        return compute_dgm_from_graph_ripser(graph)
-    elif embedding_type == EmbeddingType.LastLayerSortedLogits:
-        return sorted(graph.final_logits)
     elif embedding_type == EmbeddingType.RawGraph:
         return to_sparse_vector(graph.get_adjacency_matrix())
     else:
@@ -175,9 +151,7 @@ def get_gram_matrix(
     embeddings_in: List,
     embeddings_out: Optional[List] = None,
     params: List = [dict()],
-    n_jobs: int = 1,
-    verbatim=False,
-    save=False,
+    n_jobs: int = 1
 ):
     """
     Compute the gram matrix of the given embeddings
@@ -199,28 +173,6 @@ def get_gram_matrix(
     m = len(embeddings_out)
 
     logger.info(f"Computing Gram matrix {n} x {m} (params {params})...")
-
-    if kernel_type == KernelType.SlicedWassersteinOldVersion:
-        logger.info("Old (incorrect) version for SW kernel !!")
-        start = time.time()
-        distance_matrix = np.zeros((n, m))
-        for i in range(n):
-            for j in range(m):
-                # if verbatim:
-                #    logger.info(f"Row {i} and col {j}")
-                distance_matrix[i, j] = sliced_wasserstein_distance_old_version(
-                    embeddings_in[i],
-                    embeddings_out[j],
-                    M=20,
-                    verbatim=f"row{i}_col{j}",
-                    save=save,
-                )
-        grams = [
-            np.exp(-distance_matrix / (2 * a_param["sigma"] ** 2)) for a_param in params
-        ]
-        # grams = [distance_matrix for a_param in params]
-        logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
-        return grams
 
     if kernel_type == KernelType.SlicedWasserstein:
         logger.info("Using FWG !!!")

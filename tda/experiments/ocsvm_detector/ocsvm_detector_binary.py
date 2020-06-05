@@ -357,19 +357,11 @@ def run_experiment(config: Config):
         stats,
         stats_inf,
     ) = get_all_embeddings(config)
-    # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_train.pickle', 'wb') as f:
-    #            pickle.dump(embedding_train, f, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_test.pickle', 'wb') as f:
-    #            pickle.dump(embedding_test, f, protocol=pickle.HIGHEST_PROTOCOL)
-    # eps_to_save = 0.1
-    # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_adv_'+str(eps_to_save)+'.pickle', 'wb') as f:
-    #            pickle.dump(adv_embeddings_test[eps_to_save], f, protocol=pickle.HIGHEST_PROTOCOL)
 
     if config.kernel_type == KernelType.RBF:
         param_space = [{"gamma": gamma} for gamma in np.logspace(-6, -3, 10)]
     elif config.kernel_type in [
-        KernelType.SlicedWasserstein,
-        KernelType.SlicedWassersteinOldVersion,
+        KernelType.SlicedWasserstein
     ]:
         param_space = [{"M": 20, "sigma": sigma} for sigma in np.logspace(-3, 3, 7)]
     else:
