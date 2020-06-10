@@ -261,13 +261,10 @@ def previous_kernel_version(DGM1, DGM2, param_space):
 
 
 def test_kernel():
-
-    return
-
     architecture = get_architecture("svhn_lenet")
     dataset = Dataset.get_or_create("SVHN")
     architecture = get_deep_model(
-        num_epochs=200, dataset=dataset, architecture=architecture, train_noise=0.0
+        num_epochs=300, dataset=dataset, architecture=architecture, train_noise=0.0
     )
 
     thresholds = process_thresholds(
@@ -295,7 +292,6 @@ def test_kernel():
             get_embedding(
                 embedding_type=EmbeddingType.PersistentDiagram,
                 line=line,
-                params={"hash_size": 0, "height": 0, "node_labels": 0, "steps": 0},
                 architecture=architecture,
                 thresholds=thresholds,
             )
@@ -305,7 +301,6 @@ def test_kernel():
             get_embedding(
                 embedding_type=EmbeddingType.PersistentDiagram,
                 line=line,
-                params={"hash_size": 0, "height": 0, "node_labels": 0, "steps": 0},
                 architecture=architecture,
                 thresholds=thresholds,
             )

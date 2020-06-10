@@ -222,13 +222,6 @@ def get_all_embeddings(config: Config):
                 get_embedding(
                     embedding_type=config.embedding_type,
                     line=line,
-                    params={
-                        "hash_size": int(config.hash_size),
-                        "height": int(config.height),
-                        "node_labels": config.node_labels,
-                        "steps": config.steps,
-                        "raw_graph_pca": config.raw_graph_pca,
-                    },
                     architecture=architecture,
                     thresholds=thresholds,
                     edges_to_keep=edges_to_keep,

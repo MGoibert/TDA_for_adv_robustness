@@ -1,22 +1,21 @@
+import time
 from typing import List, Optional, Dict
-import pickle
 
 import fwg
-import time
 import numpy as np
-from tda.rootpath import rootpath
-from tda.graph import Graph
+from joblib import Parallel, delayed
+
 from tda.embeddings.anonymous_walk import AnonymousWalks
-from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import (
     sliced_wasserstein_kernel,
     compute_dgm_from_graph
 )
 from tda.embeddings.raw_graph import to_sparse_vector
+from tda.embeddings.weisfeiler_lehman import get_wl_embedding
+from tda.graph import Graph
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture
 from tda.tda_logging import get_logger
-from joblib import Parallel, delayed
 
 logger = get_logger("Embeddings")
 
@@ -174,7 +173,7 @@ def get_gram_matrix(
     logger.info(f"Computing Gram matrix {n} x {m} (params {params})...")
 
     if kernel_type == KernelType.SlicedWasserstein:
-        logger.info("Using FWG !!!")
+        logger.info("Using optimized C++ version")
         start = time.time()
         distance_matrix = np.reshape(fwg.fwd(embeddings_in, embeddings_out, 50), (n, m))
         grams = [
