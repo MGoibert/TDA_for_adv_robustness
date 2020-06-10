@@ -4,7 +4,7 @@ This repository contains the code associated with the submission.
 
 ### A) Preparatory steps
 
-The main dependency of the project is dionysus, which require:
+The main dependency of the project is dionysus, which requires:
 * Boost 1.55
 * GCC 5.4 
 (cf. [official doc from dionysus](https://pypi.org/project/dionysus/))
@@ -38,6 +38,7 @@ r3d3-xp --experiment_file tda/experiments/global_plan.py
 ```
 
 Under the hood it will call the binary n times for all the possibilities.
+The experiment_id is automatically created as the timestamp of the first run.
 
 ## 3) Analyzing experiments
 
