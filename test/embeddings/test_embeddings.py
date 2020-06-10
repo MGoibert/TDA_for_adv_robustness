@@ -1,7 +1,12 @@
 import numpy as np
 import torch
 
-from tda.embeddings import get_gram_matrix, KernelType, compute_dgm_from_graph, get_gram_matrix_legacy
+from tda.embeddings import (
+    get_gram_matrix,
+    KernelType,
+    compute_dgm_from_graph,
+    get_gram_matrix_legacy,
+)
 from tda.graph import Graph
 from tda.models import Architecture
 from tda.models.architectures import SoftMaxLayer, LinearLayer
@@ -14,27 +19,26 @@ def test_euclidean_gram():
     M = get_gram_matrix(
         kernel_type=KernelType.Euclidean,
         embeddings_in=embed_in,
-        embeddings_out=embed_out)[0]
+        embeddings_out=embed_out,
+    )[0]
 
     M_legacy = get_gram_matrix_legacy(
         kernel_type=KernelType.Euclidean,
         embeddings_in=embed_in,
-        embeddings_out=embed_out)
+        embeddings_out=embed_out,
+    )
 
-    print(M_legacy-M)
+    print(M_legacy - M)
 
-    assert np.isclose(np.linalg.norm(M-M_legacy), 0)
+    assert np.isclose(np.linalg.norm(M - M_legacy), 0)
 
     assert M.shape == (10, 5)
 
 
 def test_sliced_wasserstein_gram_matrix(benchmark):
     simple_archi: Architecture = Architecture(
-        preprocess=lambda x: x,
-        layers=[
-            LinearLayer(4, 3),
-            SoftMaxLayer()
-        ])
+        preprocess=lambda x: x, layers=[LinearLayer(4, 3), SoftMaxLayer()]
+    )
     simple_archi.build_matrices()
 
     embeddings = list()
@@ -53,14 +57,14 @@ def test_sliced_wasserstein_gram_matrix(benchmark):
             kernel_type=KernelType.SlicedWasserstein,
             embeddings_in=embeddings,
             embeddings_out=embeddings,
-            params=[{"M": 50, "sigma": 0.5}]
+            params=[{"M": 50, "sigma": 0.5}],
         )[0]
 
     legacy_matrix = get_gram_matrix_legacy(
         kernel_type=KernelType.SlicedWasserstein,
         embeddings_in=embeddings,
         embeddings_out=embeddings,
-        params={"M": 50, "sigma": 0.5}
+        params={"M": 50, "sigma": 0.5},
     )
 
     print(legacy_matrix)
@@ -69,4 +73,4 @@ def test_sliced_wasserstein_gram_matrix(benchmark):
 
     print(matrix)
 
-    assert np.isclose(np.linalg.norm(matrix-legacy_matrix), 0.0)
+    assert np.isclose(np.linalg.norm(matrix - legacy_matrix), 0.0)

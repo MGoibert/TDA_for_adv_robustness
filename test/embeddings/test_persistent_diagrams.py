@@ -25,10 +25,6 @@ simple_archi.build_matrices()
 g1 = Graph.from_architecture_and_data_point(simple_archi, ex1)
 g2 = Graph.from_architecture_and_data_point(simple_archi, ex2)
 
-############
-# Dionysus #
-############
-
 dgm1 = compute_dgm_from_graph(g1, astuple=False)
 dgm2 = compute_dgm_from_graph(g2, astuple=False)
 

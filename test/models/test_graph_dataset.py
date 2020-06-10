@@ -15,14 +15,15 @@ def test_get_sample_dataset(dataset_size=5, epsilon=0.1, adv=True):
         archi=get_deep_model(
             num_epochs=25,
             dataset=source_dataset,
-            architecture=get_architecture(mnist_mlp.name)),
+            architecture=get_architecture(mnist_mlp.name),
+        ),
         dataset_size=dataset_size,
         train=False,
         succ_adv=True,
         attack_type="FGSM",
         num_iter=10,
         offset=0,
-        per_class=False
+        per_class=False,
     )
 
     assert len(dataset) == dataset_size
