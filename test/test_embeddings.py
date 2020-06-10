@@ -35,6 +35,7 @@ def test_sliced_wasserstein_gram_matrix(benchmark):
             LinearLayer(4, 3),
             SoftMaxLayer()
         ])
+    simple_archi.build_matrices()
 
     embeddings = list()
 

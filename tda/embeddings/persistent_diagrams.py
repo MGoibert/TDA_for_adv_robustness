@@ -15,47 +15,6 @@ try:
 except Exception as e:
     logger.warn(e)
     Filtration = None
-try:
-    from ripser import ripser
-except Exception as e:
-    logger.warn(e)
-
-from ripser import Rips
-
-
-def compute_dgm_from_graph_ripser(
-    graph: Graph, maxdim: int = 1, n_perm: int = None, debug: bool = False, **kwargs
-):
-    """
-    Use `ripser` tool to compute persistent diagram from graph.
-    """
-    from scipy import sparse
-
-    adj_mat = sparse.csr_matrix(
-        graph.get_adjacency_matrix()
-    )  # XXX convert from coo format
-    # adj_mat *= -1  # XXX sign correction
-    rips = Rips(maxdim=maxdim, n_perm=n_perm, **kwargs)
-    import time
-
-    if False:
-        t0 = time.time()
-        dist_mat = sparse.csgraph.floyd_warshall(adj_mat, directed=True)
-        print(adj_mat.shape, adj_mat.count_nonzero())
-        print("Spent %gs computing dist_mat" % (time.time() - t0))
-    else:
-        dist_mat = adj_mat
-    t0 = time.time()
-    dgms = rips.fit_transform(dist_mat, distance_matrix=True)
-    print("Spent %gs computing persistence diagrams" % (time.time() - t0))
-    print(list(map(len, dgms)))
-    if debug:
-        import matplotlib.pyplot as plt
-
-        rips.plot()
-        plt.show()
-    return np.vstack(dgms)
-
 
 try:
     from persim import sliced_wasserstein as persim_sw
@@ -63,12 +22,14 @@ except Exception as e:
     persim_sw = None
 
 
-def _prepare_edges_for_diagram(graph: Graph) -> typing.Dict:
-    all_edges_for_diagrams = graph.get_edge_list()
+def _prepare_edges_for_diagram(edge_list: typing.List):
+    """
+    Enrich the edge list with the vertex and find their birth date
+    """
 
     timing_by_vertex = dict()
 
-    for edge, weight in all_edges_for_diagrams:
+    for edge, weight in edge_list:
         # timing = -weight
         src, tgt = edge
         if weight > timing_by_vertex.get(src, -max_float):
@@ -76,15 +37,17 @@ def _prepare_edges_for_diagram(graph: Graph) -> typing.Dict:
         if weight > timing_by_vertex.get(tgt, -max_float):
             timing_by_vertex[tgt] = weight
 
-    all_edges_for_diagrams += [
-        ([vertex], timing_by_vertex[vertex]) for vertex in timing_by_vertex
-    ]
-
-    return all_edges_for_diagrams
+    edge_list += [([vertex], timing_by_vertex[vertex]) for vertex in timing_by_vertex]
 
 
 def compute_dgm_from_graph(graph: Graph, astuple: bool = True, negate: bool = True):
-    all_edges_for_diagrams = _prepare_edges_for_diagram(graph)
+    return compute_dgm_from_edges(graph.get_edge_list(), astuple=astuple, negate=negate)
+
+
+def compute_dgm_from_edges(
+    all_edges_for_diagrams, astuple: bool = True, negate: bool = True
+):
+    _prepare_edges_for_diagram(all_edges_for_diagrams)
 
     # Dionysus computations (persistent diagrams)
     # logger.info(f"Before filtration")

@@ -10,12 +10,11 @@ from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import (
     sliced_wasserstein_kernel,
-    compute_dgm_from_graph,
-    compute_dgm_from_graph_ripser,
+    compute_dgm_from_graph
 )
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph_dataset import DatasetLine
-from tda.models import Architecture, Dataset
+from tda.models import Architecture
 from tda.tda_logging import get_logger
 from joblib import Parallel, delayed
 
