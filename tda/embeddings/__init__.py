@@ -11,7 +11,6 @@ from tda.embeddings.persistent_diagrams import (
     compute_dgm_from_graph
 )
 from tda.embeddings.raw_graph import to_sparse_vector
-from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.graph import Graph
 from tda.graph_dataset import DatasetLine
 from tda.models import Architecture

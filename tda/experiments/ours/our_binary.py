@@ -15,7 +15,6 @@ from sklearn.decomposition import PCA
 
 from tda.embeddings import get_embedding, EmbeddingType, KernelType, ThresholdStrategy
 from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
-from tda.embeddings.weisfeiler_lehman import NodeLabels
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
@@ -42,12 +41,6 @@ class Config(typing.NamedTuple):
     threshold_strategy: str
     # Are the threshold low pass or not
     thresholds_are_low_pass: bool
-    # Underoptimized threshold or normal threshold?
-    # Parameters used only for Weisfeiler-Lehman embedding
-    height: int
-    hash_size: int
-    node_labels: str
-    steps: int
     # Noise to consider for the noisy samples
     noise: float
     # Number of epochs for the model
@@ -107,10 +100,6 @@ def get_config() -> Config:
     parser.add_argument(
         "--threshold_strategy", type=str, default=ThresholdStrategy.ActivationValue
     )
-    parser.add_argument("--height", type=int, default=1)
-    parser.add_argument("--hash_size", type=int, default=100)
-    parser.add_argument("--node_labels", type=str, default=NodeLabels.NONE)
-    parser.add_argument("--steps", type=int, default=1)
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--dataset", type=str, default="MNIST")
