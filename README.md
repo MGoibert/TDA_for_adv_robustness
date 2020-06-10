@@ -31,8 +31,7 @@ $ pip install -e .
 
 ### B) Running an experiment (recommended)
 
-In r3d3, you basically create an experiment grid like [tda/experiments/thomas/embedding_separability_wl_gram.py](tda/experiments/thomas/embedding_separability_wl_gram.py) and then run it from the command line
-
+In r3d3, you define an experiment plan and call it with
 ```bash
 r3d3-xp --experiment_file tda/experiments/global_plan.py
 ```
