@@ -1,35 +1,27 @@
+import time
 from typing import List, Optional, Dict
-import pickle
 
 import fwg
-import time
 import numpy as np
-from tda.rootpath import rootpath
-from tda.graph import Graph
+from joblib import Parallel, delayed
+
 from tda.embeddings.anonymous_walk import AnonymousWalks
-from tda.embeddings.weisfeiler_lehman import get_wl_embedding
 from tda.embeddings.persistent_diagrams import (
     sliced_wasserstein_kernel,
-    sliced_wasserstein_distance_old_version,
-    compute_dgm_from_graph,
-    compute_dgm_from_graph_ripser,
+    compute_dgm_from_graph
 )
 from tda.embeddings.raw_graph import to_sparse_vector
+from tda.embeddings.weisfeiler_lehman import get_wl_embedding
+from tda.graph import Graph
 from tda.graph_dataset import DatasetLine
-from tda.models import Architecture, Dataset
+from tda.models import Architecture
 from tda.tda_logging import get_logger
-from joblib import Parallel, delayed
 
 logger = get_logger("Embeddings")
 
 
 class EmbeddingType(object):
-    AnonymousWalk = "AnonymousWalk"
-    WeisfeilerLehman = "WeisfeilerLehman"
     PersistentDiagram = "PersistentDiagram"
-    PersistentDiagramReverse = "PersistentDiagramReverse"
-    LastLayerSortedLogits = "LastLayerSortedLogits"
-    PersistentDiagramRipser = "PersistentDiagramRipser"
     RawGraph = "RawGraph"
 
 
@@ -37,17 +29,16 @@ class KernelType(object):
     Euclidean = "Euclidean"
     RBF = "RBF"
     SlicedWasserstein = "SlicedWasserstein"
-    SlicedWassersteinOldVersion = "SlicedWassersteinOldVersion"
 
 
 class ThresholdStrategy(object):
     NoThreshold = "NoThreshold"
     ActivationValue = "ActivationValue"
     UnderoptimizedMagnitudeIncrease = "UnderoptimizedMagnitudeIncrease"
-    UnderoptimizedMagnitudeIncreaseComplement = "UnderoptimizedMagnitudeIncreaseComplement"
-    UnderoptimizedMagnitudeIncreaseV2 = "UnderoptimizedMagnitudeIncreaseV2"
+    UnderoptimizedMagnitudeIncreaseComplement = (
+        "UnderoptimizedMagnitudeIncreaseComplement"
+    )
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
-    UnderoptimizedLargeFinalV2 = "UnderoptimizedLargeFinalV2"
     UnderoptimizedRandom = "UnderoptimizedRandom"
     QuantilePerGraphLayer = "QuantilePerGraphLayer"
 
@@ -56,12 +47,10 @@ def get_embedding(
     embedding_type: str,
     line: DatasetLine,
     architecture: Architecture,
-    dataset: Dataset,
     edges_to_keep,
     thresholds: Dict,
     threshold_strategy: str,
     params: Dict = dict(),
-    save=None,
     all_weights_for_sigmoid=None,
     thresholds_are_low_pass: bool = True,
 ):
@@ -81,43 +70,16 @@ def get_embedding(
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
         ThresholdStrategy.UnderoptimizedRandom,
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement
+        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
     ]:
-        # logger.info(f"Using underoptimized threshold...")
         graph.thresholdize_underopt(edges_to_keep)
     elif threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
         graph.thresholdize_per_graph(
             thresholds=thresholds, low_pass=thresholds_are_low_pass
         )
 
-    # if save is not None:
-    #    m = graph.get_adjacency_matrix()
-    #    logger.info(f"m = {m[:3,:3]} and type = {type(m)} and shape = {m.shape}")
-    #    new_m = np.zeros([m.shape[0], m.shape[1]])
-    #    with open(f'{rootpath}/graph_'+save+'.pickle', 'wb') as f:
-    #        pickle.dump(m, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    if embedding_type == EmbeddingType.AnonymousWalk:
-        walk = AnonymousWalks(G=graph.to_nx_graph())
-        embedding = walk.embed(steps=params["steps"], method="sampling", verbose=False)[
-            0
-        ]
-        return embedding
-    elif embedding_type == EmbeddingType.WeisfeilerLehman:
-        return get_wl_embedding(
-            graph=graph,
-            height=params["height"],
-            hash_size=params["hash_size"],
-            node_labels=params["node_labels"],
-        ).todense()
-    elif embedding_type == EmbeddingType.PersistentDiagram:
+    if embedding_type == EmbeddingType.PersistentDiagram:
         return compute_dgm_from_graph(graph)
-    elif embedding_type == EmbeddingType.PersistentDiagramReverse:
-        return compute_dgm_from_graph(graph, negate=False)
-    elif embedding_type == EmbeddingType.PersistentDiagramRipser:
-        return compute_dgm_from_graph_ripser(graph)
-    elif embedding_type == EmbeddingType.LastLayerSortedLogits:
-        return sorted(graph.final_logits)
     elif embedding_type == EmbeddingType.RawGraph:
         return to_sparse_vector(graph.get_adjacency_matrix())
     else:
@@ -187,9 +149,7 @@ def get_gram_matrix(
     embeddings_in: List,
     embeddings_out: Optional[List] = None,
     params: List = [dict()],
-    n_jobs: int = 1,
-    verbatim=False,
-    save=False,
+    n_jobs: int = 1
 ):
     """
     Compute the gram matrix of the given embeddings
@@ -212,30 +172,8 @@ def get_gram_matrix(
 
     logger.info(f"Computing Gram matrix {n} x {m} (params {params})...")
 
-    if kernel_type == KernelType.SlicedWassersteinOldVersion:
-        logger.info("Old (incorrect) version for SW kernel !!")
-        start = time.time()
-        distance_matrix = np.zeros((n, m))
-        for i in range(n):
-            for j in range(m):
-                # if verbatim:
-                #    logger.info(f"Row {i} and col {j}")
-                distance_matrix[i, j] = sliced_wasserstein_distance_old_version(
-                    embeddings_in[i],
-                    embeddings_out[j],
-                    M=20,
-                    verbatim=f"row{i}_col{j}",
-                    save=save,
-                )
-        grams = [
-            np.exp(-distance_matrix / (2 * a_param["sigma"] ** 2)) for a_param in params
-        ]
-        # grams = [distance_matrix for a_param in params]
-        logger.info(f"Computed {n} x {m} gram matrix in {time.time()-start} secs")
-        return grams
-
     if kernel_type == KernelType.SlicedWasserstein:
-        logger.info("Using FWG !!!")
+        logger.info("Using optimized C++ version")
         start = time.time()
         distance_matrix = np.reshape(fwg.fwd(embeddings_in, embeddings_out, 50), (n, m))
         grams = [

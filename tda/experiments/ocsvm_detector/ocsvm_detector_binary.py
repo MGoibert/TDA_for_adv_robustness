@@ -21,10 +21,7 @@ from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 from tda.tda_logging import get_logger
-from tda.threshold_underoptimized_edges import (
-    process_thresholds_underopt,
-    thresholdize_underopt_v2,
-)
+from tda.threshold_underoptimized_edges import process_thresholds_underopt
 from tda.thresholds import process_thresholds
 from tda.graph_stats import get_stats
 
@@ -76,9 +73,9 @@ class Config(typing.NamedTuple):
     l2_norm_quantile: bool = True
     sigmoidize: bool = False
     # Pruning
-    first_pruned_iter : int = 10
-    prune_percentile : float = 0.0
-    tot_prune_percentile : float = 0.0
+    first_pruned_iter: int = 10
+    prune_percentile: float = 0.0
+    tot_prune_percentile: float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -88,11 +85,13 @@ class Config(typing.NamedTuple):
 
     all_epsilons: typing.List[float] = None
 
+
 def str2bool(value):
-    if value in [True, "True", 'true']:
+    if value in [True, "True", "true"]:
         return True
     else:
         return False
+
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser(
@@ -181,22 +180,13 @@ def get_all_embeddings(config: Config):
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
         ThresholdStrategy.UnderoptimizedRandom,
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement
+        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
     ]:
         edges_to_keep = process_thresholds_underopt(
             raw_thresholds=config.thresholds,
             architecture=architecture,
             method=config.threshold_strategy,
-            thresholds_are_low_pass=config.thresholds_are_low_pass
-        )
-    elif config.threshold_strategy in [
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV2,
-        ThresholdStrategy.UnderoptimizedLargeFinalV2,
-    ]:
-        thresholdize_underopt_v2(
-            raw_thresholds=config.thresholds,
-            architecture=architecture,
-            method=config.threshold_strategy,
+            thresholds_are_low_pass=config.thresholds_are_low_pass,
         )
 
     if config.attack_type not in ["FGSM", "BIM", "FGSM_art", "BIM_art"]:
@@ -216,7 +206,7 @@ def get_all_embeddings(config: Config):
         attack_type=config.attack_type,
         all_epsilons=all_epsilons,
         compute_graph=False,
-        transfered_attacks=config.transfered_attacks
+        transfered_attacks=config.transfered_attacks,
     )
 
     def chunks(lst, n):
@@ -224,28 +214,18 @@ def get_all_embeddings(config: Config):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
-    def embedding_getter(line_chunk, save=False):
+    def embedding_getter(line_chunk):
         ret = list()
         c = 0
         for line in line_chunk:
-            save2 = save + "_" + str(c) if save else False
             ret.append(
                 get_embedding(
                     embedding_type=config.embedding_type,
                     line=line,
-                    params={
-                        "hash_size": int(config.hash_size),
-                        "height": int(config.height),
-                        "node_labels": config.node_labels,
-                        "steps": config.steps,
-                        "raw_graph_pca": config.raw_graph_pca,
-                    },
                     architecture=architecture,
-                    dataset=dataset,
                     thresholds=thresholds,
                     edges_to_keep=edges_to_keep,
                     threshold_strategy=config.threshold_strategy,
-                    save=save2,
                     all_weights_for_sigmoid=all_weights,
                     thresholds_are_low_pass=config.thresholds_are_low_pass,
                 )
@@ -253,20 +233,20 @@ def get_all_embeddings(config: Config):
             c += 1
         return ret
 
-    def process(input_dataset, save=False):
+    def process(input_dataset):
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
         ret = Parallel(n_jobs=config.n_jobs)(
-            delayed(embedding_getter)(chunk, save) for chunk in my_chunks
+            delayed(embedding_getter)(chunk) for chunk in my_chunks
         )
         ret = [item for sublist in ret for item in sublist]
         return ret
 
     # Clean train
-    clean_embeddings_train = process(train_clean, save="clean_train")
+    clean_embeddings_train = process(train_clean)
     logger.info(f"Clean train dataset " f"({len(clean_embeddings_train)} points) !!")
 
     # Clean test
-    clean_embeddings_test = process(test_clean, save="clean_test")
+    clean_embeddings_test = process(test_clean)
     logger.info(f"Clean test dataset " f"({len(clean_embeddings_test)} points) !!")
 
     adv_embeddings_train = dict()
@@ -282,7 +262,7 @@ def get_all_embeddings(config: Config):
             f"  ({len(adv_embeddings_train[epsilon])} points) !"
         )
 
-        adv_embeddings_test[epsilon] = process(test_adv[epsilon], save="adv_test")
+        adv_embeddings_test[epsilon] = process(test_adv[epsilon])
         logger.info(
             f"Adversarial test dataset for espilon = {epsilon} "
             f"({len(adv_embeddings_test[epsilon])} points)  !"
@@ -370,19 +350,11 @@ def run_experiment(config: Config):
         stats,
         stats_inf,
     ) = get_all_embeddings(config)
-    # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_train.pickle', 'wb') as f:
-    #            pickle.dump(embedding_train, f, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_clean_test.pickle', 'wb') as f:
-    #            pickle.dump(embedding_test, f, protocol=pickle.HIGHEST_PROTOCOL)
-    # eps_to_save = 0.1
-    # with open('/Users/m.goibert/Documents/temp/gram_mat/dgm_adv_'+str(eps_to_save)+'.pickle', 'wb') as f:
-    #            pickle.dump(adv_embeddings_test[eps_to_save], f, protocol=pickle.HIGHEST_PROTOCOL)
 
     if config.kernel_type == KernelType.RBF:
         param_space = [{"gamma": gamma} for gamma in np.logspace(-6, -3, 10)]
     elif config.kernel_type in [
-        KernelType.SlicedWasserstein,
-        KernelType.SlicedWassersteinOldVersion,
+        KernelType.SlicedWasserstein
     ]:
         param_space = [{"M": 20, "sigma": sigma} for sigma in np.logspace(-3, 3, 7)]
     else:
@@ -404,7 +376,9 @@ def run_experiment(config: Config):
     )
 
     logger.info(f"Threshold final = {thresholds}")
-    logger.info(f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}")
+    logger.info(
+        f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}"
+    )
 
     end_time = time.time()
 
