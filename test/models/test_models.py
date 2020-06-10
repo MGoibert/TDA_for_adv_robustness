@@ -1,14 +1,12 @@
-import torch
-import torch.nn as nn
-import numpy as np
 import random
-from collections import OrderedDict
 
-from tda.models import get_deep_model
-from tda.models.datasets import Dataset
-from tda.models.architectures import *  # mnist_mlp, svhn_cnn_simple, Architecture, mnist_lenet
-from tda.threshold_underoptimized_edges import process_thresholds_underopt
+import numpy as np
+import torch
+
 from tda.graph_dataset import get_sample_dataset
+from tda.models import get_deep_model
+from tda.models.architectures import *  # mnist_mlp, svhn_cnn_simple, Architecture, mnist_lenet
+from tda.models.datasets import Dataset
 from tda.tda_logging import get_logger
 
 logger = get_logger("test_models")
@@ -65,27 +63,15 @@ def test_conv():
     logger.info(f"x = {x}")
     out = cnn(x)
     logger.info(f"out = {out}")
+    cnn.build_matrices()
     logger.info(f"{np.round(cnn.get_graph_values(x)[(0,1)].todense(),2)}")
-
-
-def test_new_threshold():
-    architecture = get_architecture(mnist_lenet.name)
-    dataset = Dataset.get_or_create(name="MNIST")
-
-    architecture = get_deep_model(
-        num_epochs=53, dataset=dataset, architecture=architecture, train_noise=0.0
-    )
-
-    thresholds = process_thresholds_underopt(
-        raw_thresholds="0.1_0.1_0.1_0.1_0.1", architecture=architecture,
-    )
 
 
 def test_cw_l2norm():
     dataset = Dataset.get_or_create(name="MNIST")
     architecture = get_architecture(mnist_lenet.name)
     architecture = get_deep_model(
-        num_epochs=50, dataset=dataset, architecture=architecture, train_noise=False,
+        num_epochs=2, dataset=dataset, architecture=architecture, train_noise=False,
     )
     data = get_sample_dataset(
         adv=True,
