@@ -17,7 +17,7 @@ from copy import deepcopy
 base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram],
-        "dataset_size": [10],
+        "dataset_size": [500],
         "attack_type": ["HOPSKIPJUMP"],
         "noise": [0.0],
         "n_jobs": [8],
@@ -89,5 +89,5 @@ for (
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
 experiment_plan = R3D3ExperimentPlan(
-    experiments=all_experiments, max_nb_processes=4, db_path=db_path
+    experiments=all_experiments, max_nb_processes=1, db_path=db_path
 )

@@ -119,7 +119,7 @@ def adversarial_generation(
         raise NotImplementedError("Work in progress")
     elif attack_type == "HOPSKIPJUMP":
         attacker = HopSkipJump(
-            classifier=model.get_art_classifier(), targeted=False, max_eval=10, max_iter=10, init_eval=5
+            classifier=model.get_art_classifier(), targeted=False, max_eval=100, max_iter=10, init_eval=10
         )
     else:
         raise NotImplementedError(attack_type)
