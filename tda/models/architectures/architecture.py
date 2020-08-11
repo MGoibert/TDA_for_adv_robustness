@@ -128,6 +128,8 @@ class Architecture(nn.Module):
             elif "mnist" in self.name:
                 input_shape = (1, 28, 28)
 
+            logger.info(f"Input shape is {input_shape}")
+
             self.art_classifier = PyTorchClassifier(
                 model=self,
                 clip_values=(0, 1),
