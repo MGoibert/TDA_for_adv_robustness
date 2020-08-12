@@ -21,7 +21,7 @@ base_configs = cartesian_product(
         "attack_type": ["HOPSKIPJUMP"],
         "noise": [0.0],
         "n_jobs": [8],
-        "all_epsilons": ["0.01;0.1;0.4"],
+        "all_epsilons": ["1.0"],
         "raw_graph_pca": [-1],
     }
 )
