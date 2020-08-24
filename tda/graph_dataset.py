@@ -16,12 +16,14 @@ from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 
-from art.attacks import (
+from art.attacks.evasion import (
     FastGradientMethod,
     ProjectedGradientDescent,
     DeepFool as DeepFoolArt,
     CarliniL2Method,
+    HopSkipJump,
 )
+
 
 logger = get_logger("GraphDataset")
 
@@ -94,12 +96,10 @@ def adversarial_generation(
     elif attack_type == "CW":
         attacker = CW(model, lims=lims, num_iter=num_iter)
     elif attack_type == "FGSM_art":
-        attacker = FastGradientMethod(
-            classifier=model.get_art_classifier(), eps=epsilon
-        )
+        attacker = FastGradientMethod(estimator=model.get_art_classifier(), eps=epsilon)
     elif attack_type == "BIM_art":
         attacker = ProjectedGradientDescent(
-            classifier=model.get_art_classifier(),
+            estimator=model.get_art_classifier(),
             max_iter=num_iter,
             eps=epsilon,
             eps_step=2 * epsilon / num_iter,
@@ -112,6 +112,17 @@ def adversarial_generation(
             max_iter=num_iter,
             binary_search_steps=15,
         )
+    elif attack_type == "SQUARE":
+        # attacker = SquareAttack(estimator=model.get_art_classifier())
+        raise NotImplementedError("Work in progress")
+    elif attack_type == "HOPSKIPJUMP":
+        attacker = HopSkipJump(
+            classifier=model.get_art_classifier(),
+            targeted=False,
+            max_eval=100,
+            max_iter=10,
+            init_eval=10,
+        )
     else:
         raise NotImplementedError(attack_type)
 
@@ -123,8 +134,15 @@ def adversarial_generation(
         x_adv = attacker(x, y)
     elif attack_type == "DeepFool":
         x_adv = attacker(x, y)
-    elif attack_type in ["FGSM_art", "BIM_art", "DeepFool_art", "CW_art"]:
-        x_adv = torch.Tensor(attacker.generate(x.detach()))
+    elif attack_type in [
+        "FGSM_art",
+        "BIM_art",
+        "DeepFool_art",
+        "CW_art",
+        "HOPSKIPJUMP",
+    ]:
+
+        x_adv = torch.Tensor(attacker.generate(model.preprocess(x).detach()))
         x_adv.to(device)
 
     return x_adv
@@ -135,7 +153,7 @@ def process_sample(
     adversarial: bool,
     noise: float = 0,
     epsilon: float = 0,
-    model: typing.Optional[torch.nn.Module] = None,
+    model: typing.Optional[Architecture] = None,
     num_classes: int = 10,
     attack_type: str = "FGSM",
     num_iter: int = 10,

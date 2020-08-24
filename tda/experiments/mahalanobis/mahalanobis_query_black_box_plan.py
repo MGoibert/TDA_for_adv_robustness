@@ -1,21 +1,29 @@
-from copy import deepcopy
-
 from r3d3.experiment import R3D3ExperimentPlan, R3D3Experiment
 from r3d3.utils import cartesian_product
-
 from tda.models.architectures import (
+    mnist_mlp,
     mnist_lenet,
     fashion_mnist_lenet,
+    fashion_mnist_mlp,
     svhn_lenet,
     cifar_lenet,
 )
 from tda.rootpath import rootpath, db_path
+from copy import deepcopy
 
 base_configs = cartesian_product(
-    {"dataset_size": [500], "attack_type": ["HOPSKIPJUMP"], "noise": [0.0],}
+    {
+        "attack_type": ["HOPSKIPJUMP"],
+        "dataset_size": [500],
+        "number_of_samples_for_mu_sigma": [500],
+        "preproc_epsilon": [1e-2],
+        "noise": [0.0],
+        "successful_adv": [1],
+        "all_epsilons": ["1.0"],
+    }
 )
 
-binary = f"{rootpath}/tda/experiments/attack_performance/attacks_performance_binary.py"
+binary = f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary.py"
 
 all_experiments = list()
 
