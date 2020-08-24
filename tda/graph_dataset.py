@@ -218,11 +218,6 @@ def get_sample_dataset(
     logger.info(f"Only successful adversaries ? {'yes' if succ_adv else 'no'}")
     logger.info(f"Which attack ? {attack_type}")
 
-    nb_samples = 0
-    per_class_nb_samples = np.repeat(0, 10)
-
-    current_sample_id = offset
-
     if transfered_attacks:
         pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
         path = glob.glob(pathname)
@@ -237,25 +232,32 @@ def get_sample_dataset(
         )
         source_dataset_size = len(source_dataset)
 
-    ret = list()
+    final_dataset = list()
 
-    while nb_samples < dataset_size and current_sample_id < source_dataset_size:
+    per_class_nb_samples = np.repeat(0, 10)
+
+    current_sample_id = offset
+
+    done = False
+
+    while not done and current_sample_id < source_dataset_size:
 
         sample = None
         processed_sample = None
         y_pred = None
 
-        while processed_sample is None:
+        while processed_sample is None and current_sample_id < source_dataset_size:
+
             if transfered_attacks:
-                sample = [
+                sample = (
                     source_dataset["x"][current_sample_id],
                     source_dataset["y"][current_sample_id],
-                ]
+                )
                 if adv:
-                    processed_sample = [
+                    processed_sample = (
                         source_dataset["x_adv"][current_sample_id],
                         source_dataset["y"][current_sample_id],
-                    ]
+                    )
                 else:
                     processed_sample = sample
             else:
@@ -271,6 +273,8 @@ def get_sample_dataset(
                     num_iter=num_iter,
                 )
 
+            current_sample_id += 1
+
             assert sample[1] == processed_sample[1]
 
             y_pred = archi(processed_sample[0]).argmax(dim=-1).item()
@@ -279,10 +283,8 @@ def get_sample_dataset(
                     f"Rejecting point (epsilon={epsilon}, y={sample[1]}, y_pred={y_pred}, adv={adv})"
                 )
                 processed_sample = None
-                current_sample_id += 1
-                if current_sample_id >= source_dataset_size:
-                    break
 
+        # If the while loop did not return any sample, let's stop here
         if processed_sample is None:
             break
 
@@ -302,23 +304,20 @@ def get_sample_dataset(
             np.inf,
         )
 
-        nb_samples += 1
-        if nb_samples % 10 == 0:
-            logger.info(f"computing sample number = {nb_samples}/{dataset_size}")
+        # Update the counter per class
         per_class_nb_samples[processed_sample[1]] += 1
-        if per_class and any(np.asarray(per_class_nb_samples) < dataset_size):
-            nb_samples = 0
-        elif per_class and all(np.asarray(per_class_nb_samples) >= dataset_size):
-            nb_samples = dataset_size + 1
 
-        if compute_graph:
-            graph = Graph.from_architecture_and_data_point(
+        # (OPT) Compute the graph
+        graph = (
+            Graph.from_architecture_and_data_point(
                 architecture=archi, x=processed_sample[0].double()
             )
-        else:
-            graph = None
+            if compute_graph
+            else None
+        )
 
-        ret.append(
+        # Add the line to the dataset
+        final_dataset.append(
             DatasetLine(
                 graph=graph,
                 x=processed_sample[0],
@@ -331,12 +330,22 @@ def get_sample_dataset(
             )
         )
 
-        current_sample_id += 1
+        # (OPT) Log info
+        if len(final_dataset) % 10 == 0:
+            logger.info(f"Compputed {len(final_dataset)}/{dataset_size} samples.")
 
-    if nb_samples < dataset_size:
+        # Are we done yet ?
+        if not per_class:
+            # We are done if we have enough points in the dataset
+            done = len(final_dataset) >= dataset_size
+        else:
+            # We are done if all classes have enough points
+            done = all(np.asarray(per_class_nb_samples) >= dataset_size)
+
+    if len(final_dataset) < dataset_size:
         logger.warn(
-            f"I was only able to generate {nb_samples} points even if {dataset_size} was requested. "
+            f"I was only able to generate {len(final_dataset)} points even if {dataset_size} was requested. "
             f"This is probably a lack of adversarial points."
         )
 
-    return ret
+    return final_dataset
