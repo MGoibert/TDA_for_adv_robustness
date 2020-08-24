@@ -21,9 +21,9 @@ from art.attacks.evasion import (
     ProjectedGradientDescent,
     DeepFool as DeepFoolArt,
     CarliniL2Method,
-    SquareAttack,
     HopSkipJump,
 )
+
 
 logger = get_logger("GraphDataset")
 
@@ -96,12 +96,10 @@ def adversarial_generation(
     elif attack_type == "CW":
         attacker = CW(model, lims=lims, num_iter=num_iter)
     elif attack_type == "FGSM_art":
-        attacker = FastGradientMethod(
-            classifier=model.get_art_classifier(), eps=epsilon
-        )
+        attacker = FastGradientMethod(estimator=model.get_art_classifier(), eps=epsilon)
     elif attack_type == "BIM_art":
         attacker = ProjectedGradientDescent(
-            classifier=model.get_art_classifier(),
+            estimator=model.get_art_classifier(),
             max_iter=num_iter,
             eps=epsilon,
             eps_step=2 * epsilon / num_iter,
@@ -115,7 +113,7 @@ def adversarial_generation(
             binary_search_steps=15,
         )
     elif attack_type == "SQUARE":
-        attacker = SquareAttack(estimator=model.get_art_classifier())
+        # attacker = SquareAttack(estimator=model.get_art_classifier())
         raise NotImplementedError("Work in progress")
     elif attack_type == "HOPSKIPJUMP":
         attacker = HopSkipJump(
