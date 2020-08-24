@@ -228,20 +228,18 @@ def get_sample_dataset(
         path = glob.glob(pathname)
         logger.info(f"Using transfered attacks file {path}")
         source_dataset = torch.load(path[0], map_location=device)[f"{attack_type}"]
-        lsd = (
-            len(source_dataset["y"])
-            if attack_type not in ["FGSM", "BIM"]
-            else len(source_dataset[epsilon]["y"])
-        )
+        if attack_type in ["FGSM", "BIM"]:
+            source_dataset = source_dataset[epsilon]
+        source_dataset_size = len(source_dataset["y"])
     else:
         source_dataset = (
             dataset.train_dataset if train else dataset.test_and_val_dataset
         )
-        lsd = len(source_dataset)
+        source_dataset_size = len(source_dataset)
 
     ret = list()
 
-    while nb_samples < dataset_size and current_sample_id < lsd:
+    while nb_samples < dataset_size and current_sample_id < source_dataset_size:
 
         sample = None
         processed_sample = None
@@ -249,30 +247,17 @@ def get_sample_dataset(
 
         while processed_sample is None:
             if transfered_attacks:
-                if attack_type in ["FGSM", "BIM"]:
-                    sample = [
-                        source_dataset[epsilon]["x"][current_sample_id],
-                        source_dataset[epsilon]["y"][current_sample_id],
-                    ]
-                    if adv:
-                        processed_sample = [
-                            source_dataset[epsilon]["x_adv"][current_sample_id],
-                            source_dataset[epsilon]["y"][current_sample_id],
-                        ]
-                    else:
-                        processed_sample = sample
-                else:
-                    sample = [
-                        source_dataset["x"][current_sample_id],
+                sample = [
+                    source_dataset["x"][current_sample_id],
+                    source_dataset["y"][current_sample_id],
+                ]
+                if adv:
+                    processed_sample = [
+                        source_dataset["x_adv"][current_sample_id],
                         source_dataset["y"][current_sample_id],
                     ]
-                    if adv:
-                        processed_sample = [
-                            source_dataset["x_adv"][current_sample_id],
-                            source_dataset["y"][current_sample_id],
-                        ]
-                    else:
-                        processed_sample = sample
+                else:
+                    processed_sample = sample
             else:
                 sample = source_dataset[current_sample_id]
                 processed_sample = process_sample(
@@ -295,7 +280,7 @@ def get_sample_dataset(
                 )
                 processed_sample = None
                 current_sample_id += 1
-                if current_sample_id >= lsd:
+                if current_sample_id >= source_dataset_size:
                     break
 
         if processed_sample is None:
