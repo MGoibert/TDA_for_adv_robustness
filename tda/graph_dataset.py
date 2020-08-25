@@ -12,7 +12,6 @@ from tda.devices import device
 from tda.graph import Graph
 from tda.tda_logging import get_logger
 from tda.models.architectures import Architecture, mnist_mlp
-from tda.models.attacks import FGSM, BIM, DeepFool, CW
 from tda.models.datasets import Dataset
 from tda.rootpath import rootpath
 
@@ -72,41 +71,24 @@ def ce_loss(outputs, labels, num_classes=None):
 
 
 def adversarial_generation(
-    model: Architecture,
-    x,
-    y,
-    epsilon=0.25,
-    loss_func=ce_loss,
-    num_classes=10,
-    attack_type="FGSM",
-    num_iter=10,
-    lims=(0, 1),
+    model: Architecture, x, epsilon=0.25, attack_type="FGSM", num_iter=10,
 ):
     """
     Create an adversarial example (FGMS only for now)
     """
-    y = torch.tensor([y])
     x.requires_grad = True
     if attack_type == "FGSM":
-        attacker = FGSM(model, loss_func)
-    elif attack_type == "BIM":
-        attacker = BIM(model, loss_func, lims=lims, num_iter=num_iter)
-    elif attack_type == "DeepFool":
-        attacker = DeepFool(model, num_classes=num_classes, num_iter=num_iter)
-    elif attack_type == "CW":
-        attacker = CW(model, lims=lims, num_iter=num_iter)
-    elif attack_type == "FGSM_art":
         attacker = FastGradientMethod(estimator=model.get_art_classifier(), eps=epsilon)
-    elif attack_type == "BIM_art":
+    elif attack_type == "PGD":
         attacker = ProjectedGradientDescent(
             estimator=model.get_art_classifier(),
             max_iter=num_iter,
             eps=epsilon,
             eps_step=2 * epsilon / num_iter,
         )
-    elif attack_type == "DeepFool_art":
+    elif attack_type == "DeepFool":
         attacker = DeepFoolArt(classifier=model.get_art_classifier(), max_iter=num_iter)
-    elif attack_type == "CW_art":
+    elif attack_type == "CW":
         attacker = CarliniL2Method(
             classifier=model.get_art_classifier(),
             max_iter=num_iter,
@@ -126,24 +108,11 @@ def adversarial_generation(
     else:
         raise NotImplementedError(attack_type)
 
-    x_adv = None
+    attacked = attacker.generate(x=x.detach().cpu())
 
-    if attack_type in ["FGSM", "BIM"]:
-        x_adv = attacker(x, y, epsilon)
-    elif attack_type == "CW":
-        x_adv = attacker(x, y)
-    elif attack_type == "DeepFool":
-        x_adv = attacker(x, y)
-    elif attack_type in [
-        "FGSM_art",
-        "BIM_art",
-        "DeepFool_art",
-        "CW_art",
-        "HOPSKIPJUMP",
-    ]:
-
-        x_adv = torch.Tensor(attacker.generate(model.preprocess(x).detach()))
-        x_adv.to(device)
+    x_adv = torch.cat(
+        [torch.unsqueeze(torch.from_numpy(x), 0) for x in attacked], 0
+    ).to(device)
 
     return x_adv
 
@@ -154,7 +123,6 @@ def process_sample(
     noise: float = 0,
     epsilon: float = 0,
     model: typing.Optional[Architecture] = None,
-    num_classes: int = 10,
     attack_type: str = "FGSM",
     num_iter: int = 10,
 ):
@@ -166,11 +134,9 @@ def process_sample(
 
     if adversarial:
         x = adversarial_generation(
-            model,
-            x,
-            y,
-            epsilon,
-            num_classes=num_classes,
+            model=model,
+            x=x,
+            epsilon=epsilon,
             attack_type=attack_type,
             num_iter=num_iter,
         )
@@ -221,7 +187,6 @@ def get_sample_dataset(
     if transfered_attacks:
         pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
         path = glob.glob(pathname)
-        logger.info(f"Using transfered attacks file {path}")
         source_dataset = torch.load(path[0], map_location=device)[f"{attack_type}"]
         if attack_type in ["FGSM", "BIM"]:
             source_dataset = source_dataset[epsilon]
@@ -239,7 +204,7 @@ def get_sample_dataset(
     current_sample_id = offset
 
     dataset_done = False
-    batch_size = 10
+    batch_size = 128
 
     while not dataset_done and current_sample_id < source_dataset_size:
 
@@ -274,7 +239,8 @@ def get_sample_dataset(
                 batch = source_dataset[
                     current_sample_id : current_sample_id + batch_size
                 ]
-                x = torch.cat([s[0] for s in batch], 0)
+
+                x = torch.cat([torch.unsqueeze(s[0], 0) for s in batch], 0).to(device)
                 y = np.array([s[1] for s in batch])
                 samples = (x, y)
 
@@ -286,7 +252,6 @@ def get_sample_dataset(
                     noise=noise,
                     epsilon=epsilon,
                     model=archi,
-                    num_classes=10,
                     attack_type=attack_type,
                     num_iter=num_iter,
                 )
@@ -294,7 +259,7 @@ def get_sample_dataset(
             # Increasing current_sample_id
             current_sample_id += batch_size
 
-            assert samples[1] == processed_samples[1]
+            assert (samples[1] == processed_samples[1]).all()
 
             y_pred = archi(processed_samples[0]).argmax(dim=-1).cpu().numpy()
 
@@ -361,7 +326,7 @@ def get_sample_dataset(
                     graph=graph,
                     x=x,
                     y=processed_samples[1][i],
-                    y_pred=y_pred,
+                    y_pred=y_pred[i],
                     y_adv=adv,
                     l2_norm=l2_norms[i],
                     linf_norm=linf_norms[i],
@@ -369,17 +334,18 @@ def get_sample_dataset(
                 )
             )
 
-        # (OPT) Log info
-        if len(final_dataset) % 10 == 0:
-            logger.info(f"Compputed {len(final_dataset)}/{dataset_size} samples.")
+            # Are we done yet ?
+            if not per_class:
+                # We are done if we have enough points in the dataset
+                dataset_done = len(final_dataset) >= dataset_size
+            else:
+                # We are done if all classes have enough points
+                dataset_done = all(np.asarray(per_class_nb_samples) >= dataset_size)
 
-        # Are we done yet ?
-        if not per_class:
-            # We are done if we have enough points in the dataset
-            dataset_done = len(final_dataset) >= dataset_size
-        else:
-            # We are done if all classes have enough points
-            dataset_done = all(np.asarray(per_class_nb_samples) >= dataset_size)
+            if dataset_done:
+                break
+
+        logger.info(f"Compputed {len(final_dataset)}/{dataset_size} samples.")
 
     if len(final_dataset) < dataset_size:
         logger.warn(
