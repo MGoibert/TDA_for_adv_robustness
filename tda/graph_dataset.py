@@ -238,32 +238,50 @@ def get_sample_dataset(
 
     current_sample_id = offset
 
-    done = False
+    dataset_done = False
+    batch_size = 10
 
-    while not done and current_sample_id < source_dataset_size:
+    while not dataset_done and current_sample_id < source_dataset_size:
 
-        sample = None
-        processed_sample = None
+        samples = None
+        processed_samples = None
         y_pred = None
 
-        while processed_sample is None and current_sample_id < source_dataset_size:
+        while processed_samples is None and current_sample_id < source_dataset_size:
 
             if transfered_attacks:
-                sample = (
-                    source_dataset["x"][current_sample_id],
-                    source_dataset["y"][current_sample_id],
+                samples = (
+                    source_dataset["x"][
+                        current_sample_id : current_sample_id + batch_size
+                    ],
+                    source_dataset["y"][
+                        current_sample_id : current_sample_id + batch_size
+                    ],
                 )
                 if adv:
-                    processed_sample = (
-                        source_dataset["x_adv"][current_sample_id],
-                        source_dataset["y"][current_sample_id],
+                    processed_samples = (
+                        source_dataset["x_adv"][
+                            current_sample_id : current_sample_id + batch_size
+                        ],
+                        source_dataset["y"][
+                            current_sample_id : current_sample_id + batch_size
+                        ],
                     )
                 else:
-                    processed_sample = sample
+                    processed_samples = samples
             else:
-                sample = source_dataset[current_sample_id]
-                processed_sample = process_sample(
-                    sample=sample,
+                # Fetching a batch of samples and concatenating them
+                batch = source_dataset[
+                    current_sample_id : current_sample_id + batch_size
+                ]
+                x = torch.cat([s[0] for s in batch], 0)
+                y = np.array([s[1] for s in batch])
+                samples = (x, y)
+
+                # Calling process_sample on the batch
+                # TODO: Ensure process_sample handles batched examples
+                processed_samples = process_sample(
+                    sample=samples,
                     adversarial=adv,
                     noise=noise,
                     epsilon=epsilon,
@@ -273,62 +291,83 @@ def get_sample_dataset(
                     num_iter=num_iter,
                 )
 
-            current_sample_id += 1
+            # Increasing current_sample_id
+            current_sample_id += batch_size
 
-            assert sample[1] == processed_sample[1]
+            assert samples[1] == processed_samples[1]
 
-            y_pred = archi(processed_sample[0]).argmax(dim=-1).item()
-            if adv and succ_adv and y_pred == sample[1]:
+            y_pred = archi(processed_samples[0]).argmax(dim=-1).cpu().numpy()
+
+            if adv and succ_adv:
+                # Check where the attack was successful
+                valid_attacks = np.where(samples[1] != y_pred)[0]
                 logger.debug(
-                    f"Rejecting point (epsilon={epsilon}, y={sample[1]}, y_pred={y_pred}, adv={adv})"
+                    f"Attack succeeded on {len(valid_attacks)} points over {len(samples[1])}"
                 )
-                processed_sample = None
 
-        # If the while loop did not return any sample, let's stop here
-        if processed_sample is None:
+                if len(valid_attacks) == 0:
+                    processed_samples = None
+                else:
+                    processed_samples = (
+                        processed_samples[0][valid_attacks],
+                        processed_samples[1][valid_attacks],
+                    )
+
+        # If the while loop did not return any samples, let's stop here
+        if processed_samples is None:
             break
 
-        # Ok we have found a point
-        l2_norm = np.linalg.norm(
-            torch.abs((processed_sample[0].double() - sample[0].double()).flatten())
+        # Compute the norms on the batch
+        l2_norms = (
+            torch.norm(
+                (processed_samples[0].double() - samples[0].double()).flatten(1),
+                p=2,
+                dim=1,
+            )
             .cpu()
-            .detach()
-            .numpy(),
-            2,
+            .numpy()
         )
-        linf_norm = np.linalg.norm(
-            torch.abs((processed_sample[0].double() - sample[0].double()).flatten())
+
+        linf_norms = (
+            torch.norm(
+                (processed_samples[0].double() - samples[0].double()).flatten(1),
+                p=float("inf"),
+                dim=1,
+            )
             .cpu()
-            .detach()
-            .numpy(),
-            np.inf,
+            .numpy()
         )
 
         # Update the counter per class
-        per_class_nb_samples[processed_sample[1]] += 1
+        for clazz in processed_samples[1]:
+            per_class_nb_samples[clazz] += 1
 
-        # (OPT) Compute the graph
-        graph = (
-            Graph.from_architecture_and_data_point(
-                architecture=archi, x=processed_sample[0].double()
-            )
-            if compute_graph
-            else None
-        )
+        # Unbatching and return DatasetLine
+        # TODO: see if we can avoid unbatching
+        for i in range(len(processed_samples[1])):
 
-        # Add the line to the dataset
-        final_dataset.append(
-            DatasetLine(
-                graph=graph,
-                x=processed_sample[0],
-                y=processed_sample[1],
-                y_pred=y_pred,
-                y_adv=adv,
-                l2_norm=l2_norm,
-                linf_norm=linf_norm,
-                sample_id=current_sample_id,
+            x = torch.unsqueeze(processed_samples[0][i], 0).double()
+
+            # (OPT) Compute the graph
+            graph = (
+                Graph.from_architecture_and_data_point(architecture=archi, x=x)
+                if compute_graph
+                else None
             )
-        )
+
+            # Add the line to the dataset
+            final_dataset.append(
+                DatasetLine(
+                    graph=graph,
+                    x=x,
+                    y=processed_samples[1][i],
+                    y_pred=y_pred,
+                    y_adv=adv,
+                    l2_norm=l2_norms[i],
+                    linf_norm=linf_norms[i],
+                    sample_id=current_sample_id,
+                )
+            )
 
         # (OPT) Log info
         if len(final_dataset) % 10 == 0:
@@ -337,10 +376,10 @@ def get_sample_dataset(
         # Are we done yet ?
         if not per_class:
             # We are done if we have enough points in the dataset
-            done = len(final_dataset) >= dataset_size
+            dataset_done = len(final_dataset) >= dataset_size
         else:
             # We are done if all classes have enough points
-            done = all(np.asarray(per_class_nb_samples) >= dataset_size)
+            dataset_done = all(np.asarray(per_class_nb_samples) >= dataset_size)
 
     if len(final_dataset) < dataset_size:
         logger.warn(
