@@ -340,11 +340,11 @@ def run_experiment(config: Config):
         stats_inf,
     ) = get_all_embeddings(config)
 
+    time_taken_to_get_embeddings = time.time() - start_time
+
     if config.kernel_type == KernelType.RBF:
         param_space = [{"gamma": gamma} for gamma in np.logspace(-6, -3, 10)]
-    elif config.kernel_type in [
-        KernelType.SlicedWasserstein
-    ]:
+    elif config.kernel_type in [KernelType.SlicedWasserstein]:
         param_space = [{"M": 20, "sigma": sigma} for sigma in np.logspace(-3, 3, 7)]
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
@@ -369,11 +369,10 @@ def run_experiment(config: Config):
         f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}"
     )
 
-    end_time = time.time()
-
     metrics = {
         "name": "Graph",
-        "time": end_time - start_time,
+        "time": time.time() - start_time,
+        "time_taken_to_get_embeddings": time_taken_to_get_embeddings,
         "l2_diff": stats,
         "linf_diff": stats_inf,
         **evaluation_results,

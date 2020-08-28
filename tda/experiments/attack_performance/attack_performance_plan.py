@@ -12,7 +12,12 @@ from tda.models.architectures import (
 from tda.rootpath import rootpath, db_path
 
 base_configs = cartesian_product(
-    {"dataset_size": [500], "attack_type": ["HOPSKIPJUMP"], "noise": [0.0],}
+    {
+        "dataset_size": [500],
+        "attack_type": ["FGSM", "PGD", "CW", "DeepFool"],
+        "noise": [0.0],
+        "all_epsilons": ["0.01;0.1;0.4"],
+    }
 )
 
 binary = f"{rootpath}/tda/experiments/attack_performance/attacks_performance_binary.py"
