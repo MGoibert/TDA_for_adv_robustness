@@ -18,6 +18,7 @@ except Exception as e:
 
 try:
     from persim import sliced_wasserstein as persim_sw
+    from ripser import Rips
 except Exception as e:
     persim_sw = None
 

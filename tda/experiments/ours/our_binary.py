@@ -128,6 +128,8 @@ def get_config() -> Config:
 
 
 def get_all_embeddings(config: Config):
+    detailed_times = dict()
+
     architecture = get_architecture(config.architecture)
     dataset = Dataset.get_or_create(name=config.dataset)
 
@@ -142,9 +144,11 @@ def get_all_embeddings(config: Config):
     )
     if config.sigmoidize:
         logger.info(f"Using inter-class regularization (sigmoid)")
+        start_time = time.time()
         all_weights = get_stats(
             dataset=dataset, architecture=architecture, dataset_size=100
         )
+        detailed_times["stats"] = time.time() - start_time
     else:
         all_weights = None
 
@@ -186,6 +190,7 @@ def get_all_embeddings(config: Config):
     else:
         all_epsilons = config.all_epsilons
 
+    start_time = time.time()
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
@@ -197,6 +202,7 @@ def get_all_embeddings(config: Config):
         compute_graph=False,
         transfered_attacks=config.transfered_attacks,
     )
+    detailed_times["protocal_datasets"] = time.time() - start_time
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
@@ -229,6 +235,8 @@ def get_all_embeddings(config: Config):
         )
         ret = [item for sublist in ret for item in sublist]
         return ret
+
+    start_time = time.time()
 
     # Clean train
     clean_embeddings_train = process(train_clean)
@@ -305,6 +313,8 @@ def get_all_embeddings(config: Config):
                     adv_embeddings_test[epsilon]
                 )
 
+    detailed_times["embeddings"] = time.time() - start_time
+
     return (
         clean_embeddings_train,
         clean_embeddings_test,
@@ -313,6 +323,7 @@ def get_all_embeddings(config: Config):
         thresholds,
         stats,
         stats_inf,
+        detailed_times
     )
 
 
@@ -338,9 +349,8 @@ def run_experiment(config: Config):
         thresholds,
         stats,
         stats_inf,
+        detailed_times
     ) = get_all_embeddings(config)
-
-    time_taken_to_get_embeddings = time.time() - start_time
 
     if config.kernel_type == KernelType.RBF:
         param_space = [{"gamma": gamma} for gamma in np.logspace(-6, -3, 10)]
@@ -372,7 +382,7 @@ def run_experiment(config: Config):
     metrics = {
         "name": "Graph",
         "time": time.time() - start_time,
-        "time_taken_to_get_embeddings": time_taken_to_get_embeddings,
+        "detailed_times": detailed_times,
         "l2_diff": stats,
         "linf_diff": stats_inf,
         **evaluation_results,

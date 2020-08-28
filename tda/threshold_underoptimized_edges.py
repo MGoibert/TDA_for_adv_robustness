@@ -63,6 +63,7 @@ def underopt_edges(
                     .reshape(-1)[gen.permutation(n)]
                     .reshape(param.shape)
                 )
+            limit_val[layer_idx] = limit_val[layer_idx].cpu()
 
             qtest[layer_idx] = np.quantile(
                 limit_val[layer_idx], quantiles.get(layer_idx, 0.0)

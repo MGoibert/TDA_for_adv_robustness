@@ -278,6 +278,11 @@ def get_sample_dataset(
                         processed_samples[1][valid_attacks],
                     )
 
+                    samples = (
+                        samples[0][valid_attacks],
+                        samples[1][valid_attacks],
+                    )
+
         # If the while loop did not return any samples, let's stop here
         if processed_samples is None:
             break
