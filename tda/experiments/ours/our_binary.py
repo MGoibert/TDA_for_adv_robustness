@@ -55,7 +55,7 @@ class Config(typing.NamedTuple):
     dataset_size: int
     # Should we ignore unsuccessful attacks or not
     successful_adv: int
-    # Type of attack (FGSM, BIM, CW)
+    # Type of attack (FGSM, PGD, CW)
     attack_type: str
     # Parameter used by DeepFool and CW
     num_iter: int
@@ -178,7 +178,7 @@ def get_all_embeddings(config: Config):
             thresholds_are_low_pass=config.thresholds_are_low_pass,
         )
 
-    if config.attack_type not in ["FGSM", "BIM", "FGSM_art", "BIM_art"]:
+    if config.attack_type not in ["FGSM", "PGD"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]

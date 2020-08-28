@@ -42,7 +42,7 @@ class Config(typing.NamedTuple):
     architecture: str
     # Size of the dataset used for the experiment
     dataset_size: int
-    # Type of attack (FGSM, BIM, CW)
+    # Type of attack (FGSM, PGD, CW)
     attack_type: str
     # Epsilon for the preprocessing step (see the paper)
     preproc_epsilon: float
@@ -447,7 +447,7 @@ def run_experiment(config: Config):
         config=config, dataset=dataset, architecture=architecture
     )
 
-    if config.attack_type not in ["FGSM", "BIM", "FGSM_art", "BIM_art"]:
+    if config.attack_type not in ["FGSM", "PGD"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]

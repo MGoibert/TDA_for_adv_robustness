@@ -51,7 +51,7 @@ class Config(typing.NamedTuple):
     perc_of_nn: int
     # Batch size for the estimation of the LID
     batch_size: int
-    # Type of attack (FGSM, BIM, CW)
+    # Type of attack (FGSM, PGD, CW)
     attack_type: str
     # Should we filter out non successful_adversaries
     successful_adv: int
@@ -282,7 +282,7 @@ def run_experiment(config: Config):
         first_pruned_iter=config.first_pruned_iter,
     )
 
-    if config.attack_type not in ["FGSM", "BIM", "FGSM_art", "BIM_art"]:
+    if config.attack_type not in ["FGSM", "PGD"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]

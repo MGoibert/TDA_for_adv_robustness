@@ -37,7 +37,7 @@ class Config(typing.NamedTuple):
     train_noise: float
     # Size of the dataset used for the experiment
     dataset_size: int
-    # Type of attack (FGSM, BIM, CW)
+    # Type of attack (FGSM, PGD, CW)
     attack_type: str
     # Parameter used by DeepFool and CW
     num_iter: int
@@ -121,7 +121,7 @@ def get_all_accuracies(config: Config):
             config=config._asdict(),
         )
 
-    if config.attack_type in ["FGSM", "BIM"]:
+    if config.attack_type in ["FGSM", "PGD"]:
         all_epsilons = list(sorted(np.linspace(0.0, 0.4, num=11)))
     else:
         all_epsilons = [0.0, 1]

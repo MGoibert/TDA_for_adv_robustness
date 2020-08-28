@@ -188,7 +188,7 @@ def get_sample_dataset(
         pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
         path = glob.glob(pathname)
         source_dataset = torch.load(path[0], map_location=device)[f"{attack_type}"]
-        if attack_type in ["FGSM", "BIM"]:
+        if attack_type in ["FGSM", "PGD"]:
             source_dataset = source_dataset[epsilon]
         source_dataset_size = len(source_dataset["y"])
     else:
