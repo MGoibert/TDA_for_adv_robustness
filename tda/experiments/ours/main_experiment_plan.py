@@ -18,7 +18,7 @@ base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
         "dataset_size": [500],
-        "attack_type": ["FGSM"],
+        "attack_type": ["FGSM", "PGD", "CW", "DeepFool"],
         "noise": [0.0],
         "n_jobs": [8],
         "all_epsilons": ["0.01;0.1;0.4"],
@@ -32,27 +32,17 @@ all_experiments = list()
 
 for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_rawgraph in [
     [
-        mnist_mlp.name,
-        "MNIST",
-        50,
-        "0:0.01_1:0_2:0",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
         mnist_lenet.name,
         "MNIST",
         50,
-        #"0:0.05_2:0.05_4:0.05_5:0.0",
         "0:0.025_2:0.025_4:0.025_5:0.025",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
-    [  # AUC : 0.01: 0.975, 0.1: 0.975
+    [
         fashion_mnist_lenet.name,
         "FashionMNIST",
         100,
-        #"0:0.05_2:0.05_4:0.0_5:0.0",
         "0:0.05_2:0.05_4:0.05_5:0.05",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
@@ -61,7 +51,6 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         svhn_lenet.name,
         "SVHN",
         300,
-        #"0:0_2:0.5_4:0.5_5:0_6:0",
         "0:0.01_2:0.01_4:0.01_5:0.01_6:0.01",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         False,
@@ -70,7 +59,6 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         cifar_lenet.name,
         "CIFAR10",
         300,
-        #"0:0_2:0_4:0_5:0.1_6:0.3",
         "0:0_2:0_4:0.3_5:0.3_6:0.3",
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True
@@ -90,6 +78,9 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
             config["sigmoidize"] = True
         elif config["embedding_type"] == EmbeddingType.RawGraph:
             config["kernel_type"] = KernelType.RBF
+
+        if config["attack_type"] not in ["FGSM", "PGD"]:
+            config["all_epsilons"] = "1.0"
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 

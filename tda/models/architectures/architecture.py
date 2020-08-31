@@ -120,25 +120,24 @@ class Architecture(nn.Module):
         return [link for link in self.layer_links if link[1] == softmax_layer_idx][0][0]
 
     def get_art_classifier(self):
-        if not hasattr(self, "art_classifier") or self.art_classifier is None:
-            if "bandw" in self.name:
-                input_shape = (1, 32, 32)
-            elif "svhn" in self.name or "cifar" in self.name:
-                input_shape = (3, 32, 32)
-            elif "mnist" in self.name:
-                input_shape = (1, 28, 28)
+        #if not hasattr(self, "art_classifier") or self.art_classifier is None:
+        if "bandw" in self.name:
+            input_shape = (1, 32, 32)
+        elif "svhn" in self.name or "cifar" in self.name:
+            input_shape = (3, 32, 32)
+        elif "mnist" in self.name:
+            input_shape = (1, 28, 28)
 
-            logger.info(f"Input shape is {input_shape}")
+        logger.info(f"Input shape is {input_shape}")
 
-            self.art_classifier = PyTorchClassifier(
-                model=self,
-                clip_values=(0, 1),
-                loss=torch.nn.CrossEntropyLoss(),
-                optimizer=None,
-                input_shape=input_shape,
-                nb_classes=10,
-            )
-        return self.art_classifier
+        return PyTorchClassifier(
+            model=self,
+            clip_values=(0, 1),
+            loss=torch.nn.CrossEntropyLoss(),
+            optimizer=None,
+            input_shape=input_shape,
+            nb_classes=10,
+        )
 
     @staticmethod
     def walk_through_dag(edges: List[Tuple[int, int]]) -> List[int]:

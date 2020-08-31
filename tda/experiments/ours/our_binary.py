@@ -202,7 +202,7 @@ def get_all_embeddings(config: Config):
         compute_graph=False,
         transfered_attacks=config.transfered_attacks,
     )
-    detailed_times["protocal_datasets"] = time.time() - start_time
+    detailed_times["protocolar_datasets"] = time.time() - start_time
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
