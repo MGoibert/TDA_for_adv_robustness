@@ -52,6 +52,8 @@ class FGSM(_BaseAttack):
         XXX `retain_graph=True` is needed in case caller is calling this
         function in a loop, etc.
         """
+        assert data is not None
+        data.requires_grad = True
         if pred is None:
             pred = self.model(data)
         loss = self.loss_func(pred, target, num_classes)

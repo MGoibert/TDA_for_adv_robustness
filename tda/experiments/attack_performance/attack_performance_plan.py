@@ -14,7 +14,8 @@ from tda.rootpath import rootpath, db_path
 base_configs = cartesian_product(
     {
         "dataset_size": [500],
-        "attack_type": ["FGSM", "PGD", "CW", "DeepFool"],
+        "attack_type": ["PGD"],
+        "attack_backend": ["ART", "CUSTOM", "FOOLBOX"],
         "noise": [0.0],
         "all_epsilons": ["0.01;0.1;0.4"],
     }

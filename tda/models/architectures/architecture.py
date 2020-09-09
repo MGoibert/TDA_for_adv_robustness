@@ -5,6 +5,8 @@ from typing import List, Callable, Tuple, Dict
 import torch
 import torch.nn as nn
 from art.classifiers import PyTorchClassifier
+import foolbox as fb
+from cached_property import cached_property
 
 from tda.devices import device
 from tda.models.layers import (
@@ -119,8 +121,8 @@ class Architecture(nn.Module):
 
         return [link for link in self.layer_links if link[1] == softmax_layer_idx][0][0]
 
-    def get_art_classifier(self):
-        #if not hasattr(self, "art_classifier") or self.art_classifier is None:
+    @cached_property
+    def art_classifier(self):
         if "bandw" in self.name:
             input_shape = (1, 32, 32)
         elif "svhn" in self.name or "cifar" in self.name:
@@ -138,6 +140,10 @@ class Architecture(nn.Module):
             input_shape=input_shape,
             nb_classes=10,
         )
+
+    @cached_property
+    def foolbox_classifier(self):
+        return fb.PyTorchModel(self, bounds=(0, 1), device=device)
 
     @staticmethod
     def walk_through_dag(edges: List[Tuple[int, int]]) -> List[int]:

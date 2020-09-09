@@ -23,6 +23,9 @@ from art.attacks.evasion import (
     HopSkipJump,
 )
 
+from tda.models.attacks import FGSM, BIM, DeepFool, CW
+
+import foolbox as fb
 
 logger = get_logger("GraphDataset")
 
@@ -70,51 +73,113 @@ def ce_loss(outputs, labels, num_classes=None):
     return -res
 
 
+class AttackBackend(object):
+    CUSTOM = "CUSTOM"
+    FOOLBOX = "FOOLBOX"
+    ART = "ART"
+
+
 def adversarial_generation(
-    model: Architecture, x, epsilon=0.25, attack_type="FGSM", num_iter=10,
+    model: Architecture,
+    x,
+    y,
+    epsilon=0.25,
+    attack_type="FGSM",
+    num_iter=10,
+    attack_backend: str = AttackBackend.ART,
 ):
     """
     Create an adversarial example (FGMS only for now)
     """
     x.requires_grad = True
-    if attack_type == "FGSM":
-        attacker = FastGradientMethod(estimator=model.get_art_classifier(), eps=epsilon)
-    elif attack_type == "PGD":
-        attacker = ProjectedGradientDescent(
-            estimator=model.get_art_classifier(),
-            max_iter=num_iter,
-            eps=epsilon,
-            eps_step=2 * epsilon / num_iter,
-        )
-    elif attack_type == "DeepFool":
-        attacker = DeepFoolArt(classifier=model.get_art_classifier(), max_iter=num_iter)
-    elif attack_type == "CW":
-        attacker = CarliniL2Method(
-            classifier=model.get_art_classifier(),
-            max_iter=num_iter,
-            binary_search_steps=15,
-        )
-    elif attack_type == "SQUARE":
-        # attacker = SquareAttack(estimator=model.get_art_classifier())
-        raise NotImplementedError("Work in progress")
-    elif attack_type == "HOPSKIPJUMP":
-        attacker = HopSkipJump(
-            classifier=model.get_art_classifier(),
-            targeted=False,
-            max_eval=100,
-            max_iter=10,
-            init_eval=10,
-        )
+
+    if attack_backend == AttackBackend.ART:
+        if attack_type == "FGSM":
+            attacker = FastGradientMethod(estimator=model.art_classifier, eps=epsilon)
+        elif attack_type == "PGD":
+            attacker = ProjectedGradientDescent(
+                estimator=model.art_classifier,
+                max_iter=num_iter,
+                eps=epsilon,
+                eps_step=2 * epsilon / num_iter,
+            )
+        elif attack_type == "DeepFool":
+            attacker = DeepFoolArt(classifier=model.art_classifier, max_iter=num_iter)
+        elif attack_type == "CW":
+            attacker = CarliniL2Method(
+                classifier=model.art_classifier,
+                max_iter=num_iter,
+                binary_search_steps=15,
+            )
+        elif attack_type == "SQUARE":
+            # attacker = SquareAttack(estimator=model.get_art_classifier())
+            raise NotImplementedError("Work in progress")
+        elif attack_type == "HOPSKIPJUMP":
+            attacker = HopSkipJump(
+                classifier=model.art_classifier,
+                targeted=False,
+                max_eval=100,
+                max_iter=10,
+                init_eval=10,
+            )
+        else:
+            raise NotImplementedError(f"{attack_type} is not available in ART")
+
+        attacked = attacker.generate(x=x.detach().cpu())
+        attacked = torch.from_numpy(attacked).to(device)
+
+    elif attack_backend == AttackBackend.FOOLBOX:
+        if attack_type == "FGSM":
+            attacker = fb.attacks.LinfFastGradientAttack()
+
+            attacked, _, _ = attacker(
+                model.foolbox_classifier,
+                x.detach(),
+                torch.from_numpy(y).to(device),
+                epsilons=epsilon,
+            )
+        elif attack_type == "PGD":
+            attacker = fb.attacks.LinfProjectedGradientDescentAttack()
+            attacked, _, _ = attacker(
+                model.foolbox_classifier,
+                x.detach(),
+                torch.from_numpy(y).to(device),
+                epsilons=epsilon,
+            )
+        else:
+            raise NotImplementedError(f"{attack_type} is not available in Foolbox")
+    elif attack_backend == AttackBackend.CUSTOM:
+        if attack_type == "FGSM":
+            attacker = FGSM(model, ce_loss)
+            attacked = attacker.run(
+                data=x.detach(), target=torch.from_numpy(y).to(device), epsilon=epsilon
+            )
+        elif attack_type == "PGD":
+            attacker = BIM(model, ce_loss, lims=(0, 1), num_iter=num_iter)
+            attacked = attacker.run(
+                data=x.detach(), target=torch.from_numpy(y).to(device), epsilon=epsilon
+            )
+        elif attack_type == "DeepFool":
+            attacker = DeepFool(model, num_classes=10, num_iter=num_iter)
+            attacked = attacker(x, y)
+        elif attack_type == "CW":
+            attacker = CW(model, lims=(0, 1), num_iter=num_iter)
+            attacked = attacker(x, y)
+        else:
+            raise NotImplementedError(
+                f"{attack_type} is not available as custom implementation"
+            )
     else:
-        raise NotImplementedError(attack_type)
+        raise NotImplementedError(f"Unknown backend {attack_backend}")
 
-    attacked = attacker.generate(x=x.detach().cpu())
+    def _to_tensor(x):
+        return x if torch.is_tensor(x) else torch.from_numpy(x)
 
-    x_adv = torch.cat(
-        [torch.unsqueeze(torch.from_numpy(x), 0) for x in attacked], 0
-    ).to(device)
+    #x_adv = torch.cat([_to_tensor(x) for x in attacked], 0).to(
+    #    device
+    #)
 
-    return x_adv
+    return attacked.detach()
 
 
 def process_sample(
@@ -124,6 +189,7 @@ def process_sample(
     epsilon: float = 0,
     model: typing.Optional[Architecture] = None,
     attack_type: str = "FGSM",
+    attack_backend: str = AttackBackend.ART,
     num_iter: int = 10,
 ):
     # Casting to double
@@ -136,9 +202,11 @@ def process_sample(
         x = adversarial_generation(
             model=model,
             x=x,
+            y=y,
             epsilon=epsilon,
             attack_type=attack_type,
             num_iter=num_iter,
+            attack_backend=attack_backend,
         )
     if noise > 0:
         x = torch.clamp(x + noise * torch.randn(x.size(), device=device), 0, 1).double()
@@ -168,6 +236,7 @@ def get_sample_dataset(
     archi: Architecture = mnist_mlp,
     dataset_size: int = 100,
     attack_type: str = "FGSM",
+    attack_backend: str = AttackBackend.ART,
     num_iter: int = 10,
     offset: int = 0,
     per_class: bool = False,
@@ -183,6 +252,7 @@ def get_sample_dataset(
     logger.info(f"I am going to generate a dataset of {dataset_size} points...")
     logger.info(f"Only successful adversaries ? {'yes' if succ_adv else 'no'}")
     logger.info(f"Which attack ? {attack_type}")
+    logger.info(f"Which backend ? {attack_backend}")
 
     if transfered_attacks:
         pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
@@ -254,6 +324,7 @@ def get_sample_dataset(
                     model=archi,
                     attack_type=attack_type,
                     num_iter=num_iter,
+                    attack_backend=attack_backend,
                 )
 
             # Increasing current_sample_id
