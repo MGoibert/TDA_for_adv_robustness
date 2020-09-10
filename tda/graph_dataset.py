@@ -161,10 +161,18 @@ def adversarial_generation(
             )
         elif attack_type == "DeepFool":
             attacker = DeepFool(model, num_classes=10, num_iter=num_iter)
-            attacked = attacker(x, y)
+            attacked = [
+                attacker(x[i].detach(), torch.tensor(y[i]).to(device))
+                for i in range(len(x))
+            ]
+            attacked = torch.cat([torch.unsqueeze(a, 0) for a in attacked], 0)
         elif attack_type == "CW":
             attacker = CW(model, lims=(0, 1), num_iter=num_iter)
-            attacked = attacker(x, y)
+            attacked = [
+                attacker(x[i].detach(), torch.tensor(y[i]).to(device))
+                for i in range(len(x))
+            ]
+            attacked = torch.cat([torch.unsqueeze(a, 0) for a in attacked], 0)
         else:
             raise NotImplementedError(
                 f"{attack_type} is not available as custom implementation"
@@ -175,9 +183,9 @@ def adversarial_generation(
     def _to_tensor(x):
         return x if torch.is_tensor(x) else torch.from_numpy(x)
 
-    #x_adv = torch.cat([_to_tensor(x) for x in attacked], 0).to(
+    # x_adv = torch.cat([_to_tensor(x) for x in attacked], 0).to(
     #    device
-    #)
+    # )
 
     return attacked.detach()
 

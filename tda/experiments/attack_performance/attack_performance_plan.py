@@ -14,8 +14,8 @@ from tda.rootpath import rootpath, db_path
 base_configs = cartesian_product(
     {
         "dataset_size": [500],
-        "attack_type": ["PGD"],
-        "attack_backend": ["ART", "CUSTOM", "FOOLBOX"],
+        "attack_type": ["DeepFool"],
+        "attack_backend": ["ART", "CUSTOM"],
         "noise": [0.0],
         "all_epsilons": ["0.01;0.1;0.4"],
     }
@@ -36,6 +36,9 @@ for model, dataset, nb_epochs in [
         config["architecture"] = model
         config["dataset"] = dataset
         config["epochs"] = nb_epochs
+
+        if config["attack_type"] not in ["FGSM", "PGD"]:
+            config["all_epsilons"] = "1.0"
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
