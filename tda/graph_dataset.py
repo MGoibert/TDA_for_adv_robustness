@@ -148,6 +148,8 @@ def adversarial_generation(
             attacker = fb.attacks.LinfProjectedGradientDescentAttack()
         elif attack_type == AttackType.DeepFool:
             attacker = fb.attacks.LinfDeepFoolAttack()
+        elif attack_type == AttackType.CW:
+            attacker = fb.attacks.L2CarliniWagnerAttack()
         else:
             raise NotImplementedError(f"{attack_type} is not available in Foolbox")
 

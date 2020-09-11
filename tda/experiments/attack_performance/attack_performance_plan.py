@@ -15,7 +15,7 @@ from tda.graph_dataset import AttackType, AttackBackend
 base_configs = cartesian_product(
     {
         "dataset_size": [500],
-        "attack_type": [AttackType.DeepFool],
+        "attack_type": [AttackType.CW],
         "attack_backend": [
             AttackBackend.CUSTOM,
             AttackBackend.ART,
