@@ -79,6 +79,19 @@ class AttackBackend(object):
     ART = "ART"
 
 
+class AttackType(object):
+    FGSM = "FGSM"
+    PGD = "PGD"
+    DeepFool = "DeepFool"
+    CW = "CW"
+    SQUARE = "SQUARE"
+    HOPSKIPJUMP = "HOPSKIPJUMP"
+
+    @staticmethod
+    def require_epsilon(attack_type: "AttackType") -> bool:
+        return attack_type in [AttackType.FGSM, AttackType.PGD]
+
+
 def adversarial_generation(
     model: Architecture,
     x,
@@ -94,16 +107,16 @@ def adversarial_generation(
     x.requires_grad = True
 
     if attack_backend == AttackBackend.ART:
-        if attack_type == "FGSM":
+        if attack_type == AttackType.FGSM:
             attacker = FastGradientMethod(estimator=model.art_classifier, eps=epsilon)
-        elif attack_type == "PGD":
+        elif attack_type == AttackType.PGD:
             attacker = ProjectedGradientDescent(
                 estimator=model.art_classifier,
                 max_iter=num_iter,
                 eps=epsilon,
                 eps_step=2 * epsilon / num_iter,
             )
-        elif attack_type == "DeepFool":
+        elif attack_type == AttackType.DeepFool:
             attacker = DeepFoolArt(classifier=model.art_classifier, max_iter=num_iter)
         elif attack_type == "CW":
             attacker = CarliniL2Method(
@@ -111,10 +124,10 @@ def adversarial_generation(
                 max_iter=num_iter,
                 binary_search_steps=15,
             )
-        elif attack_type == "SQUARE":
+        elif attack_type == AttackType.SQUARE:
             # attacker = SquareAttack(estimator=model.get_art_classifier())
             raise NotImplementedError("Work in progress")
-        elif attack_type == "HOPSKIPJUMP":
+        elif attack_type == AttackType.HOPSKIPJUMP:
             attacker = HopSkipJump(
                 classifier=model.art_classifier,
                 targeted=False,
@@ -129,44 +142,41 @@ def adversarial_generation(
         attacked = torch.from_numpy(attacked).to(device)
 
     elif attack_backend == AttackBackend.FOOLBOX:
-        if attack_type == "FGSM":
+        if attack_type == AttackType.FGSM:
             attacker = fb.attacks.LinfFastGradientAttack()
-
-            attacked, _, _ = attacker(
-                model.foolbox_classifier,
-                x.detach(),
-                torch.from_numpy(y).to(device),
-                epsilons=epsilon,
-            )
-        elif attack_type == "PGD":
+        elif attack_type == AttackType.PGD:
             attacker = fb.attacks.LinfProjectedGradientDescentAttack()
-            attacked, _, _ = attacker(
-                model.foolbox_classifier,
-                x.detach(),
-                torch.from_numpy(y).to(device),
-                epsilons=epsilon,
-            )
+        elif attack_type == AttackType.DeepFool:
+            attacker = fb.attacks.LinfDeepFoolAttack()
         else:
             raise NotImplementedError(f"{attack_type} is not available in Foolbox")
+
+        attacked, _, _ = attacker(
+            model.foolbox_classifier,
+            x.detach(),
+            torch.from_numpy(y).to(device),
+            epsilons=epsilon,
+        )
+
     elif attack_backend == AttackBackend.CUSTOM:
-        if attack_type == "FGSM":
+        if attack_type == AttackType.FGSM:
             attacker = FGSM(model, ce_loss)
             attacked = attacker.run(
                 data=x.detach(), target=torch.from_numpy(y).to(device), epsilon=epsilon
             )
-        elif attack_type == "PGD":
+        elif attack_type == AttackType.PGD:
             attacker = BIM(model, ce_loss, lims=(0, 1), num_iter=num_iter)
             attacked = attacker.run(
                 data=x.detach(), target=torch.from_numpy(y).to(device), epsilon=epsilon
             )
-        elif attack_type == "DeepFool":
+        elif attack_type == AttackType.DeepFool:
             attacker = DeepFool(model, num_classes=10, num_iter=num_iter)
             attacked = [
                 attacker(x[i].detach(), torch.tensor(y[i]).to(device))
                 for i in range(len(x))
             ]
             attacked = torch.cat([torch.unsqueeze(a, 0) for a in attacked], 0)
-        elif attack_type == "CW":
+        elif attack_type == AttackType.CW:
             attacker = CW(model, lims=(0, 1), num_iter=num_iter)
             attacked = [
                 attacker(x[i].detach(), torch.tensor(y[i]).to(device))
@@ -179,9 +189,6 @@ def adversarial_generation(
             )
     else:
         raise NotImplementedError(f"Unknown backend {attack_backend}")
-
-    def _to_tensor(x):
-        return x if torch.is_tensor(x) else torch.from_numpy(x)
 
     # x_adv = torch.cat([_to_tensor(x) for x in attacked], 0).to(
     #    device

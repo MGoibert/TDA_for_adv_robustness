@@ -10,12 +10,17 @@ from tda.models.architectures import (
     cifar_lenet,
 )
 from tda.rootpath import rootpath, db_path
+from tda.graph_dataset import AttackType, AttackBackend
 
 base_configs = cartesian_product(
     {
         "dataset_size": [500],
-        "attack_type": ["DeepFool"],
-        "attack_backend": ["ART", "CUSTOM"],
+        "attack_type": [AttackType.DeepFool],
+        "attack_backend": [
+            AttackBackend.CUSTOM,
+            AttackBackend.ART,
+            AttackBackend.FOOLBOX,
+        ],
         "noise": [0.0],
         "all_epsilons": ["0.01;0.1;0.4"],
     }
@@ -37,7 +42,7 @@ for model, dataset, nb_epochs in [
         config["dataset"] = dataset
         config["epochs"] = nb_epochs
 
-        if config["attack_type"] not in ["FGSM", "PGD"]:
+        if not AttackType.require_epsilon(config["attack_type"]):
             config["all_epsilons"] = "1.0"
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
