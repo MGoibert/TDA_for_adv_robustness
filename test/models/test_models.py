@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from tda.models import get_deep_model
-from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet
+from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet, cifar_toy_resnet
 from tda.dataset.datasets import Dataset
 from tda.tda_logging import get_logger
 
@@ -43,3 +43,22 @@ def test_train_eval():
     eval_modes = [not layer.func.training for layer in archi.layers]
     print(eval_modes)
     assert all(eval_modes)
+
+
+def test_shapes():
+    source_dataset = Dataset("CIFAR10")
+
+    archi, val_acc, test_acc = get_deep_model(
+        dataset=source_dataset,
+        num_epochs=1,
+        architecture=cifar_toy_resnet,
+        with_details=True,
+        force_retrain=True,
+    )
+
+    x, y = source_dataset.train_dataset[0]
+
+    inner_values = archi.forward(x, output="all_inner")
+
+    for key in inner_values:
+        print(f"{key}=>{inner_values[key].shape}")

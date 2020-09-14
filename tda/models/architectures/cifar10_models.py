@@ -37,6 +37,7 @@ cifar_toy_resnet = Architecture(
         LinearLayer(120, 84, activ=F.relu),
         LinearLayer(84, 10),
         SoftMaxLayer(),
+        ConvLayer(6, 16, 5, stride=5)
     ],
-    layer_links=[(-1, 0)] + [(i, i + 1) for i in range(7)],
+    layer_links=[(-1, 0)] + [(i, i + 1) for i in range(7)]+[(0, 8), (8, 4)],
 )

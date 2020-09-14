@@ -5,10 +5,13 @@ from scipy.sparse import coo_matrix
 
 
 class MaxPool2dLayer(Layer):
-    def __init__(self, kernel_size, activ=None):
+    def __init__(self, kernel_size, stride=None, activ=None):
+
+        if stride is None:
+            stride = kernel_size
 
         super().__init__(
-            func=nn.MaxPool2d(kernel_size, return_indices=True), graph_layer=True
+            func=nn.MaxPool2d(kernel_size, stride, return_indices=True), graph_layer=True
         )
 
         self._activ = activ
