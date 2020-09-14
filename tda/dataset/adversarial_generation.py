@@ -77,7 +77,7 @@ def adversarial_generation(
     x,
     y,
     epsilon=0.25,
-    attack_type="FGSM",
+    attack_type=AttackType.FGSM,
     num_iter=10,
     attack_backend: str = AttackBackend.ART,
 ):
@@ -131,7 +131,7 @@ def adversarial_generation(
         elif attack_type == AttackType.DeepFool:
             attacker = fb.attacks.LinfDeepFoolAttack()
         elif attack_type == AttackType.CW:
-            attacker = fb.attacks.L2CarliniWagnerAttack()
+            attacker = fb.attacks.L2CarliniWagnerAttack(steps=num_iter)
         else:
             raise NotImplementedError(f"{attack_type} is not available in Foolbox")
 

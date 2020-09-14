@@ -57,8 +57,6 @@ class Architecture(nn.Module):
 
         self.is_trained = False
 
-        self.art_classifier = None
-
         self.epochs = 0
         self.train_noise = 0.0
         self.tot_prune_percentile = 0.0
