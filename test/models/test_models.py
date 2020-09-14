@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from tda.models import get_deep_model
-from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet, cifar_toy_resnet
+from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet, cifar_toy_resnet, cifar_resnet_1
 from tda.dataset.datasets import Dataset
 from tda.tda_logging import get_logger
 

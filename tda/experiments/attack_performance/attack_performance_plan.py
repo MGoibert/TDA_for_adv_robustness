@@ -9,6 +9,7 @@ from tda.models.architectures import (
     svhn_lenet,
     cifar_lenet,
     cifar_toy_resnet,
+    cifar_resnet_1,
 )
 from tda.rootpath import rootpath, db_path
 from tda.dataset.adversarial_generation import AttackType, AttackBackend
@@ -35,8 +36,9 @@ for model, dataset, nb_epochs in [
     # [mnist_lenet.name, "MNIST", 50],
     # [fashion_mnist_lenet.name, "FashionMNIST", 100],
     # [svhn_lenet.name, "SVHN", 300],
-    [cifar_lenet.name, "CIFAR10", 300],
-    [cifar_toy_resnet, "CIFAR10", 300],
+    # [cifar_lenet.name, "CIFAR10", 300],
+    # [cifar_toy_resnet.name, "CIFAR10", 300],
+    [cifar_resnet_1.name, "CIFAR10", 50],
 ]:
     for config in base_configs:
         config = deepcopy(config)

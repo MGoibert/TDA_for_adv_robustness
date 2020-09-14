@@ -27,3 +27,9 @@ class Layer(object):
         if store_for_graph:
             self._activations = x
         return self.func(sum(x.values()))
+
+    def to(self, device):
+        self.func.to(device)
+
+    def __str__(self):
+        return self.name or str(self.func)

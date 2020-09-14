@@ -61,11 +61,17 @@ class Architecture(nn.Module):
         self.train_noise = 0.0
         self.tot_prune_percentile = 0.0
 
+        self.to_device(device)
+
+    def to_device(self, device):
+        for layer in self.layers:
+            layer.to(device)
         self.to(device)
 
     def build_matrices(self):
         for layer in self.layers:
             if layer.graph_layer:
+                logger.info(f"Building matrix for layer {layer}")
                 layer.build_matrix()
 
     def get_layer_matrices(self):

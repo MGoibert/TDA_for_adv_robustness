@@ -9,6 +9,6 @@ nb_cuda_devices = torch.cuda.device_count()
 logger.info(f"Found {nb_cuda_devices} devices compatible with CUDA")
 
 if nb_cuda_devices > 0:
-    device = torch.device('cuda')
+    device = torch.device("cuda")
 else:
-    device = torch.device('cpu')
+    device = torch.device("cpu")
