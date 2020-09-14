@@ -7,11 +7,14 @@ from art.attacks.evasion import (
 )
 
 from tda.dataset.custom_attacks import FGSM, BIM, DeepFool, CW
+from tda.tda_logging import get_logger
 
 import foolbox as fb
 import torch
 from tda.devices import device
 from tda.models import Architecture
+
+logger = get_logger("AdvGen")
 
 # One-hot vector based on scalar
 def one_hot(y, num_classes=None):
@@ -82,6 +85,8 @@ def adversarial_generation(
     Create an adversarial example (FGMS only for now)
     """
     x.requires_grad = True
+
+    logger.info(f"Generating for x (shape={x.shape}) and y (shape={y.shape})")
 
     if attack_backend == AttackBackend.ART:
         if attack_type == AttackType.FGSM:
@@ -157,10 +162,9 @@ def adversarial_generation(
             attacked = torch.cat([torch.unsqueeze(a, 0) for a in attacked], 0)
         elif attack_type == AttackType.CW:
             attacker = CW(model, lims=(0, 1), num_iter=num_iter)
-            attacked = [
-                attacker(x[i].detach(), torch.tensor(y[i]).to(device))
-                for i in range(len(x))
-            ]
+            attacked = attacker.run(
+                data=x.detach(), target=torch.from_numpy(y).to(device)
+            )
             attacked = torch.cat([torch.unsqueeze(a, 0) for a in attacked], 0)
         else:
             raise NotImplementedError(
