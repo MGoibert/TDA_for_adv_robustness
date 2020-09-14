@@ -20,7 +20,7 @@ from tda.models.architectures import (
     fashion_mnist_lenet,
     fashion_mnist_mlp,
 )
-from tda.models.datasets import Dataset
+from tda.dataset.datasets import Dataset
 from tda.rootpath import rootpath
 from tda.tda_logging import get_logger
 

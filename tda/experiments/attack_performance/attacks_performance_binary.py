@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from r3d3 import ExperimentDB
 
-from tda.graph_dataset import get_sample_dataset, AttackBackend
+from tda.dataset.graph_dataset import get_sample_dataset, AttackBackend
 from tda.models import Dataset, get_deep_model
 from tda.models.architectures import Architecture
 from tda.models.architectures import get_architecture, svhn_lenet

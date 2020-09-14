@@ -1,5 +1,5 @@
 from tda.protocol import get_protocolar_datasets
-from tda.models.datasets import Dataset
+from tda.dataset.datasets import Dataset
 from tda.models.architectures import get_architecture, mnist_mlp
 from tda.models import get_deep_model
 

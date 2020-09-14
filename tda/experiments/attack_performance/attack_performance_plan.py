@@ -10,7 +10,7 @@ from tda.models.architectures import (
     cifar_lenet,
 )
 from tda.rootpath import rootpath, db_path
-from tda.graph_dataset import AttackType, AttackBackend
+from tda.dataset.adversarial_generation import AttackType, AttackBackend
 
 base_configs = cartesian_product(
     {

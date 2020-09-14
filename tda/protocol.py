@@ -9,7 +9,7 @@ from sklearn.svm import OneClassSVM, SVC
 from sklearn.utils import check_random_state
 
 from tda.embeddings import get_gram_matrix
-from tda.graph_dataset import get_sample_dataset
+from tda.dataset.graph_dataset import get_sample_dataset
 from tda.models import Architecture, Dataset
 from tda.tda_logging import get_logger
 

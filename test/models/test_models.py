@@ -5,7 +5,7 @@ import torch
 
 from tda.models import get_deep_model
 from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet
-from tda.models.datasets import Dataset
+from tda.dataset.datasets import Dataset
 from tda.tda_logging import get_logger
 
 logger = get_logger("test_models")

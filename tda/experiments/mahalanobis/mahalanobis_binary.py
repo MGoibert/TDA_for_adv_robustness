@@ -15,7 +15,7 @@ from r3d3.experiment_db import ExperimentDB
 
 from tda.devices import device
 from tda.embeddings import KernelType
-from tda.graph_dataset import DatasetLine
+from tda.dataset.graph_dataset import DatasetLine
 from tda.tda_logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
