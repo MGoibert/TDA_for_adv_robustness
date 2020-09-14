@@ -238,8 +238,7 @@ def CW_attack(
     Carlini & Wagner attack.
     Untargeted implementation, L2 setup.
     """
-    data = data.unsqueeze(0)
-    batch_size = 1 if len(data.size()) < 4 else len(data)
+    batch_size = len(data)
     att_original = _to_attack_space(data.detach(), lims=lims)
     reconstruct_original = _to_model_space(att_original, lims=lims)
 
@@ -282,7 +281,7 @@ def CW_attack(
 
             for t in range(batch_size):
                 optimizer_CW[t].zero_grad()
-                cost[t].backward(retain_graph=False)
+                cost[t].backward(retain_graph=True)
                 optimizer_CW[t].step()
                 if logits[t].squeeze().argmax(-1, keepdim=True).item() != target[t]:
                     # if found_adv[t] == 0: logger.info(f"!! Found adv !! at BSS = {binary_search_step} and iter = {iteration}")

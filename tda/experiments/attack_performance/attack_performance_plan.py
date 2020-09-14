@@ -17,8 +17,8 @@ base_configs = cartesian_product(
         "dataset_size": [500],
         "attack_type": [AttackType.CW],
         "attack_backend": [
-            # AttackBackend.CUSTOM,
-            # AttackBackend.ART,
+            AttackBackend.CUSTOM,
+            AttackBackend.ART,
             AttackBackend.FOOLBOX,
         ],
         "noise": [0.0],
