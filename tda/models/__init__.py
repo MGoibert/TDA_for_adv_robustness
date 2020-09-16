@@ -186,8 +186,22 @@ def train_network(
         )
     elif model.name == cifar_resnet_1.name:
 
-        def lr(epoch):
+        def lr_old(epoch):
             if epoch < 20:
+                a = (0.12 - 0.008) / 20
+                b = 0.008
+            elif epoch < 40:
+                a = (0.008 - 0.12) / (40 - 20)
+                b = 0.12 - a * 20
+            else:
+                a = (0.0008 - 0.008) / (50 - 40)
+                b = 0.008 - a * 40
+            return a * epoch / 2.0 + b
+
+        def lr(epoch):
+            if epoch > 50:
+                return lr(epoch - 50)
+            elif epoch < 20:
                 a = (0.12 - 0.008) / 20
                 b = 0.008
             elif epoch < 40:

@@ -38,7 +38,7 @@ for model, dataset, nb_epochs in [
     # [svhn_lenet.name, "SVHN", 300],
     # [cifar_lenet.name, "CIFAR10", 300],
     # [cifar_toy_resnet.name, "CIFAR10", 300],
-    [cifar_resnet_1.name, "CIFAR10", 50],
+    [cifar_resnet_1.name, "CIFAR10", 101],
 ]:
     for config in base_configs:
         config = deepcopy(config)
