@@ -12,7 +12,7 @@ from tda.embeddings.persistent_diagrams import (
 )
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph import Graph
-from tda.graph_dataset import DatasetLine
+from tda.dataset.graph_dataset import DatasetLine
 from tda.models import Architecture
 from tda.tda_logging import get_logger
 

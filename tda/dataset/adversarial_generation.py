@@ -79,7 +79,7 @@ def adversarial_generation(
     epsilon=0.25,
     attack_type=AttackType.FGSM,
     num_iter=10,
-    attack_backend: str = AttackBackend.ART,
+    attack_backend: str = AttackBackend.FOOLBOX,
 ):
     """
     Create an adversarial example (FGMS only for now)

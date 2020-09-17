@@ -1,20 +1,16 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
-import pathlib
-import pickle
 import typing
 
 import numpy as np
 
+from tda.cache import cached
+from tda.dataset.graph_dataset import get_sample_dataset
 from tda.graph import Graph
-from tda.graph_dataset import get_sample_dataset
-from tda.tda_logging import get_logger
 from tda.models import Dataset
 from tda.models.architectures import Architecture
-from tda.rootpath import rootpath
-from tda.cache import cached
+from tda.tda_logging import get_logger
 
 logger = get_logger("GraphStats")
 

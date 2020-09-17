@@ -33,7 +33,7 @@ def process_sample(
     epsilon: float = 0,
     model: typing.Optional[Architecture] = None,
     attack_type: str = "FGSM",
-    attack_backend: str = AttackBackend.ART,
+    attack_backend: str = AttackBackend.FOOLBOX,
     num_iter: int = 10,
 ):
     # Casting to double
@@ -80,7 +80,7 @@ def get_sample_dataset(
     archi: Architecture = mnist_mlp,
     dataset_size: int = 100,
     attack_type: str = "FGSM",
-    attack_backend: str = AttackBackend.ART,
+    attack_backend: str = AttackBackend.FOOLBOX,
     num_iter: int = 10,
     offset: int = 0,
     per_class: bool = False,
