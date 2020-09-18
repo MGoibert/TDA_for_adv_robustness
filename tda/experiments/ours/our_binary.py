@@ -22,7 +22,7 @@ from tda.rootpath import db_path
 from tda.tda_logging import get_logger
 from tda.threshold_underoptimized_edges import process_thresholds_underopt
 from tda.thresholds import process_thresholds
-from tda.graph_stats import get_stats
+from tda.graph_stats import get_quantiles_helpers
 
 logger = get_logger("Detector")
 start_time = time.time()
@@ -145,12 +145,12 @@ def get_all_embeddings(config: Config):
     if config.sigmoidize:
         logger.info(f"Using inter-class regularization (sigmoid)")
         start_time = time.time()
-        all_weights = get_stats(
+        quantiles_helpers = get_quantiles_helpers(
             dataset=dataset, architecture=architecture, dataset_size=100
         )
         detailed_times["stats"] = time.time() - start_time
     else:
-        all_weights = None
+        quantiles_helpers = None
 
     thresholds = None
     edges_to_keep = None
@@ -221,7 +221,7 @@ def get_all_embeddings(config: Config):
                     thresholds=thresholds,
                     edges_to_keep=edges_to_keep,
                     threshold_strategy=config.threshold_strategy,
-                    all_weights_for_sigmoid=all_weights,
+                    quantiles_helpers_for_sigmoid=quantiles_helpers,
                     thresholds_are_low_pass=config.thresholds_are_low_pass,
                 )
             )

@@ -50,7 +50,7 @@ def get_embedding(
     thresholds: Dict,
     threshold_strategy: str,
     params: Dict = dict(),
-    all_weights_for_sigmoid=None,
+    quantiles_helpers_for_sigmoid=None,
     thresholds_are_low_pass: bool = True,
 ):
 
@@ -61,8 +61,8 @@ def get_embedding(
     else:
         graph = line.graph
 
-    if all_weights_for_sigmoid is not None:
-        graph.sigmoidize(all_weights=all_weights_for_sigmoid)
+    if quantiles_helpers_for_sigmoid is not None:
+        graph.sigmoidize(quantiles_helpers_for_sigmoid=quantiles_helpers_for_sigmoid)
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
     elif threshold_strategy in [

@@ -21,7 +21,7 @@ logger = get_logger("GraphStats")
 
 
 @cached
-def get_stats(
+def get_stats_deleted(
     architecture: Architecture, dataset: Dataset, dataset_size: int
 ) -> (typing.Dict, np.matrix):
     """
@@ -50,15 +50,22 @@ def get_stats(
         )
         for key in graph._edge_dict:
             layer_matrix = graph._edge_dict[key]
+            logger.info("here1")
             if not isinstance(layer_matrix, np.matrix):
+                logger.info(layer_matrix.shape)
                 layer_matrix = layer_matrix.todense()
+            logger.info("here2")
             if key in weights_per_layer:
+                logger.info("here3")
                 if not isinstance(weights_per_layer[key], np.matrix):
                     weights_per_layer[key] = weights_per_layer[key].todense()
+                logger.info("here4")
                 weights_per_layer[key] = np.concatenate(
                     [weights_per_layer[key], layer_matrix]
                 )
+                logger.info("here5")
             else:
+                logger.info("here6")
                 weights_per_layer[key] = layer_matrix
 
     all_weights = dict()
@@ -87,3 +94,82 @@ def get_stats(
         )
 
     return all_weights
+
+
+class HistogramQuantile:
+    """
+    Helper class to compute quantiles without storing too much data.
+    We relies on histograms with a max value and precision and assumes that all values are positives.
+    """
+
+    def __init__(self, max_value: float = 1e3, precision: int = 1e6):
+        self.max_value = max_value
+        self.precision = precision
+        self.tot_val = 0
+
+        self.counts = dict()
+
+    def get_bucket(self, value: float) -> int:
+        if value > self.max_value:
+            return self.precision + 1
+        else:
+            ratio = value / self.max_value
+            return int(self.precision * ratio)
+
+    def add_value(self, value: float):
+        key = self.get_bucket(value)
+        self.counts[key] = self.counts.get(key, 0) + 1
+        self.tot_val += 1
+
+    def get_quantiles(self, qs: typing.List[float]) -> typing.List[float]:
+        # We assume the quantiles we pass are sorted
+        assert qs == sorted(qs)
+
+        covered = 0
+        idx = 0
+
+        ret = list()
+
+        for q in qs:
+            while q * self.tot_val > covered:
+                covered += self.counts.get(idx, 0)
+                idx += 1
+            ret.append(idx * self.max_value / self.precision)
+
+        return ret
+
+
+@cached
+def get_quantiles_helpers(
+    architecture: Architecture, dataset: Dataset, dataset_size: int
+) -> typing.Dict:
+    assert architecture.is_trained
+
+    quantiles_helpers = dict()
+
+    for line in get_sample_dataset(
+        epsilon=0.0,
+        noise=0.0,
+        adv=False,
+        archi=architecture,
+        dataset_size=dataset_size,
+        succ_adv=False,
+        dataset=dataset,
+        compute_graph=True,
+        train=False,
+    ):
+
+        graph: Graph = line.graph
+        logger.info(
+            f"The data point: y = {line.y}, y_pred = {line.y_pred} and adv = {line.y_adv}"
+        )
+        for key in graph._edge_dict:
+            layer_matrix = graph._edge_dict[key]
+
+            if key not in quantiles_helpers:
+                quantiles_helpers[key] = HistogramQuantile()
+            helper: HistogramQuantile = quantiles_helpers[key]
+            for val in layer_matrix.values:
+                helper.add_value(val)
+
+    return quantiles_helpers
