@@ -4,7 +4,7 @@ from r3d3.utils import cartesian_product
 from tda.dataset.adversarial_generation import AttackType, AttackBackend
 from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
 from tda.models.architectures import (
-    cifar_resnet_1
+    cifar_resnet_1, cifar_toy_resnet
 )
 from tda.rootpath import rootpath, db_path
 from copy import deepcopy
@@ -13,7 +13,7 @@ from copy import deepcopy
 base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram, EmbeddingType.RawGraph],
-        "dataset_size": [500],
+        "dataset_size": [100],
         "attack_type": [AttackType.FGSM],
         "attack_backend": [AttackBackend.FOOLBOX],
         "noise": [0.0],
@@ -29,6 +29,13 @@ all_experiments = list()
 
 for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_rawgraph in [
     [
+        cifar_toy_resnet.name,
+        "CIFAR10",
+        300,
+        "0.05",
+        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        True
+    ],[
         cifar_resnet_1.name,
         "CIFAR10",
         100,

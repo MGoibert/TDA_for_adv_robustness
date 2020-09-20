@@ -363,7 +363,7 @@ def get_deep_model(
 
         x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
-        architecture.build_matrices()
+        assert architecture.matrices_are_built is True
         torch.save(architecture, architecture.get_model_savepath(initial=True))
         logger.info(
             f"Saved initial model in {architecture.get_model_savepath(initial=True)}"
@@ -399,7 +399,7 @@ def get_deep_model(
         return architecture, val_accuracy, test_accuracy
 
     # Build matrices
-    architecture.build_matrices()
+    assert architecture.matrices_are_built is True
 
     return architecture
 

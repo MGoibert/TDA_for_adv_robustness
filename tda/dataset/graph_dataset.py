@@ -94,9 +94,13 @@ def get_sample_dataset(
     logger.info(f"OK ! Architecture is ready")
 
     logger.info(f"I am going to generate a dataset of {dataset_size} points...")
-    logger.info(f"Only successful adversaries ? {'yes' if succ_adv else 'no'}")
-    logger.info(f"Which attack ? {attack_type}")
-    logger.info(f"Which backend ? {attack_backend}")
+
+    if adv:
+        logger.info(f"Only successful adversaries ? {'yes' if succ_adv else 'no'}")
+        logger.info(f"Which attack ? {attack_type}")
+        logger.info(f"Which backend ? {attack_backend}")
+    else:
+        logger.info("This dataset will be non-adversarial !")
 
     if transfered_attacks:
         pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"

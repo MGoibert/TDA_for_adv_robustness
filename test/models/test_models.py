@@ -2,9 +2,18 @@ import random
 
 import numpy as np
 import torch
+import pytest
+from functools import reduce
 
-from tda.models import get_deep_model
-from tda.models.architectures import mnist_mlp, Architecture, mnist_lenet, svhn_lenet, cifar_toy_resnet, cifar_resnet_1
+from tda.models import get_deep_model, cifar_lenet
+from tda.models.architectures import (
+    mnist_mlp,
+    Architecture,
+    mnist_lenet,
+    svhn_lenet,
+    cifar_toy_resnet,
+    cifar_resnet_1,
+)
 from tda.dataset.datasets import Dataset
 from tda.tda_logging import get_logger
 
@@ -45,20 +54,44 @@ def test_train_eval():
     assert all(eval_modes)
 
 
-def test_shapes():
-    source_dataset = Dataset("CIFAR10")
+@pytest.mark.parametrize(
+    "dataset, architecture",
+    [
+        ("CIFAR10", cifar_lenet),
+        ("CIFAR10", cifar_toy_resnet),
+        ("CIFAR10", cifar_resnet_1),
+    ],
+)
+def test_shapes(dataset, architecture):
+    source_dataset = Dataset(dataset)
 
-    archi, val_acc, test_acc = get_deep_model(
+    archi = get_deep_model(
         dataset=source_dataset,
         num_epochs=1,
-        architecture=cifar_toy_resnet,
-        with_details=True,
-        force_retrain=True,
+        architecture=architecture,
+        with_details=False,
+        force_retrain=False,
     )
 
     x, y = source_dataset.train_dataset[0]
 
     inner_values = archi.forward(x, output="all_inner")
+    shape = None
+    mat_shapes_for_underopt = dict()
 
     for key in inner_values:
-        print(f"{key}=>{inner_values[key].shape}")
+        print(f"Layer {key}: {archi.layers[key]}")
+        new_shape = inner_values[key].shape
+
+        if shape is not None and isinstance(archi.layers[key].func, torch.nn.Conv2d):
+            outs = reduce(lambda x, y: x * y, list(new_shape), 1)
+            ins = reduce(lambda x, y: x * y, list(shape), 1)
+            print(f"Matrix shape is {ins} x {outs}")
+            mat_shapes_for_underopt[key] = (outs, ins)
+
+        shape = new_shape
+        print(f"New shape is {new_shape}")
+        print("--------")
+
+    mat_shapes_for_underopt = [mat_shapes_for_underopt[k] for k in sorted(mat_shapes_for_underopt.keys())]
+    print(mat_shapes_for_underopt)

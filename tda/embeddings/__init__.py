@@ -62,7 +62,7 @@ def get_embedding(
         graph = line.graph
 
     if quantiles_helpers_for_sigmoid is not None:
-        graph.sigmoidize(quantiles_helpers_for_sigmoid=quantiles_helpers_for_sigmoid)
+        graph.sigmoidize(quantiles_helpers=quantiles_helpers_for_sigmoid)
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
     elif threshold_strategy in [

@@ -74,6 +74,15 @@ class Architecture(nn.Module):
                 logger.info(f"Building matrix for layer {layer}")
                 layer.build_matrix()
 
+    @cached_property
+    def matrices_are_built(self):
+        try:
+            self.build_matrices()
+            done = True
+        except Exception:
+            done = False
+        return done
+
     def get_layer_matrices(self):
         return {
             i: layer.matrix for i, layer in enumerate(self.layers) if layer.graph_layer

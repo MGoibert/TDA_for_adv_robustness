@@ -124,6 +124,9 @@ def get_config() -> Config:
 
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
+
+    logger.info(args.__dict__)
+
     return Config(**args.__dict__)
 
 
@@ -149,6 +152,7 @@ def get_all_embeddings(config: Config):
             dataset=dataset, architecture=architecture, dataset_size=100
         )
         detailed_times["stats"] = time.time() - start_time
+
     else:
         quantiles_helpers = None
 
@@ -206,6 +210,7 @@ def get_all_embeddings(config: Config):
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
+
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
@@ -229,7 +234,9 @@ def get_all_embeddings(config: Config):
         return ret
 
     def process(input_dataset):
+
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
+
         ret = Parallel(n_jobs=config.n_jobs)(
             delayed(embedding_getter)(chunk) for chunk in my_chunks
         )
@@ -323,7 +330,7 @@ def get_all_embeddings(config: Config):
         thresholds,
         stats,
         stats_inf,
-        detailed_times
+        detailed_times,
     )
 
 
@@ -349,7 +356,7 @@ def run_experiment(config: Config):
         thresholds,
         stats,
         stats_inf,
-        detailed_times
+        detailed_times,
     ) = get_all_embeddings(config)
 
     if config.kernel_type == KernelType.RBF:
