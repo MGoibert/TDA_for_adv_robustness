@@ -87,6 +87,7 @@ def get_sample_dataset(
     compute_graph: bool = False,
     transfered_attacks: bool = False,
 ) -> typing.List[DatasetLine]:
+
     logger.info(f"Using source dataset {dataset.name}")
 
     logger.info(f"Checking that the received architecture has been trained")
@@ -122,7 +123,7 @@ def get_sample_dataset(
     current_sample_id = offset
 
     dataset_done = False
-    batch_size = 128
+    batch_size = 32
 
     while not dataset_done and current_sample_id < source_dataset_size:
 

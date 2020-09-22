@@ -1,4 +1,5 @@
 import torch
+import os
 
 from tda.tda_logging import get_logger
 
@@ -12,3 +13,8 @@ if nb_cuda_devices > 0:
     device = torch.device("cuda")
 else:
     device = torch.device("cpu")
+
+if os.environ.get("FORCE_CPU", "0") == "1":
+    device = torch.device("cpu")
+
+logger.info(f"Device is {device}")

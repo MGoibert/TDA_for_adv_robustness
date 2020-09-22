@@ -128,7 +128,6 @@ class Graph(object):
         vertex_offset = [0] + list(
             np.cumsum([shapes[idx] for idx in all_layer_indices])
         )
-        vertex_offset = vertex_offset[:-1]
 
         for source_layer, target_layer in self._edge_dict:
             offset_source = vertex_offset[source_layer + 1]
