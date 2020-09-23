@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from tda.graph import Graph
-from tda.models import cifar_lenet, mnist_lenet
+from tda.models import cifar_lenet, mnist_lenet, cifar_resnet_1
 from tda.models.architectures import (
     Architecture,
     svhn_cnn_simple,
@@ -183,7 +183,8 @@ def test_svhn_graph():
     (mnist_lenet, (28, 28)),
     (svhn_lenet, (3, 32, 32)),
     (cifar_lenet, (3, 32, 32)),
-    (cifar_toy_resnet, (3, 32, 32))
+    (cifar_toy_resnet, (3, 32, 32)),
+    (cifar_resnet_1, (3, 32, 32))
 ])
 def test_graph_cifar_svhn(architecture, shape):
 
