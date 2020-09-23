@@ -2,19 +2,16 @@ import numpy as np
 import pytest
 import torch
 
-from tda.embeddings import get_embedding, EmbeddingType, KernelType
-from tda.embeddings import get_gram_matrix
 from tda.graph import Graph
-from tda.models import get_deep_model, Dataset
+from tda.models import cifar_lenet, mnist_lenet, cifar_resnet_1
 from tda.models.architectures import (
     Architecture,
     svhn_cnn_simple,
     svhn_lenet,
+    cifar_toy_resnet,
 )
-from tda.models.architectures import mnist_mlp, get_architecture
+from tda.models.architectures import mnist_mlp
 from tda.models.layers import LinearLayer, ConvLayer, SoftMaxLayer
-from tda.protocol import get_protocolar_datasets
-from tda.thresholds import process_thresholds
 
 
 def test_simple_graph():
@@ -181,13 +178,23 @@ def test_svhn_graph():
     assert np.linalg.norm(adjacency_matrix.todense()) == 5798210602234079.0
 
 
-def test_svhn_lenet_graph():
+@pytest.mark.parametrize("architecture,shape", [
+    (mnist_mlp, (28, 28)),
+    (mnist_lenet, (28, 28)),
+    (svhn_lenet, (3, 32, 32)),
+    (cifar_lenet, (3, 32, 32)),
+    (cifar_toy_resnet, (3, 32, 32)),
+    (cifar_resnet_1, (3, 32, 32))
+])
+def test_graph_cifar_svhn(architecture, shape):
 
-    simple_example = torch.randn((3, 32, 32))
+    simple_example = torch.randn(shape)
 
-    svhn_lenet.forward(simple_example)
-    svhn_lenet.build_matrices()
+    architecture.forward(simple_example)
+    architecture.build_matrices()
 
-    graph = Graph.from_architecture_and_data_point(svhn_lenet, simple_example)
+    graph = Graph.from_architecture_and_data_point(architecture, simple_example)
 
-    assert len(graph._edge_dict) == svhn_lenet.get_nb_graph_layers()
+    edge_list = graph.get_edge_list()
+
+    print(len(edge_list))

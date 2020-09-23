@@ -83,17 +83,14 @@ class Graph(object):
     #            v = coo_matrix(np.zeros(np.shape(v)))
     #        self._edge_dict[layer_link] = v
 
-    def sigmoidize(self, all_weights, quant=0.999):
+    def sigmoidize(self, quantiles_helpers, quant=0.999):
         for layer_link in self._edge_dict:
             v = self._edge_dict[layer_link]
             # Take median and "good" quantile to scale sigmoid
-            if isinstance(all_weights[layer_link], dict):
-                med, qu = all_weights[layer_link][0.5], all_weights[layer_link][quant]
-            else:
-                med, qu = (
-                    np.quantile(all_weights[layer_link], 0.5),
-                    np.quantile(all_weights[layer_link], quant),
-                )
+            qs = quantiles_helpers[layer_link].get_quantiles([0.5, quant])
+            med = qs[0]
+            qu = qs[1]
+
             k = -1 / (qu - med) * np.log(0.001 / 0.999)
             # Apply sigmoid
             val = 1 / (1 + np.exp(-k * (v.data - med)))
@@ -134,8 +131,8 @@ class Graph(object):
         vertex_offset = vertex_offset[:-1]
 
         for source_layer, target_layer in self._edge_dict:
-            offset_source = vertex_offset[source_layer + 1]
-            offset_target = vertex_offset[target_layer + 1]
+            offset_source = vertex_offset[all_layer_indices.index(source_layer)]
+            offset_target = vertex_offset[all_layer_indices.index(target_layer)]
             mat = self._edge_dict[(source_layer, target_layer)]
 
             for i in range(len(mat.data)):

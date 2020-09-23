@@ -33,7 +33,7 @@ def process_sample(
     epsilon: float = 0,
     model: typing.Optional[Architecture] = None,
     attack_type: str = "FGSM",
-    attack_backend: str = AttackBackend.ART,
+    attack_backend: str = AttackBackend.FOOLBOX,
     num_iter: int = 10,
 ):
     # Casting to double
@@ -80,13 +80,14 @@ def get_sample_dataset(
     archi: Architecture = mnist_mlp,
     dataset_size: int = 100,
     attack_type: str = "FGSM",
-    attack_backend: str = AttackBackend.ART,
+    attack_backend: str = AttackBackend.FOOLBOX,
     num_iter: int = 10,
     offset: int = 0,
     per_class: bool = False,
     compute_graph: bool = False,
     transfered_attacks: bool = False,
 ) -> typing.List[DatasetLine]:
+
     logger.info(f"Using source dataset {dataset.name}")
 
     logger.info(f"Checking that the received architecture has been trained")
@@ -94,9 +95,13 @@ def get_sample_dataset(
     logger.info(f"OK ! Architecture is ready")
 
     logger.info(f"I am going to generate a dataset of {dataset_size} points...")
-    logger.info(f"Only successful adversaries ? {'yes' if succ_adv else 'no'}")
-    logger.info(f"Which attack ? {attack_type}")
-    logger.info(f"Which backend ? {attack_backend}")
+
+    if adv:
+        logger.info(f"Only successful adversaries ? {'yes' if succ_adv else 'no'}")
+        logger.info(f"Which attack ? {attack_type}")
+        logger.info(f"Which backend ? {attack_backend}")
+    else:
+        logger.info("This dataset will be non-adversarial !")
 
     if transfered_attacks:
         pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
@@ -118,7 +123,7 @@ def get_sample_dataset(
     current_sample_id = offset
 
     dataset_done = False
-    batch_size = 128
+    batch_size = 32
 
     while not dataset_done and current_sample_id < source_dataset_size:
 

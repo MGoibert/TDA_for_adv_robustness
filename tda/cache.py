@@ -42,6 +42,9 @@ def cached(my_func):
             )
             return torch.load(cache_path)
         else:
+            logger.info(
+                f"No cache found in {cache_path} for the call to {my_func.__name__}"
+            )
             ret = my_func(**kw)
             logger.info(
                 f"Creating cache file {cache_path} for the call to {my_func.__name__}"

@@ -1,0 +1,235 @@
+from .architecture import Architecture
+from .svhn_models import svhn_preprocess
+from tda.models.layers import (
+    ConvLayer,
+    BatchNorm2d,
+    ReluLayer,
+    AvgPool2dLayer,
+    LinearLayer,
+    SoftMaxLayer,
+)
+import torch.nn.functional as F
+
+cifar_resnet_1 = Architecture(
+    name="cifar_resnet_1",
+    preprocess=svhn_preprocess,
+    layers=[
+        # 1st layer / no stack or block
+        ConvLayer(
+            in_channels=3,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        #  Stack 1
+        # Block a
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=64),
+        ReluLayer(),
+        # Block b
+        ConvLayer(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=64, activ=F.relu),
+        ConvLayer(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=64),
+        ReluLayer(),
+        # Stack 2
+        # Block a
+        ConvLayer(
+            in_channels=64,
+            out_channels=128,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=128, activ=F.relu),
+        ConvLayer(
+            in_channels=128,
+            out_channels=128,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=128),
+        ReluLayer(),
+        # Block b
+        ConvLayer(
+            in_channels=128,
+            out_channels=128,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=128, activ=F.relu),
+        ConvLayer(
+            in_channels=128,
+            out_channels=128,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=128),
+        ReluLayer(),
+        # Stack 3
+        # Block a
+        ConvLayer(
+            in_channels=128,
+            out_channels=256,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=256, activ=F.relu),
+        ConvLayer(
+            in_channels=256,
+            out_channels=256,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=256),
+        ReluLayer(),
+        # Block b
+        ConvLayer(
+            in_channels=256,
+            out_channels=256,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=256, activ=F.relu),
+        ConvLayer(
+            in_channels=256,
+            out_channels=256,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=256),
+        ReluLayer(),
+        # Stack 4
+        # Block a
+        ConvLayer(
+            in_channels=256,
+            out_channels=512,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=512, activ=F.relu),
+        ConvLayer(
+            in_channels=512,
+            out_channels=512,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=512),
+        ReluLayer(),
+        # Block b
+        ConvLayer(
+            in_channels=512,
+            out_channels=512,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=512, activ=F.relu),
+        ConvLayer(
+            in_channels=512,
+            out_channels=512,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        ),
+        BatchNorm2d(channels=512),
+        ReluLayer(),
+        # End part
+        AvgPool2dLayer(kernel_size=4),
+        LinearLayer(512, 10),
+        SoftMaxLayer(),
+        # Layer to reduce dimension in residual blocks
+        ConvLayer(
+            in_channels=64,
+            out_channels=128,
+            kernel_size=1,
+            stride=2,
+            padding=0,
+            bias=False,
+        ),
+        ConvLayer(
+            in_channels=128,
+            out_channels=256,
+            kernel_size=1,
+            stride=2,
+            padding=0,
+            bias=False,
+        ),
+        ConvLayer(
+            in_channels=256,
+            out_channels=512,
+            kernel_size=1,
+            stride=2,
+            padding=0,
+            bias=False,
+        ),
+    ],
+    layer_links=[(i - 1, i) for i in range(45)]
+    + [
+        (1, 6),
+        (6, 11),
+        (16, 21),
+        (26, 31),
+        (36, 41),
+        (11, 45),
+        (45, 16),
+        (21, 46),
+        (46, 26),
+        (31, 47),
+        (47, 36),
+    ],
+)

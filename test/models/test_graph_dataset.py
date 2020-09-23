@@ -1,4 +1,4 @@
-from tda.graph_dataset import get_sample_dataset
+from tda.dataset.graph_dataset import get_sample_dataset
 from tda.dataset.datasets import Dataset
 from tda.models import get_deep_model
 from tda.models.architectures import mnist_mlp, get_architecture

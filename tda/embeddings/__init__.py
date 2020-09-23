@@ -12,7 +12,7 @@ from tda.embeddings.persistent_diagrams import (
 )
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph import Graph
-from tda.graph_dataset import DatasetLine
+from tda.dataset.graph_dataset import DatasetLine
 from tda.models import Architecture
 from tda.tda_logging import get_logger
 
@@ -49,8 +49,7 @@ def get_embedding(
     edges_to_keep,
     thresholds: Dict,
     threshold_strategy: str,
-    params: Dict = dict(),
-    all_weights_for_sigmoid=None,
+    quantiles_helpers_for_sigmoid=None,
     thresholds_are_low_pass: bool = True,
 ):
 
@@ -61,8 +60,8 @@ def get_embedding(
     else:
         graph = line.graph
 
-    if all_weights_for_sigmoid is not None:
-        graph.sigmoidize(all_weights=all_weights_for_sigmoid)
+    if quantiles_helpers_for_sigmoid is not None:
+        graph.sigmoidize(quantiles_helpers=quantiles_helpers_for_sigmoid)
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
     elif threshold_strategy in [
@@ -78,9 +77,13 @@ def get_embedding(
         )
 
     if embedding_type == EmbeddingType.PersistentDiagram:
-        return compute_dgm_from_graph(graph)
+        dgm = compute_dgm_from_graph(graph)
+        del graph
+        return dgm
     elif embedding_type == EmbeddingType.RawGraph:
-        return to_sparse_vector(graph.get_adjacency_matrix())
+        mat = to_sparse_vector(graph.get_adjacency_matrix())
+        del graph
+        return mat
     else:
         raise NotImplementedError(embedding_type)
 

@@ -8,6 +8,8 @@ from tda.models.architectures import (
     fashion_mnist_lenet,
     svhn_lenet,
     cifar_lenet,
+    cifar_toy_resnet,
+    cifar_resnet_1,
 )
 from tda.rootpath import rootpath, db_path
 from tda.dataset.adversarial_generation import AttackType, AttackBackend
@@ -15,10 +17,10 @@ from tda.dataset.adversarial_generation import AttackType, AttackBackend
 base_configs = cartesian_product(
     {
         "dataset_size": [500],
-        "attack_type": [AttackType.CW],
+        "attack_type": [AttackType.FGSM],
         "attack_backend": [
-            AttackBackend.CUSTOM,
-            AttackBackend.ART,
+            # AttackBackend.CUSTOM,
+            # AttackBackend.ART,
             AttackBackend.FOOLBOX,
         ],
         "noise": [0.0],
@@ -31,10 +33,12 @@ binary = f"{rootpath}/tda/experiments/attack_performance/attacks_performance_bin
 all_experiments = list()
 
 for model, dataset, nb_epochs in [
-    [mnist_lenet.name, "MNIST", 50],
-    [fashion_mnist_lenet.name, "FashionMNIST", 100],
-    [svhn_lenet.name, "SVHN", 300],
-    [cifar_lenet.name, "CIFAR10", 300],
+    # [mnist_lenet.name, "MNIST", 50],
+    # [fashion_mnist_lenet.name, "FashionMNIST", 100],
+    # [svhn_lenet.name, "SVHN", 300],
+    # [cifar_lenet.name, "CIFAR10", 300],
+    # [cifar_toy_resnet.name, "CIFAR10", 300],
+    [cifar_resnet_1.name, "CIFAR10", 100],
 ]:
     for config in base_configs:
         config = deepcopy(config)

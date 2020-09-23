@@ -35,7 +35,7 @@ class AvgPool2dLayer(Layer):
                 for i in range(self._k)
             ]
             m[:, idx_out][idx] = (
-                1.0 / (2 * self._k) * self._activation_values.flatten()[idx]
+                1.0 / (2 * self._k) * self._activation_values.flatten().cpu().detach()[idx]
             )
         return {
             parentidx: coo_matrix(np.matrix(m.transpose()))

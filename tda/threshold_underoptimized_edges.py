@@ -165,6 +165,31 @@ def process_thresholds_underopt(
         mat_shapes = [[4704, 1024], [1600, 1176]]
     elif architecture.name in ["svhn_lenet_bandw2"]:
         mat_shapes = [[2352, 1024], [600, 588]]
+    elif architecture.name in ["cifar_toy_resnet"]:
+        mat_shapes = [[4704, 3072], [1600, 1176], [400, 4704]]
+    elif architecture.name in ["cifar_resnet_1"]:
+        mat_shapes = [
+            (65536, 3072),
+            (65536, 65536),
+            (65536, 65536),
+            (65536, 65536),
+            (65536, 65536),
+            (32768, 32768),
+            (32768, 32768),
+            (32768, 32768),
+            (32768, 32768),
+            (16384, 16384),
+            (16384, 16384),
+            (16384, 16384),
+            (16384, 16384),
+            (8192, 8192),
+            (8192, 8192),
+            (8192, 8192),
+            (8192, 8192),
+            (32768, 65536),
+            (16384, 32768),
+            (8192, 16384),
+        ]
     else:
         mat_shapes = None
 
@@ -173,6 +198,7 @@ def process_thresholds_underopt(
     for layer_idx, layer in enumerate(architecture.layers):
         if isinstance(layer.func, torch.nn.Conv2d):
             kernel_shape = layer.func.weight.size()
+
             underoptimized_edges[layer_idx] = kernel_to_edge_idx(
                 underoptimized_edges[layer_idx], kernel_shape, mat_shapes[c]
             )

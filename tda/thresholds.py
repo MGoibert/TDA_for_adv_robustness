@@ -1,7 +1,7 @@
 import typing
 import numpy as np
 
-from tda.graph_stats import get_stats
+from tda.graph_stats import get_quantiles_helpers
 from tda.models import Architecture, Dataset
 from tda.tda_logging import get_logger
 
@@ -64,7 +64,7 @@ def process_thresholds(
 
     if any([threshold <= 1 for threshold in thresholds.values()]):
         # In this case, we assume we have threshold as quantiles
-        all_weights = get_stats(
+        quantiles_helpers = get_quantiles_helpers(
                 dataset=dataset,
                 architecture=architecture,
                 dataset_size=dataset_size
@@ -73,7 +73,7 @@ def process_thresholds(
     for key in thresholds:
         threshold = thresholds[key]
         if 0 < threshold <= 1:
-            thresholds[key] = np.quantile(all_weights[key], float(threshold))
+            thresholds[key] = quantiles_helpers[key].get_quantiles([float(threshold)])[0]
             logger.info(f"Link {key}: threshold={thresholds[key]} (quantile {threshold})")
         else:
             logger.info(f"Link {key}: threshold={threshold}")

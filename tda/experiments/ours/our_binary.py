@@ -22,7 +22,7 @@ from tda.rootpath import db_path
 from tda.tda_logging import get_logger
 from tda.threshold_underoptimized_edges import process_thresholds_underopt
 from tda.thresholds import process_thresholds
-from tda.graph_stats import get_stats
+from tda.graph_stats import get_quantiles_helpers
 
 logger = get_logger("Detector")
 start_time = time.time()
@@ -124,6 +124,9 @@ def get_config() -> Config:
 
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
+
+    logger.info(args.__dict__)
+
     return Config(**args.__dict__)
 
 
@@ -145,12 +148,13 @@ def get_all_embeddings(config: Config):
     if config.sigmoidize:
         logger.info(f"Using inter-class regularization (sigmoid)")
         start_time = time.time()
-        all_weights = get_stats(
+        quantiles_helpers = get_quantiles_helpers(
             dataset=dataset, architecture=architecture, dataset_size=100
         )
         detailed_times["stats"] = time.time() - start_time
+
     else:
-        all_weights = None
+        quantiles_helpers = None
 
     thresholds = None
     edges_to_keep = None
@@ -206,6 +210,7 @@ def get_all_embeddings(config: Config):
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
+
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
@@ -221,7 +226,7 @@ def get_all_embeddings(config: Config):
                     thresholds=thresholds,
                     edges_to_keep=edges_to_keep,
                     threshold_strategy=config.threshold_strategy,
-                    all_weights_for_sigmoid=all_weights,
+                    quantiles_helpers_for_sigmoid=quantiles_helpers,
                     thresholds_are_low_pass=config.thresholds_are_low_pass,
                 )
             )
@@ -229,7 +234,9 @@ def get_all_embeddings(config: Config):
         return ret
 
     def process(input_dataset):
+
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
+
         ret = Parallel(n_jobs=config.n_jobs)(
             delayed(embedding_getter)(chunk) for chunk in my_chunks
         )
@@ -323,7 +330,7 @@ def get_all_embeddings(config: Config):
         thresholds,
         stats,
         stats_inf,
-        detailed_times
+        detailed_times,
     )
 
 
@@ -349,7 +356,7 @@ def run_experiment(config: Config):
         thresholds,
         stats,
         stats_inf,
-        detailed_times
+        detailed_times,
     ) = get_all_embeddings(config)
 
     if config.kernel_type == KernelType.RBF:
