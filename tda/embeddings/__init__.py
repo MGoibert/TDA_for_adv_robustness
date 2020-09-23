@@ -49,7 +49,6 @@ def get_embedding(
     edges_to_keep,
     thresholds: Dict,
     threshold_strategy: str,
-    params: Dict = dict(),
     quantiles_helpers_for_sigmoid=None,
     thresholds_are_low_pass: bool = True,
 ):
@@ -78,9 +77,13 @@ def get_embedding(
         )
 
     if embedding_type == EmbeddingType.PersistentDiagram:
-        return compute_dgm_from_graph(graph)
+        dgm = compute_dgm_from_graph(graph)
+        del graph
+        return dgm
     elif embedding_type == EmbeddingType.RawGraph:
-        return to_sparse_vector(graph.get_adjacency_matrix())
+        mat = to_sparse_vector(graph.get_adjacency_matrix())
+        del graph
+        return mat
     else:
         raise NotImplementedError(embedding_type)
 
