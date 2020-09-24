@@ -60,6 +60,7 @@ class Architecture(nn.Module):
         self.epochs = 0
         self.train_noise = 0.0
         self.tot_prune_percentile = 0.0
+        self.default_forward_mode = None
 
         self.to_device(device)
 
@@ -67,6 +68,9 @@ class Architecture(nn.Module):
         for layer in self.layers:
             layer.to(device)
         self.to(device)
+
+    def set_default_forward_mode(self, mode):
+        self.default_forward_mode = mode
 
     def build_matrices(self):
         for layer in self.layers:
@@ -197,6 +201,14 @@ class Architecture(nn.Module):
         return ret
 
     def forward(self, x, store_for_graph=False, output="final"):
+
+        # Override output mode if needed
+        if (
+            hasattr(self, "default_forward_mode")
+            and self.default_forward_mode is not None
+        ):
+            output = self.default_forward_mode
+
         # List to store intermediate results if needed
 
         if not torch.is_tensor(x):
