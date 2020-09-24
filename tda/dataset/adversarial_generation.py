@@ -87,7 +87,6 @@ def adversarial_generation(
     x.requires_grad = True
 
     logger.info(f"Generating for x (shape={x.shape}) and y (shape={y.shape})")
-    model.set_default_forward_mode("presoft")
 
     if attack_backend == AttackBackend.ART:
         if attack_type == AttackType.FGSM:
@@ -125,6 +124,9 @@ def adversarial_generation(
         attacked = torch.from_numpy(attacked).to(device)
 
     elif attack_backend == AttackBackend.FOOLBOX:
+
+        model.set_default_forward_mode("presoft")
+
         if attack_type == AttackType.FGSM:
             attacker = fb.attacks.LinfFastGradientAttack()
         elif attack_type == AttackType.PGD:
@@ -144,6 +146,8 @@ def adversarial_generation(
             torch.from_numpy(y).to(device),
             epsilons=epsilon,
         )
+
+        model.set_default_forward_mode(None)
 
     elif attack_backend == AttackBackend.CUSTOM:
         if attack_type == AttackType.FGSM:
@@ -175,11 +179,5 @@ def adversarial_generation(
             )
     else:
         raise NotImplementedError(f"Unknown backend {attack_backend}")
-
-    # x_adv = torch.cat([_to_tensor(x) for x in attacked], 0).to(
-    #    device
-    # )
-
-    model.set_default_forward_mode(None)
 
     return attacked.detach()
