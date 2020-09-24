@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import OneClassSVM, SVC
 from sklearn.utils import check_random_state
 
+from tda.dataset.adversarial_generation import AttackBackend
 from tda.embeddings import get_gram_matrix
 from tda.dataset.graph_dataset import get_sample_dataset
 from tda.models import Architecture, Dataset
@@ -24,6 +25,7 @@ def get_protocolar_datasets(
     dataset_size: int,
     attack_type: str,
     all_epsilons: typing.List,
+    attack_backend: str = AttackBackend.FOOLBOX,
     compute_graph: bool = False,
     transfered_attacks: bool = False,
 ):
@@ -38,6 +40,7 @@ def get_protocolar_datasets(
         succ_adv=succ_adv,
         archi=archi,
         attack_type=attack_type,
+        attack_backend=attack_backend,
         dataset_size=dataset_size // 2,  # 8,
         offset=0,
         compute_graph=compute_graph,
@@ -54,6 +57,7 @@ def get_protocolar_datasets(
             succ_adv=succ_adv,
             archi=archi,
             attack_type=attack_type,
+            attack_backend=attack_backend,
             dataset_size=dataset_size // 2,  # 8,
             offset=0,
             compute_graph=compute_graph,
@@ -69,6 +73,7 @@ def get_protocolar_datasets(
         succ_adv=succ_adv,
         archi=archi,
         attack_type=attack_type,
+        attack_backend=attack_backend,
         dataset_size=dataset_size // 2,  # 8,
         offset=dataset_size // 2,  # 8,
         compute_graph=compute_graph,
@@ -85,6 +90,7 @@ def get_protocolar_datasets(
             succ_adv=succ_adv,
             archi=archi,
             attack_type=attack_type,
+            attack_backend=attack_backend,
             dataset_size=dataset_size // 2,  # 8,
             offset=dataset_size // 2,  # 8,
             compute_graph=compute_graph,
@@ -103,6 +109,7 @@ def get_protocolar_datasets(
             succ_adv=succ_adv,
             archi=archi,
             attack_type=attack_type,
+            attack_backend=attack_backend,
             epsilon=epsilon,
             num_iter=100,
             dataset_size=dataset_size,

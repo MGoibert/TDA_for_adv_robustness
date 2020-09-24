@@ -13,6 +13,7 @@ from joblib import delayed, Parallel
 from r3d3.experiment_db import ExperimentDB
 from sklearn.decomposition import PCA
 
+from tda.dataset.adversarial_generation import AttackType, AttackBackend
 from tda.embeddings import get_embedding, EmbeddingType, KernelType, ThresholdStrategy
 from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
 from tda.models import get_deep_model, Dataset
@@ -57,6 +58,8 @@ class Config(typing.NamedTuple):
     successful_adv: int
     # Type of attack (FGSM, PGD, CW)
     attack_type: str
+    # Type of attack (CUSTOM, ART, FOOLBOX)
+    attack_backend: str
     # Parameter used by DeepFool and CW
     num_iter: int
     # PCA Parameter for RawGraph (-1 = No PCA)
@@ -108,7 +111,8 @@ def get_config() -> Config:
     parser.add_argument("--dataset_size", type=int, default=100)
     parser.add_argument("--successful_adv", type=int, default=1)
     parser.add_argument("--raw_graph_pca", type=int, default=-1)
-    parser.add_argument("--attack_type", type=str, default="FGSM")
+    parser.add_argument("--attack_type", type=str, default=AttackType.FGSM)
+    parser.add_argument("--attack_backend", type=str, default=AttackBackend.FOOLBOX)
     parser.add_argument("--transfered_attacks", type=str2bool, default=False)
     parser.add_argument("--num_iter", type=int, default=10)
     parser.add_argument("--n_jobs", type=int, default=1)
@@ -202,6 +206,7 @@ def get_all_embeddings(config: Config):
         archi=architecture,
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
+        attack_backend=config.attack_backend,
         all_epsilons=all_epsilons,
         compute_graph=False,
         transfered_attacks=config.transfered_attacks,

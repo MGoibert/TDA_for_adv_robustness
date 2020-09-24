@@ -5,6 +5,7 @@ import argparse
 import time
 import typing
 import pathlib
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -89,7 +90,7 @@ def compute_adv_accuracy(
     dataset_size: int = 100,
     attack_type: str = "FGSM",
     num_iter: int = 50,
-) -> float:
+) -> (float, typing.List):
     # Else we have to compute the dataset first
 
     dataset = get_sample_dataset(
@@ -112,7 +113,7 @@ def compute_adv_accuracy(
     assert len(dataset) == dataset_size
 
     corr = sum([1 for line in dataset if line.y == line.y_pred])
-    return corr / dataset_size
+    return corr / dataset_size, [line.x for line in dataset[:8]]
 
 
 def get_all_accuracies(config: Config):
@@ -145,7 +146,7 @@ def get_all_accuracies(config: Config):
 
     for epsilon in all_epsilons:
 
-        adversarial_acc = compute_adv_accuracy(
+        adversarial_acc, some_images = compute_adv_accuracy(
             epsilon=epsilon,
             noise=config.noise,
             dataset=dataset,
@@ -157,6 +158,9 @@ def get_all_accuracies(config: Config):
 
         logger.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
         accuracies[epsilon] = adversarial_acc
+
+        with open(config.result_path+f"/images_eps_{epsilon}.pickle", "wb") as fw:
+            pickle.dump(some_images, fw)
 
     return accuracies
 
