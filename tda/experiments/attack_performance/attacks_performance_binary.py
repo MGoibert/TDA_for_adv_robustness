@@ -113,7 +113,10 @@ def compute_adv_accuracy(
     assert len(dataset) == dataset_size
 
     corr = sum([1 for line in dataset if line.y == line.y_pred])
-    return corr / dataset_size, [line.x for line in dataset[:8]]
+
+    some_images = [line.x for line in dataset if line.y != line.y_pred][:8]
+
+    return corr / dataset_size, some_images
 
 
 def get_all_accuracies(config: Config):
@@ -159,7 +162,7 @@ def get_all_accuracies(config: Config):
         logger.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
         accuracies[epsilon] = adversarial_acc
 
-        with open(config.result_path+f"/images_eps_{epsilon}.pickle", "wb") as fw:
+        with open(config.result_path + f"/images_eps_{epsilon}.pickle", "wb") as fw:
             pickle.dump(some_images, fw)
 
     return accuracies

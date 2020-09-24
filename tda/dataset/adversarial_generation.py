@@ -127,9 +127,11 @@ def adversarial_generation(
         if attack_type == AttackType.FGSM:
             attacker = fb.attacks.LinfFastGradientAttack()
         elif attack_type == AttackType.PGD:
-            attacker = fb.attacks.LinfProjectedGradientDescentAttack()
+            attacker = fb.attacks.LinfProjectedGradientDescentAttack(
+                steps=num_iter, random_start=False, rel_stepsize=2 / num_iter
+            )
         elif attack_type == AttackType.DeepFool:
-            attacker = fb.attacks.LinfDeepFoolAttack()
+            attacker = fb.attacks.LinfDeepFoolAttack(loss="crossentropy")
         elif attack_type == AttackType.CW:
             attacker = fb.attacks.L2CarliniWagnerAttack(steps=num_iter)
         else:
