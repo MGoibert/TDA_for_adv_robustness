@@ -5,10 +5,9 @@ import fwg
 import numpy as np
 from joblib import Parallel, delayed
 
-from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.persistent_diagrams import (
     sliced_wasserstein_kernel,
-    compute_dgm_from_graph
+    compute_dgm_from_graph,
 )
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph import Graph
@@ -151,7 +150,7 @@ def get_gram_matrix(
     embeddings_in: List,
     embeddings_out: Optional[List] = None,
     params: List = [dict()],
-    n_jobs: int = 1
+    n_jobs: int = 1,
 ):
     """
     Compute the gram matrix of the given embeddings
