@@ -1,15 +1,5 @@
-from art.attacks.evasion import (
-    FastGradientMethod,
-    ProjectedGradientDescent,
-    DeepFool as DeepFoolArt,
-    CarliniL2Method,
-    HopSkipJump,
-)
-
-from tda.dataset.custom_attacks import FGSM, BIM, DeepFool, CW
 from tda.tda_logging import get_logger
 
-import foolbox as fb
 import torch
 from tda.devices import device
 from tda.models import Architecture
@@ -66,6 +56,7 @@ class AttackType(object):
     CW = "CW"
     SQUARE = "SQUARE"
     HOPSKIPJUMP = "HOPSKIPJUMP"
+    BOUNDARY = "BOUNDARY"
 
     @staticmethod
     def require_epsilon(attack_type: "AttackType") -> bool:
@@ -89,6 +80,15 @@ def adversarial_generation(
     logger.info(f"Generating for x (shape={x.shape}) and y (shape={y.shape})")
 
     if attack_backend == AttackBackend.ART:
+
+        from art.attacks.evasion import (
+            FastGradientMethod,
+            ProjectedGradientDescent,
+            DeepFool as DeepFoolArt,
+            CarliniL2Method,
+            HopSkipJump,
+        )
+
         if attack_type == AttackType.FGSM:
             attacker = FastGradientMethod(estimator=model.art_classifier, eps=epsilon)
         elif attack_type == AttackType.PGD:
@@ -125,6 +125,8 @@ def adversarial_generation(
 
     elif attack_backend == AttackBackend.FOOLBOX:
 
+        import foolbox as fb
+
         model.set_default_forward_mode("presoft")
 
         if attack_type == AttackType.FGSM:
@@ -137,6 +139,11 @@ def adversarial_generation(
             attacker = fb.attacks.LinfDeepFoolAttack(loss="crossentropy")
         elif attack_type == AttackType.CW:
             attacker = fb.attacks.L2CarliniWagnerAttack(steps=num_iter)
+        elif attack_type == AttackType.BOUNDARY:
+            attacker = fb.attacks.BoundaryAttack(
+                steps=100, spherical_step=1e-3, source_step=1e-3
+            )
+            x = x.float()
         else:
             raise NotImplementedError(f"{attack_type} is not available in Foolbox")
 
@@ -150,6 +157,9 @@ def adversarial_generation(
         model.set_default_forward_mode(None)
 
     elif attack_backend == AttackBackend.CUSTOM:
+
+        from tda.dataset.custom_attacks import FGSM, BIM, DeepFool, CW
+
         if attack_type == AttackType.FGSM:
             attacker = FGSM(model, ce_loss)
             attacked = attacker.run(
@@ -180,4 +190,4 @@ def adversarial_generation(
     else:
         raise NotImplementedError(f"Unknown backend {attack_backend}")
 
-    return attacked.detach()
+    return attacked.detach().double()

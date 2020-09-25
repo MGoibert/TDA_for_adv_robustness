@@ -17,10 +17,8 @@ from tda.dataset.adversarial_generation import AttackType, AttackBackend
 base_configs = cartesian_product(
     {
         "dataset_size": [500],
-        "attack_type": [AttackType.FGSM],
+        "attack_type": [AttackType.BOUNDARY],
         "attack_backend": [
-            AttackBackend.CUSTOM,
-            # AttackBackend.ART,
             AttackBackend.FOOLBOX,
         ],
         "noise": [0.0],
