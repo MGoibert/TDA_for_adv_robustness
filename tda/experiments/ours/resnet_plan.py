@@ -10,7 +10,7 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.RawGraph],
+        "embedding_type": [EmbeddingType.PersistentDiagram],
         "dataset_size": [500],
         "attack_type": [AttackType.PGD, AttackType.CW],
         "attack_backend": [AttackBackend.FOOLBOX],

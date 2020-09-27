@@ -1,5 +1,8 @@
 from r3d3.experiment import R3D3ExperimentPlan, R3D3Experiment
 from r3d3.utils import cartesian_product
+
+from tda.dataset.adversarial_generation import AttackType
+from tda.models import cifar_resnet_1
 from tda.models.architectures import (
     mnist_mlp,
     mnist_lenet,
@@ -15,7 +18,7 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "attack_type": ["FGSM"],
+        "attack_type": [AttackType.PGD, AttackType.CW],
         "noise": [0.0],
         "dataset_size": [500],
         "successful_adv": [1],
@@ -29,12 +32,13 @@ binary = f"{rootpath}/tda/experiments/lid/lid_binary.py"
 all_experiments = list()
 
 for model, dataset, nb_epochs, perc_of_nn, batch_size in [
-    [mnist_mlp.name, "MNIST", 50, 0.1, 250],  # Not benched
-    [mnist_lenet.name, "MNIST", 50, 0.08, 250],
-    [fashion_mnist_mlp.name, "FashionMNIST", 50, 0.1, 250],  # Not benched
-    [fashion_mnist_lenet.name, "FashionMNIST", 100, 0.02, 250],
-    [svhn_lenet.name, "SVHN", 300, 0.1, 250],
-    [cifar_lenet.name, "CIFAR10", 300, 0.3, 100],
+    # [mnist_mlp.name, "MNIST", 50, 0.1, 250],  # Not benched
+    # [mnist_lenet.name, "MNIST", 50, 0.08, 250],
+    # [fashion_mnist_mlp.name, "FashionMNIST", 50, 0.1, 250],  # Not benched
+    # [fashion_mnist_lenet.name, "FashionMNIST", 100, 0.02, 250],
+    # [svhn_lenet.name, "SVHN", 300, 0.1, 250],
+    # [cifar_lenet.name, "CIFAR10", 300, 0.3, 100],
+    [cifar_resnet_1.name, "CIFAR10", 100, 0.3, 100],
 ]:
     for config in base_configs:
         config = deepcopy(config)
@@ -47,5 +51,5 @@ for model, dataset, nb_epochs, perc_of_nn, batch_size in [
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
 experiment_plan = R3D3ExperimentPlan(
-    experiments=all_experiments, max_nb_processes=4, db_path=db_path
+    experiments=all_experiments, max_nb_processes=1, db_path=db_path
 )
