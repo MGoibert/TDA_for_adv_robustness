@@ -148,7 +148,8 @@ def create_lid_dataset(
             output="all_inner",
         )
 
-        lids = np.zeros((actual_batch_size, len(archi.layers) - 1))
+        lids = np.zeros((actual_batch_size, len(archi.layers)))
+        valid_lid_columns = list()
 
         for layer_idx in archi.layer_visit_order:
             if layer_idx == -1:
@@ -157,6 +158,9 @@ def create_lid_dataset(
             if isinstance(archi.layers[layer_idx], SoftMaxLayer):
                 # Skipping softmax
                 continue
+
+            valid_lid_columns.append(layer_idx)
+
             activations_layer = (
                 activations[layer_idx]
                 .reshape(actual_batch_size, -1)
@@ -205,6 +209,7 @@ def create_lid_dataset(
 
                 lids[sample_idx, layer_idx] = lid
 
+        lids = lids[:, valid_lid_columns]
         all_lids.append(lids)
         l2_norms += [line.l2_norm for line in raw_batch]
         linf_norms += [line.linf_norm for line in raw_batch]
