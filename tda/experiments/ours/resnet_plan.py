@@ -68,10 +68,7 @@ for (
         config["sigmoidize"] = sigmoidize_rawgraph
 
         if config["embedding_type"] == EmbeddingType.PersistentDiagram:
-            config["kernel_type"] = KernelType.SlicedWasserstein
             config["sigmoidize"] = True
-        elif config["embedding_type"] == EmbeddingType.RawGraph:
-            config["kernel_type"] = KernelType.RBF
 
         if config["attack_type"] not in ["FGSM", "PGD"]:
             config["all_epsilons"] = "1.0"

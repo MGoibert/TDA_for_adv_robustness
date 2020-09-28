@@ -35,7 +35,7 @@ All our scripts have some common arguments:
 * epochs (number of epochs for the architecture ; see below)
 * dataset_size (we use 500 by default)
 
-Note that all combinations of dataset / architectures are possible. In the paper, we use the following:
+Note that all combinations of dataset / architectures are not possible due to the different shapes of the images. In the paper, we use the following:
 
 | Dataset | Architecture | Nb Epochs  |
 | --- |:---:| ---:|
@@ -49,25 +49,33 @@ For all the combinations, the trained models are provided in the git repository 
 
 ### B) Our method
 
-To improve and set parameters by default as much as possible
+Our hyperparameters are all discussed in the paper but here's a complementary table
+
+| Parameter | Description |
+| --- |---|
+| embedding_type | PersistentDiagram or RawGraph |
+| kernel_type | SlicedWassertein (to be used with Persistent Diagram) or RBF (to be used with RawGraph) |
+| thresholds | The maximum quantile to keep (see paper) expressed as layeridx:value_layeridx:value_ ...
+| sigmoidize | to remove |
+| raw_graph_pca | The dimension of the PCA to be used with RawGraph (deactivated by default) |
+
+Example:
 
 ```bash
 python tda/experiments/ours/our_binary.py \
-    --attack_type FGSM \
-    --embedding_type PersistentDiagram \
+    --attack_type PGD \
     --architecture cifar_resnet_1 \
     --dataset CIFAR10 \
     --epochs 100 \
-    --thresholds 0.05 \
-    --threshold_strategy UnderoptimizedMagnitudeIncrease \
-    --sigmoidize True \
+    --embedding_type PersistentDiagram \
     --kernel_type SlicedWasserstein \
-    --raw_graph_pca -1
+    --thresholds 0.05 \
+    --sigmoidize True
 ```
 
 ### C) LID Baseline
 
-The specific arguments for LID are the batch_size and the percentage of nearest neighbors for the LID estimation.
+The specific arguments for LID are the `batch_size` and the `perc_of_nn` (percentage of nearest neighbors in the batch) for the LID estimation.
 
 Example:
 
@@ -83,7 +91,10 @@ python tda/experiments/lid/lid_binary.py \
 
 ### D) Mahalanobis Baseline
 
-The specific arguments for Mahalanobis are number_of_samples_for_mu_sigma (number of samples used for the estimation) and preproc_epsilon (the )
+The specific arguments for Mahalanobis are `number_of_samples_for_mu_sigma` (number of samples used for the estimation) and `preproc_epsilon`.
+
+Example:
+
 ```bash
 python tda/experiments/mahalanobis/mahalanobis_binary.py \
     --attack_type PGD \

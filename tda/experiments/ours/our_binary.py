@@ -98,10 +98,9 @@ def get_config() -> Config:
     parser.add_argument(
         "--embedding_type", type=str, default=EmbeddingType.PersistentDiagram
     )
-    parser.add_argument("--kernel_type", type=str, default=KernelType.SlicedWasserstein)
     parser.add_argument("--thresholds", type=str, default="0")
     parser.add_argument(
-        "--threshold_strategy", type=str, default=ThresholdStrategy.ActivationValue
+        "--threshold_strategy", type=str, default=ThresholdStrategy.UnderoptimizedMagnitudeIncrease
     )
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--epochs", type=int, default=20)
@@ -128,6 +127,11 @@ def get_config() -> Config:
 
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
+
+    if args.embedding_type == EmbeddingType.PersistentDiagram:
+        args.kernel_type = KernelType.SlicedWasserstein
+    elif args.embedding_type == EmbeddingType.RawGraph:
+        args.kernel_type = KernelType.RBF
 
     logger.info(args.__dict__)
 
