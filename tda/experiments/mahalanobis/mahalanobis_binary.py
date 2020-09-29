@@ -4,10 +4,10 @@
 import argparse
 import os
 import time
-import typing
 import traceback
 import io
 import re
+from typing import Dict, List, NamedTuple, Set, Optional
 
 import numpy as np
 import torch
@@ -32,8 +32,12 @@ if not os.path.exists(plot_path):
 
 my_db = ExperimentDB(db_path=db_path)
 
+# Custom types for better readability
+LayerIndex = int
+ClassIndex = int
 
-class Config(typing.NamedTuple):
+
+class Config(NamedTuple):
     # Number of epochs for the model
     epochs: int
     # Dataset we consider (MNIST, SVHN)
@@ -46,6 +50,8 @@ class Config(typing.NamedTuple):
     attack_type: str
     # Epsilon for the preprocessing step (see the paper)
     preproc_epsilon: float
+    # Selected layers
+    selected_layers: Optional[Set[int]]
     # Noise to consider for the noisy samples
     noise: float
     # Number of sample per class to estimate mu_class and sigma_class
@@ -55,20 +61,22 @@ class Config(typing.NamedTuple):
     # Transfered attacks
     transfered_attacks: bool = False
     # Pruning
-    first_pruned_iter : int = 10
-    prune_percentile : float = 0.0
-    tot_prune_percentile : float = 0.0
+    first_pruned_iter: int = 10
+    prune_percentile: float = 0.0
+    tot_prune_percentile: float = 0.0
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
     run_id: int = 0
 
-    all_epsilons: typing.List[float] = None
+    all_epsilons: List[float] = None
+
 
 def str2bool(value):
-    if value in [True, "True", 'true']:
+    if value in [True, "True", "true"]:
         return True
     else:
         return False
+
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser(
@@ -91,13 +99,56 @@ def get_config() -> Config:
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
+    parser.add_argument("--selected_layers", type=str, default="")
 
     args, _ = parser.parse_known_args()
 
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
 
+    if len(args.selected_layers) > 0:
+        args.selected_layers = set([int(s) for s in args.selected_layers.split(";")])
+    else:
+        args.selected_layers = None
+
     return Config(**args.__dict__)
+
+
+class CovarianceStreamComputer(object):
+    """
+    Helper object to compute covariance matrices and
+    mean of a stream of 1d vectors.
+    """
+
+    def __init__(self, min_count_for_sigma: int = 10, layer_idx: int = -1):
+        self.sums: Dict[ClassIndex, np.ndarray] = dict()
+        self.counts: Dict[ClassIndex, int] = dict()
+        self.sigma_sum: Optional[np.ndarray] = None
+        self.min_count_for_sigma: int = min_count_for_sigma
+        self.layer_idx = layer_idx
+
+    def append(self, x: np.ndarray, clazz: ClassIndex):
+        self.sums[clazz] = x if clazz not in self.sums else self.sums[clazz] + x
+        if self.count > self.min_count_for_sigma:
+            c = np.transpose(x - self.mean) * (x - self.mean)
+            self.sigma_sum = c if self.sigma_sum is None else self.sigma_sum + c
+        self.counts[clazz] = self.counts.get(clazz, 0) + 1
+        logger.info(f"CovarianceStreamComputer {self.layer_idx}: {self.count} points (min sigma {self.min_count_for_sigma})")
+
+    def mean_per_class(self, y: ClassIndex) -> np.ndarray:
+        return self.sums[y] / self.counts[y]
+
+    @property
+    def count(self):
+        return sum(self.counts.values())
+
+    @property
+    def mean(self) -> np.ndarray:
+        return sum(self.sums.values()) / self.count
+
+    @property
+    def sigma(self) -> np.ndarray:
+        return self.sigma_sum / self.count
 
 
 def compute_means_and_sigmas_inv(
@@ -116,9 +167,11 @@ def compute_means_and_sigmas_inv(
         f"I am going to go through a dataset of {config.number_of_samples_for_mu_sigma} points..."
     )
 
-    features_per_class = dict()
-    mean_per_class = dict()
-    sigma_per_layer = dict()
+    stream_computers: Dict[LayerIndex, CovarianceStreamComputer] = dict()
+    all_classes: Set[ClassIndex] = set()
+
+    if config.selected_layers is not None:
+        config.selected_layers.add(architecture.get_pre_softmax_idx())
 
     # As proposed in the paper, we use the train samples here
     for x, y in dataset.train_dataset:
@@ -130,51 +183,35 @@ def compute_means_and_sigmas_inv(
             x=x, store_for_graph=False, output="all_inner"
         )
 
+        all_classes.add(y)
+
         for layer_idx in m_features:
-            feat = m_features[layer_idx].reshape(1, -1)
-            if layer_idx not in features_per_class:
-                features_per_class[layer_idx] = dict()
-            features_per_class[layer_idx][y] = features_per_class[layer_idx].get(
-                y, list()
-            ) + [feat.cpu().detach().numpy()]
+            if config.selected_layers is not None and layer_idx in config.selected_layers:
+                feat = m_features[layer_idx].reshape(1, -1)
+
+                if layer_idx not in stream_computers:
+                    stream_computers[layer_idx] = CovarianceStreamComputer(
+                        min_count_for_sigma=config.number_of_samples_for_mu_sigma // 4,
+                        layer_idx=layer_idx
+                    )
+                stream_computers[layer_idx].append(x=feat.cpu().detach().numpy(), clazz=y)
 
         if nb_sample_for_classes % 50 == 0:
             logger.info(
                 f"Done {nb_sample_for_classes} / {config.number_of_samples_for_mu_sigma}"
             )
-
         nb_sample_for_classes += 1
 
-    all_feature_indices = sorted(list(features_per_class.keys()))
-    logger.info(f"All indices for features are {all_feature_indices}")
-    all_classes = sorted(list(features_per_class[all_feature_indices[0]].keys()))
-    logger.info(f"All classes are {all_classes}")
+    sigma_per_layer: Dict[LayerIndex, np.ndarray] = dict()
+    mean_per_class: Dict[LayerIndex, Dict[ClassIndex, np.ndarray]] = dict()
 
-    for layer_idx in all_feature_indices:
-        mean_per_class[layer_idx] = dict()
-        sigma_per_layer[layer_idx] = None
-        counters_per_class = 0
+    for layer_idx in stream_computers:
+        sigma_per_layer[layer_idx] = stream_computers[layer_idx].sigma
 
-        for clazz in all_classes:
-
-            # Shortcut for the name
-            arr = features_per_class[layer_idx][clazz]
-
-            # Computing mu_clazz
-            mu_clazz = sum(arr) / len(arr)
-            mean_per_class[layer_idx][clazz] = mu_clazz
-
-            # Computing sigma_clazz
-            sigma_clazz = sum(
-                [np.transpose(v - mu_clazz) @ (v - mu_clazz) for v in arr]
-            )
-            if sigma_per_layer[layer_idx] is None:
-                sigma_per_layer[layer_idx] = sigma_clazz
-            else:
-                sigma_per_layer[layer_idx] += sigma_clazz
-            counters_per_class += len(arr)
-
-        sigma_per_layer[layer_idx] = sigma_per_layer[layer_idx] / counters_per_class
+        mean_per_class[layer_idx] = {
+            clazz: stream_computers[layer_idx].mean_per_class(clazz)
+            for clazz in all_classes
+        }
 
     logger.info("Computing inverse of sigmas...")
     sigma_per_class_inv = dict()
@@ -243,9 +280,9 @@ def get_feature_datasets(
     config: Config,
     dataset: Dataset,
     architecture: Architecture,
-    mean_per_class: typing.Dict,
-    sigma_per_layer_inv: typing.Dict,
-    epsilons: typing.List[float],
+    mean_per_class: Dict,
+    sigma_per_layer_inv: Dict,
+    epsilons: List[float],
 ):
     assert architecture.is_trained
 
@@ -265,7 +302,7 @@ def get_feature_datasets(
         transfered_attacks=config.transfered_attacks,
     )
 
-    def create_dataset(input_dataset: typing.List[DatasetLine]) -> typing.List:
+    def create_dataset(input_dataset: List[DatasetLine]) -> List:
         ret = list()
 
         for i, dataset_line in enumerate(input_dataset):

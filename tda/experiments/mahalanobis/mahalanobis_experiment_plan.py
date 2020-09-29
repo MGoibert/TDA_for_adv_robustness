@@ -30,23 +30,24 @@ binary = f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary.py"
 
 all_experiments = list()
 
-for model, dataset, nb_epochs in [
-    # [mnist_mlp.name, "MNIST", 50],
-    # [mnist_lenet.name, "MNIST", 50],
-    # [fashion_mnist_mlp.name, "FashionMNIST", 50],
-    # [fashion_mnist_lenet.name, "FashionMNIST", 100],
-    # [svhn_lenet.name, "SVHN", 300],
-    # [cifar_lenet.name, "CIFAR10", 300],
-    [cifar_resnet_1.name, "CIFAR10", 100],
+for model, dataset, nb_epochs, selected_layers in [
+    # [mnist_mlp.name, "MNIST", 50, ""],
+    # [mnist_lenet.name, "MNIST", 50, ""],
+    # [fashion_mnist_mlp.name, "FashionMNIST", 50, ""],
+    # [fashion_mnist_lenet.name, "FashionMNIST", 100, ""],
+    # [svhn_lenet.name, "SVHN", 300, ""],
+    # [cifar_lenet.name, "CIFAR10", 300, ""],
+    [cifar_resnet_1.name, "CIFAR10", 100, "32;37"],
 ]:
     for config in base_configs:
         config = deepcopy(config)
         config["architecture"] = model
         config["dataset"] = dataset
         config["epochs"] = nb_epochs
+        config["selected_layers"] = selected_layers
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
 experiment_plan = R3D3ExperimentPlan(
-    experiments=all_experiments, max_nb_processes=4, db_path=db_path
+    experiments=all_experiments, max_nb_processes=1, db_path=db_path
 )
