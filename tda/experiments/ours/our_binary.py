@@ -6,7 +6,7 @@ import io
 import time
 import re
 import traceback
-import typing
+from typing import NamedTuple, List
 
 import numpy as np
 from joblib import delayed, Parallel
@@ -14,7 +14,13 @@ from r3d3.experiment_db import ExperimentDB
 from sklearn.decomposition import PCA
 
 from tda.dataset.adversarial_generation import AttackType, AttackBackend
-from tda.embeddings import get_embedding, EmbeddingType, KernelType, ThresholdStrategy
+from tda.embeddings import (
+    get_embedding,
+    EmbeddingType,
+    KernelType,
+    ThresholdStrategy,
+    Embedding,
+)
 from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture
@@ -31,7 +37,7 @@ start_time = time.time()
 my_db = ExperimentDB(db_path=db_path)
 
 
-class Config(typing.NamedTuple):
+class Config(NamedTuple):
     # Type of embedding to use
     embedding_type: str
     # Type of kernel to use on the embeddings
@@ -79,7 +85,7 @@ class Config(typing.NamedTuple):
     # Number of processes to spawn
     n_jobs: int = 1
 
-    all_epsilons: typing.List[float] = None
+    all_epsilons: List[float] = None
 
 
 def str2bool(value):
@@ -100,7 +106,9 @@ def get_config() -> Config:
     )
     parser.add_argument("--thresholds", type=str, default="0")
     parser.add_argument(
-        "--threshold_strategy", type=str, default=ThresholdStrategy.UnderoptimizedMagnitudeIncrease
+        "--threshold_strategy",
+        type=str,
+        default=ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
     )
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--epochs", type=int, default=20)
@@ -223,7 +231,7 @@ def get_all_embeddings(config: Config):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
-    def embedding_getter(line_chunk):
+    def embedding_getter(line_chunk) -> List[Embedding]:
         ret = list()
         c = 0
         for line in line_chunk:
@@ -242,7 +250,9 @@ def get_all_embeddings(config: Config):
             c += 1
         return ret
 
-    def process(input_dataset):
+    stats_inside_embeddings = dict()
+
+    def process(input_dataset) -> List[Embedding]:
 
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
 
@@ -250,7 +260,15 @@ def get_all_embeddings(config: Config):
             delayed(embedding_getter)(chunk) for chunk in my_chunks
         )
         ret = [item for sublist in ret for item in sublist]
-        return ret
+
+        # Extracting stats
+        for embedding in ret:
+            for key in embedding.time_taken:
+                stats_inside_embeddings[key] = (
+                    stats_inside_embeddings.get(key, 0) + embedding.time_taken[key]
+                )
+
+        return [embedding.value for embedding in ret]
 
     start_time = time.time()
 
@@ -330,6 +348,9 @@ def get_all_embeddings(config: Config):
                 )
 
     detailed_times["embeddings"] = time.time() - start_time
+
+    for key in stats_inside_embeddings:
+        detailed_times[key] = stats_inside_embeddings[key]
 
     return (
         clean_embeddings_train,

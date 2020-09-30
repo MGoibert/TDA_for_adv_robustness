@@ -1,5 +1,5 @@
 import time
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, NamedTuple
 
 import fwg
 import numpy as np
@@ -16,6 +16,11 @@ from tda.models import Architecture
 from tda.tda_logging import get_logger
 
 logger = get_logger("Embeddings")
+
+
+class Embedding(NamedTuple):
+    value: object
+    time_taken: Dict
 
 
 class EmbeddingType(object):
@@ -50,17 +55,25 @@ def get_embedding(
     threshold_strategy: str,
     quantiles_helpers_for_sigmoid=None,
     thresholds_are_low_pass: bool = True,
-):
+) -> Embedding:
+
+    time_taken = dict()
 
     if line.graph is None:
+        start = time.time()
         graph = Graph.from_architecture_and_data_point(
             architecture=architecture, x=line.x.double()
         )
+        time_taken["graph"] = time.time()-start
     else:
         graph = line.graph
 
     if quantiles_helpers_for_sigmoid is not None:
+        start = time.time()
         graph.sigmoidize(quantiles_helpers=quantiles_helpers_for_sigmoid)
+        time_taken["sigmoidize"] = time.time() - start
+
+    start = time.time()
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
     elif threshold_strategy in [
@@ -74,15 +87,20 @@ def get_embedding(
         graph.thresholdize_per_graph(
             thresholds=thresholds, low_pass=thresholds_are_low_pass
         )
+    time_taken[f"T_{threshold_strategy}"] = time.time() - start
 
     if embedding_type == EmbeddingType.PersistentDiagram:
+        start = time.time()
         dgm = compute_dgm_from_graph(graph)
         del graph
-        return dgm
+        time_taken[f"E_{embedding_type}"] = time.time() - start
+        return Embedding(value=dgm, time_taken=time_taken)
     elif embedding_type == EmbeddingType.RawGraph:
+        start = time.time()
         mat = to_sparse_vector(graph.get_adjacency_matrix())
         del graph
-        return mat
+        time_taken[f"E_{embedding_type}"] = time.time() - start
+        return Embedding(value=mat, time_taken=time_taken)
     else:
         raise NotImplementedError(embedding_type)
 
