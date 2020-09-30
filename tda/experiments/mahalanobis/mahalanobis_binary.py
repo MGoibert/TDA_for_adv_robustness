@@ -99,14 +99,14 @@ def get_config() -> Config:
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
-    parser.add_argument("--selected_layers", type=str, default="")
+    parser.add_argument("--selected_layers", type=str, default="all")
 
     args, _ = parser.parse_known_args()
 
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
 
-    if len(args.selected_layers) > 0:
+    if args.selected_layers != "all":
         args.selected_layers = set([int(s) for s in args.selected_layers.split(";")])
     else:
         args.selected_layers = None

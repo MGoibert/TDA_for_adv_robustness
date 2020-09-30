@@ -9,6 +9,8 @@ from tda.models.architectures import (
     fashion_mnist_lenet,
     fashion_mnist_mlp,
     svhn_lenet,
+    svhn_lenet_bandw,
+    svhn_lenet_bandw2,
     cifar_lenet,
 )
 from tda.rootpath import rootpath, db_path
@@ -16,35 +18,30 @@ from copy import deepcopy
 
 base_configs = cartesian_product(
     {
-        "attack_type": [AttackType.PGD, AttackType.CW],
-        "dataset_size": [500],
-        "number_of_samples_for_mu_sigma": [500],
-        "preproc_epsilon": [1e-2],
+        "attack_type": [AttackType.PGD],
         "noise": [0.0],
+        "dataset_size": [500],
         "successful_adv": [1],
+        "train_noise": [0.0],
         "all_epsilons": ["0.01;0.1;0.4"],
+        "selected_layers": ["all"] + [str(x) for x in range(48)],
     }
 )
 
-binary = f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary.py"
+binary = f"{rootpath}/tda/experiments/lid/lid_binary.py"
 
 all_experiments = list()
 
-for model, dataset, nb_epochs, selected_layers in [
-    # [mnist_mlp.name, "MNIST", 50, "all"],
-    # [mnist_lenet.name, "MNIST", 50, "all"],
-    # [fashion_mnist_mlp.name, "FashionMNIST", 50, "all"],
-    # [fashion_mnist_lenet.name, "FashionMNIST", 100, "all"],
-    # [svhn_lenet.name, "SVHN", 300, "all"],
-    # [cifar_lenet.name, "CIFAR10", 300, "all"],
-    [cifar_resnet_1.name, "CIFAR10", 100, "32;37"],
+for model, dataset, nb_epochs, perc_of_nn, batch_size in [
+    [cifar_resnet_1.name, "CIFAR10", 100, 0.3, 100],
 ]:
     for config in base_configs:
         config = deepcopy(config)
         config["architecture"] = model
         config["dataset"] = dataset
         config["epochs"] = nb_epochs
-        config["selected_layers"] = selected_layers
+        config["perc_of_nn"] = perc_of_nn
+        config["batch_size"] = batch_size
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
