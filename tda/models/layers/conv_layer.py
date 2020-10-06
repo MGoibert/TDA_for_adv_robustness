@@ -60,6 +60,7 @@ class ConvLayer(Layer):
         stride: int,
         padding: int,
     ):
+        #logger.info(f"In _generate_cnn_edges")
 
         nbrows_kernel = kernel.shape[-2]
         nbcols_kernel = kernel.shape[-1]
@@ -132,6 +133,7 @@ class ConvLayer(Layer):
         ##############################################
 
         # logging.info(f"Processing in={in_channel} and out={out_channel}")
+        #logger.info(f"In build_matrix_for_channel")
 
         for param_ in self.func.named_parameters():
             # logger.info(f"size param {param[1].size()} and name = {param[0]}")
@@ -167,6 +169,7 @@ class ConvLayer(Layer):
         return coo_matrix((data, (row_ind, col_ind)), shape=(nbrows, nbcols))
 
     def build_matrix(self) -> coo_matrix:
+        #logger.info(f"In build_matrix")
         matrix_grid = [
             [
                 self.build_matrix_for_channel(in_c, out_c)
@@ -178,6 +181,7 @@ class ConvLayer(Layer):
         return self.matrix
 
     def process(self, x, store_for_graph):
+        #logger.info(f"In process")
         assert isinstance(x, dict)
         if store_for_graph:
             self._activations = x

@@ -25,6 +25,8 @@ from tda.threshold_underoptimized_edges import process_thresholds_underopt
 from tda.thresholds import process_thresholds
 from tda.graph_stats import get_quantiles_helpers
 
+from tda.dataset.adversarial_generation import AttackType, AttackBackend
+
 logger = get_logger("Detector")
 start_time = time.time()
 
@@ -179,6 +181,7 @@ def get_all_embeddings(config: Config):
         logger.info(f"Using thresholds per graph {thresholds}")
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
         ThresholdStrategy.UnderoptimizedLargeFinal,
         ThresholdStrategy.UnderoptimizedRandom,
         ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
@@ -212,6 +215,9 @@ def get_all_embeddings(config: Config):
         transfered_attacks=config.transfered_attacks,
     )
     detailed_times["protocolar_datasets"] = time.time() - start_time
+
+    if config.threshold_strategy == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3:
+        architecture.threshold_layers(edges_to_keep)
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
@@ -371,7 +377,7 @@ def run_experiment(config: Config):
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
-    if config.attack_type in ["DeepFool", "CW"]:
+    if config.attack_type in ["DeepFool", "CW", AttackType.BOUNDARY]:
         stats_for_l2_norm_buckets = stats
     else:
         stats_for_l2_norm_buckets = dict()

@@ -29,6 +29,7 @@ def _prepare_edges_for_diagram(edge_list: typing.List):
     """
 
     timing_by_vertex = dict()
+    #logger.info(f"edge list = {edge_list}")
 
     for edge, weight in edge_list:
         # timing = -weight
@@ -39,6 +40,7 @@ def _prepare_edges_for_diagram(edge_list: typing.List):
             timing_by_vertex[tgt] = weight
 
     edge_list += [([vertex], timing_by_vertex[vertex]) for vertex in timing_by_vertex]
+    #logger.info(f"edge list after = {edge_list}")
 
 
 def compute_dgm_from_graph(graph: Graph, astuple: bool = True, negate: bool = True):
@@ -52,6 +54,7 @@ def compute_dgm_from_edges(
 
     # Dionysus computations (persistent diagrams)
     # logger.info(f"Before filtration")
+    #logger.info(f"len all_edges_for_diagrams = {len(all_edges_for_diagrams)}")
 
     f = Filtration()
     for vertices, weight in all_edges_for_diagrams:
@@ -61,6 +64,7 @@ def compute_dgm_from_edges(
             timing = weight.round(3)
         f.append(Simplex(vertices, timing))
     f.sort()
+    #logger.info(f"{f}")
     m = homology_persistence(f)
     dgms = init_diagrams(m, f)
     dgm = dgms[0]

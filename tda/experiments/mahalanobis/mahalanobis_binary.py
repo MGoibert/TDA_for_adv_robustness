@@ -22,6 +22,8 @@ from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 
+from tda.dataset.adversarial_generation import AttackType, AttackBackend
+
 logger = get_logger("Mahalanobis")
 
 start_time = time.time()
@@ -325,7 +327,7 @@ def get_feature_datasets(
                     live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
 
                     if not np.isclose(
-                        live_score.cpu().detach().numpy(), best_score, atol=1e-4
+                        live_score.cpu().detach().numpy(), best_score, atol=1e-2
                     ):
                         debug_messages = list()
 
@@ -470,7 +472,7 @@ def run_experiment(config: Config):
         sigma_per_layer_inv=sigma_per_class_inv,
     )
 
-    if config.attack_type in ["DeepFool", "CW"]:
+    if config.attack_type in ["DeepFool", "CW", AttackType.BOUNDARY]:
         stats_for_l2_norm_buckets = stats
     else:
         stats_for_l2_norm_buckets = dict()

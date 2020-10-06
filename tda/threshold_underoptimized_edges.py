@@ -49,6 +49,7 @@ def underopt_edges(
 
             if method in [
                 ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+                ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
                 ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
             ]:
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)

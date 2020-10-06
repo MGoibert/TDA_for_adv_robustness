@@ -78,6 +78,14 @@ class Architecture(nn.Module):
                 logger.info(f"Building matrix for layer {layer}")
                 layer.build_matrix()
 
+    def threshold_layers(self, edges_to_keep):
+        for layeridx, layer in enumerate(self.layers):
+            if (layer.graph_layer) and (layeridx in edges_to_keep.keys()):
+                #logger.info(f"Thresholding layer {layeridx} !!")
+                edges_to_keep_layer = edges_to_keep[layeridx]
+                layer.get_matrix_thresholded(edges_to_keep_layer)
+        logger.info(f"Done thresholding")
+
     @cached_property
     def matrices_are_built(self):
         try:

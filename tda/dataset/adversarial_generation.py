@@ -141,7 +141,7 @@ def adversarial_generation(
             attacker = fb.attacks.L2CarliniWagnerAttack(steps=num_iter)
         elif attack_type == AttackType.BOUNDARY:
             attacker = fb.attacks.BoundaryAttack(
-                steps=100, spherical_step=1e-3, source_step=1e-3
+                steps=7000, spherical_step=0.01, source_step=0.01
             )
             x = x.float()
         else:

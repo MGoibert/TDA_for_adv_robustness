@@ -23,6 +23,8 @@ from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 
+from tda.dataset.adversarial_generation import AttackType, AttackBackend
+
 logger = get_logger("LID")
 
 start_time = time.time()
@@ -300,7 +302,7 @@ def run_experiment(config: Config):
         config=config, epsilons=all_epsilons, dataset=dataset, archi=archi
     )
 
-    if config.attack_type in ["DeepFool", "CW"]:
+    if config.attack_type in ["DeepFool", "CW", AttackType.BOUNDARY]:
         stats_for_l2_norm_buckets = stats
     else:
         stats_for_l2_norm_buckets = dict()

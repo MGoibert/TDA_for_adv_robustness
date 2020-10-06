@@ -16,7 +16,7 @@ from tda.dataset.adversarial_generation import AttackType, AttackBackend
 
 base_configs = cartesian_product(
     {
-        "dataset_size": [500],
+        "dataset_size": [32],
         "attack_type": [AttackType.BOUNDARY],
         "attack_backend": [
             AttackBackend.FOOLBOX,

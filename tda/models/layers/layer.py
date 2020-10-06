@@ -1,7 +1,11 @@
 from typing import Optional
 
-from scipy.sparse import coo_matrix, diags
+from scipy.sparse import coo_matrix, csr_matrix, diags
 from torch import nn
+import numpy as np
+
+from tda.tda_logging import get_logger
+logger = get_logger("Layer")
 
 
 class Layer(object):
@@ -20,7 +24,35 @@ class Layer(object):
         for parentidx in self._activations:
             activ = self._activations[parentidx].reshape(-1)
             ret[parentidx] = coo_matrix(self.matrix @ diags(activ.cpu().detach().numpy()))
+        key = list(ret.keys())[0]
+        #a = {(r, c): d for r,c,d in zip(ret[key].row,ret[key].col,ret[key].data)}
+        #logger.info(f"{a}")
         return ret
+
+    def get_matrix_thresholded(self, edges_to_keep_layer):
+        
+        #if len(edges_to_keep_layer)>0:
+        #    row_to_keep = list(zip(*edges_to_keep_layer))[0]
+        #    col_to_keep = list(zip(*edges_to_keep_layer))[1]
+        #    m = csr_matrix(self.matrix)
+        #    #m = self.matrix.todense()
+        #    m[row_to_keep, col_to_keep] = 0.0
+        #else:
+        #    self.matrix = coo_matrix((np.shape(self.matrix)[0], np.shape(self.matrix)[1]))
+
+        
+        # This way is slower
+        if len(edges_to_keep_layer) > 0:
+            loc = [idx
+            for idx, k in enumerate(zip(self.matrix.row, self.matrix.col))
+            if k in edges_to_keep_layer]
+            self.matrix = coo_matrix(
+                (self.matrix.data[loc], (self.matrix.row[loc], self.matrix.col[loc])),
+                shape=np.shape(self.matrix))
+        else:
+            #logger.info(f"In empty loop")
+            self.matrix = coo_matrix(np.zeros(np.shape(self.matrix)))
+        #logger.info(f"{self.matrix}")
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)

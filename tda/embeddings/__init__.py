@@ -5,7 +5,7 @@ import fwg
 import numpy as np
 from joblib import Parallel, delayed
 
-from tda.embeddings.anonymous_walk import AnonymousWalks
+#from tda.embeddings.anonymous_walk import AnonymousWalks
 from tda.embeddings.persistent_diagrams import (
     sliced_wasserstein_kernel,
     compute_dgm_from_graph
@@ -40,6 +40,7 @@ class ThresholdStrategy(object):
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
     UnderoptimizedRandom = "UnderoptimizedRandom"
     QuantilePerGraphLayer = "QuantilePerGraphLayer"
+    UnderoptimizedMagnitudeIncreaseV3 = "UnderoptimizedMagnitudeIncreaseV3"
 
 
 def get_embedding(
@@ -60,8 +61,8 @@ def get_embedding(
     else:
         graph = line.graph
 
-    if quantiles_helpers_for_sigmoid is not None:
-        graph.sigmoidize(quantiles_helpers=quantiles_helpers_for_sigmoid)
+    #if quantiles_helpers_for_sigmoid is not None:
+    #    graph.sigmoidize(quantiles_helpers=quantiles_helpers_for_sigmoid)
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
     elif threshold_strategy in [
@@ -75,6 +76,8 @@ def get_embedding(
         graph.thresholdize_per_graph(
             thresholds=thresholds, low_pass=thresholds_are_low_pass
         )
+    #elif threshold_strategy == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3:
+    #    logger.info(f"In V3")
 
     if embedding_type == EmbeddingType.PersistentDiagram:
         dgm = compute_dgm_from_graph(graph)
