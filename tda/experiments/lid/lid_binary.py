@@ -6,7 +6,7 @@ import io
 import os
 import time
 import traceback
-import typing
+from typing import NamedTuple, Optional, Set, List
 import re
 
 import numpy as np
@@ -36,7 +36,7 @@ if not os.path.exists(plot_path):
 my_db = ExperimentDB(db_path=db_path)
 
 
-class Config(typing.NamedTuple):
+class Config(NamedTuple):
     # Noise to consider for the noisy samples
     noise: float
     # Number of epochs for the model
@@ -53,6 +53,8 @@ class Config(typing.NamedTuple):
     perc_of_nn: int
     # Batch size for the estimation of the LID
     batch_size: int
+    # Selected layers
+    selected_layers: Optional[Set[int]]
     # Type of attack (FGSM, PGD, CW)
     attack_type: str
     # Should we filter out non successful_adversaries
@@ -60,21 +62,23 @@ class Config(typing.NamedTuple):
     # Transfered attacks
     transfered_attacks: bool = False
     # Pruning
-    first_pruned_iter : int = 10
-    prune_percentile : float = 0.0
-    tot_prune_percentile : float = 0.0
+    first_pruned_iter: int = 10
+    prune_percentile: float = 0.0
+    tot_prune_percentile: float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
     run_id: int = 0
 
-    all_epsilons: typing.List[float] = None
+    all_epsilons: List[float] = None
+
 
 def str2bool(value):
-    if value in [True, "True", 'true']:
+    if value in [True, "True", "true"]:
         return True
     else:
         return False
+
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser()
@@ -96,11 +100,17 @@ def get_config() -> Config:
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
+    parser.add_argument("--selected_layers", type=str, default="all")
 
     args, _ = parser.parse_known_args()
 
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
+
+    if args.selected_layers != "all":
+        args.selected_layers = set([int(s) for s in args.selected_layers.split(";")])
+    else:
+        args.selected_layers = None
 
     return Config(**args.__dict__)
 
@@ -108,9 +118,9 @@ def get_config() -> Config:
 def create_lid_dataset(
     config: Config,
     archi: Architecture,
-    input_dataset: typing.List[DatasetLine],
-    clean_dataset: typing.List[DatasetLine],
-) -> (typing.List, typing.List, typing.List):
+    input_dataset: List[DatasetLine],
+    clean_dataset: List[DatasetLine],
+) -> (List, List, List):
     logger.debug(f"Dataset size is {len(input_dataset)}")
 
     nb_batches = int(np.ceil(len(input_dataset) / config.batch_size))
@@ -150,15 +160,22 @@ def create_lid_dataset(
             output="all_inner",
         )
 
-        lids = np.zeros((actual_batch_size, len(archi.layers) - 1))
+        lids = np.zeros((actual_batch_size, len(archi.layers)))
+        valid_lid_columns = list()
 
         for layer_idx in archi.layer_visit_order:
+            if config.selected_layers is not None and layer_idx not in config.selected_layers:
+                # Skipping layer since not in selected_layers
+                continue
             if layer_idx == -1:
                 # Skipping input
                 continue
             if isinstance(archi.layers[layer_idx], SoftMaxLayer):
                 # Skipping softmax
                 continue
+
+            valid_lid_columns.append(layer_idx)
+
             activations_layer = (
                 activations[layer_idx]
                 .reshape(actual_batch_size, -1)
@@ -207,6 +224,7 @@ def create_lid_dataset(
 
                 lids[sample_idx, layer_idx] = lid
 
+        lids = lids[:, valid_lid_columns]
         all_lids.append(lids)
         l2_norms += [line.l2_norm for line in raw_batch]
         linf_norms += [line.linf_norm for line in raw_batch]
@@ -217,7 +235,7 @@ def create_lid_dataset(
 
 
 def get_feature_datasets(
-    config: Config, epsilons: typing.List[float], dataset: Dataset, archi: Architecture
+    config: Config, epsilons: List[float], dataset: Dataset, archi: Architecture
 ):
     logger.info(f"Evaluating epsilon={epsilons}")
 

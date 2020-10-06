@@ -1,5 +1,8 @@
 from r3d3.experiment import R3D3ExperimentPlan, R3D3Experiment
 from r3d3.utils import cartesian_product
+
+from tda.dataset.adversarial_generation import AttackType
+from tda.models import cifar_resnet_1
 from tda.models.architectures import (
     mnist_mlp,
     mnist_lenet,
@@ -37,12 +40,14 @@ for model, dataset, nb_epochs in [
     [fashion_mnist_lenet.name, "FashionMNIST", 100],
     [svhn_lenet.name, "SVHN", 300],
     [cifar_lenet.name, "CIFAR10", 300],
+
 ]:
     for config in base_configs:
         config = deepcopy(config)
         config["architecture"] = model
         config["dataset"] = dataset
         config["epochs"] = nb_epochs
+        config["selected_layers"] = selected_layers
 
         all_experiments.append(R3D3Experiment(binary=binary, config=config))
 
