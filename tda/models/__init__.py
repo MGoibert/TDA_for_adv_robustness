@@ -20,6 +20,7 @@ from tda.models.architectures import (
     fashion_mnist_lenet,
     fashion_mnist_mlp,
     cifar_resnet_1,
+    svhn_resnet_1,
 )
 from tda.dataset.datasets import Dataset
 from tda.rootpath import rootpath
@@ -184,7 +185,7 @@ def train_network(
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5
         )
-    elif model.name == cifar_resnet_1.name:
+    elif model.name in [cifar_resnet_1.name, svhn_resnet_1.name]:
 
         def lr_old(epoch):
             if epoch < 20:
