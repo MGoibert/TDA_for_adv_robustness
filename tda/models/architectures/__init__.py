@@ -30,6 +30,7 @@ from .fashion_mnist_models import (
 
 from .cifar10_models import cifar_lenet, cifar_toy_resnet
 from .cifar10_resnet_model_1 import cifar_resnet_1
+from .svhn_resnet_model_1 import svhn_resnet_1
 
 known_architectures: List[Architecture] = [
     mnist_mlp,
@@ -47,7 +48,8 @@ known_architectures: List[Architecture] = [
     fashion_mnist_mlp,
     fashion_mnist_lenet_05,
     cifar_toy_resnet,
-    cifar_resnet_1
+    cifar_resnet_1,
+    svhn_resnet_1
 ]
 
 
