@@ -168,7 +168,7 @@ def process_thresholds_underopt(
         mat_shapes = [[2352, 1024], [600, 588]]
     elif architecture.name in ["cifar_toy_resnet"]:
         mat_shapes = [[4704, 3072], [1600, 1176], [400, 4704]]
-    elif architecture.name in ["cifar_resnet_1"]:
+    elif architecture.name in ["cifar_resnet_1", "svhn_resnet_1"]:
         mat_shapes = [
             (65536, 3072),
             (65536, 65536),
