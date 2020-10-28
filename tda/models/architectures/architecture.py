@@ -13,7 +13,7 @@ from tda.models.layers import (
     Layer,
     SoftMaxLayer,
 )
-from tda.rootpath import rootpath
+from tda.rootpath import model_dir
 from tda.tda_logging import get_logger
 
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -101,7 +101,7 @@ class Architecture(nn.Module):
         }
 
     def get_model_savepath(self, initial: bool = False):
-        return f"{rootpath}/trained_models/{self.get_full_name(initial=initial)}.model"
+        return f"{model_dir}/{self.get_full_name(initial=initial)}.model"
 
     def get_initial_model(self) -> "Architecture":
         """

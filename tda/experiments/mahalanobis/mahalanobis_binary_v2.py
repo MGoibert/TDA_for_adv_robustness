@@ -6,6 +6,7 @@ import os
 import time
 import traceback
 import io
+import gc
 import re
 from typing import Dict, List, NamedTuple, Set, Optional
 
@@ -22,7 +23,13 @@ from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.rootpath import db_path
 
-from tda.dataset.adversarial_generation import AttackType, AttackBackend
+from tda.covariance import (
+    CovarianceStreamComputer,
+    NaiveCovarianceStreamComputer,
+    LedoitWolfComputer,
+    NaiveSVDCovarianceStreamComputer,
+    GraphicalLassoComputer,
+)
 
 logger = get_logger("Mahalanobis")
 
@@ -60,6 +67,8 @@ class Config(NamedTuple):
     number_of_samples_for_mu_sigma: int
     # Should we filter out non successful_adversaries
     successful_adv: int
+    # Method for estimating covariance and precision matrices
+    covariance_method: str
     # Transfered attacks
     transfered_attacks: bool = False
     # Pruning
@@ -102,6 +111,7 @@ def get_config() -> Config:
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
     parser.add_argument("--selected_layers", type=str, default="all")
+    parser.add_argument("--covariance_method", type=str, default=CovarianceMethod.NAIVE)
 
     args, _ = parser.parse_known_args()
 
@@ -116,41 +126,29 @@ def get_config() -> Config:
     return Config(**args.__dict__)
 
 
-class CovarianceStreamComputer(object):
-    """
-    Helper object to compute covariance matrices and
-    mean of a stream of 1d vectors.
-    """
+class CovarianceMethod(object):
+    NAIVE = "NAIVE"
+    NAIVE_SVD = "NAIVE_SVD"
+    LEDOIT_WOLF = "LEDOIT_WOLF"
+    GRAPHICAL_LASSO = "GRAPHICAL_LASSO"
 
-    def __init__(self, min_count_for_sigma: int = 10, layer_idx: int = -1):
-        self.sums: Dict[ClassIndex, np.ndarray] = dict()
-        self.counts: Dict[ClassIndex, int] = dict()
-        self.sigma_sum: Optional[np.ndarray] = None
-        self.min_count_for_sigma: int = min_count_for_sigma
-        self.layer_idx = layer_idx
 
-    def append(self, x: np.ndarray, clazz: ClassIndex):
-        self.sums[clazz] = x if clazz not in self.sums else self.sums[clazz] + x
-        if self.count > self.min_count_for_sigma:
-            c = np.transpose(x - self.mean) * (x - self.mean)
-            self.sigma_sum = c if self.sigma_sum is None else self.sigma_sum + c
-        self.counts[clazz] = self.counts.get(clazz, 0) + 1
-        logger.info(f"CovarianceStreamComputer {self.layer_idx}: {self.count} points (min sigma {self.min_count_for_sigma})")
-
-    def mean_per_class(self, y: ClassIndex) -> np.ndarray:
-        return self.sums[y] / self.counts[y]
-
-    @property
-    def count(self):
-        return sum(self.counts.values())
-
-    @property
-    def mean(self) -> np.ndarray:
-        return sum(self.sums.values()) / self.count
-
-    @property
-    def sigma(self) -> np.ndarray:
-        return self.sigma_sum / self.count
+def get_covariance_estimator(layer_idx: int, config: Config):
+    if config.covariance_method == CovarianceMethod.NAIVE:
+        return NaiveCovarianceStreamComputer(
+            layer_idx=layer_idx,
+            min_count_for_sigma=config.number_of_samples_for_mu_sigma // 4,
+        )
+    elif config.covariance_method == CovarianceMethod.LEDOIT_WOLF:
+        return LedoitWolfComputer()
+    elif config.covariance_method == CovarianceMethod.NAIVE_SVD:
+        return NaiveSVDCovarianceStreamComputer()
+    elif config.covariance_method == CovarianceMethod.GRAPHICAL_LASSO:
+        return GraphicalLassoComputer()
+    else:
+        raise NotImplementedError(
+            f"Unknown CovarianceMethod {config.covariance_method}"
+        )
 
 
 def compute_means_and_sigmas_inv(
@@ -168,6 +166,7 @@ def compute_means_and_sigmas_inv(
     logger.info(
         f"I am going to go through a dataset of {config.number_of_samples_for_mu_sigma} points..."
     )
+    logger.info(f"Config is {config}")
 
     stream_computers: Dict[LayerIndex, CovarianceStreamComputer] = dict()
     all_classes: Set[ClassIndex] = set()
@@ -188,15 +187,17 @@ def compute_means_and_sigmas_inv(
         all_classes.add(y)
 
         for layer_idx in m_features:
-            if config.selected_layers is not None and layer_idx in config.selected_layers:
+            if config.selected_layers is None or layer_idx in config.selected_layers:
+
                 feat = m_features[layer_idx].reshape(1, -1)
 
                 if layer_idx not in stream_computers:
-                    stream_computers[layer_idx] = CovarianceStreamComputer(
-                        min_count_for_sigma=config.number_of_samples_for_mu_sigma // 4,
-                        layer_idx=layer_idx
+                    stream_computers[layer_idx] = get_covariance_estimator(
+                        layer_idx=layer_idx, config=config
                     )
-                stream_computers[layer_idx].append(x=feat.cpu().detach().numpy(), clazz=y)
+                stream_computers[layer_idx].append(
+                    x=feat.cpu().detach().numpy(), clazz=y
+                )
 
         if nb_sample_for_classes % 50 == 0:
             logger.info(
@@ -204,29 +205,26 @@ def compute_means_and_sigmas_inv(
             )
         nb_sample_for_classes += 1
 
-    sigma_per_layer: Dict[LayerIndex, np.ndarray] = dict()
     mean_per_class: Dict[LayerIndex, Dict[ClassIndex, np.ndarray]] = dict()
+    precision_root_per_layer: Dict[LayerIndex, np.ndarray] = dict()
 
-    for layer_idx in stream_computers:
-        sigma_per_layer[layer_idx] = stream_computers[layer_idx].sigma
+    layer_indices = list(stream_computers.keys())
+
+    for layer_idx in layer_indices:
+        precision_root_per_layer[layer_idx] = stream_computers[
+            layer_idx
+        ].precision_root()
 
         mean_per_class[layer_idx] = {
             clazz: stream_computers[layer_idx].mean_per_class(clazz)
             for clazz in all_classes
         }
 
-    logger.info("Computing inverse of sigmas...")
-    sigma_per_class_inv = dict()
-    for layer_idx in sigma_per_layer:
-        logger.info(
-            f"Processing sigma for layer {layer_idx} (shape is {sigma_per_layer[layer_idx].shape})"
-        )
-        # TODO fix
-        sigma_per_class_inv[layer_idx] = np.linalg.pinv(
-            sigma_per_layer[layer_idx], hermitian=True
-        )
+        del stream_computers[layer_idx]
+        gc.collect()
 
-    logger.info("Done.")
+    logger.info(f"All classes are {all_classes}")
+    logger.info(f"All layers are {stream_computers.keys()}")
 
     ################################################################
     # Step 2: (OPT) Evaluate classifier based on confidence scores #
@@ -255,11 +253,12 @@ def compute_means_and_sigmas_inv(
 
         for clazz in all_classes:
             mu_clazz = mean_per_class[softmax_layer_idx][clazz]
-            sigma_clazz_inv = sigma_per_class_inv[softmax_layer_idx]
+            precision_root = precision_root_per_layer[softmax_layer_idx]
 
             score_clazz = (
                 (m_features - mu_clazz)
-                @ sigma_clazz_inv
+                @ np.transpose(precision_root)
+                @ precision_root
                 @ np.transpose(m_features - mu_clazz)
             )
 
@@ -276,7 +275,7 @@ def compute_means_and_sigmas_inv(
 
     logger.info(f"Accuracy on test set = {gaussian_accuracy}")
 
-    return mean_per_class, sigma_per_class_inv, gaussian_accuracy
+    return mean_per_class, precision_root_per_layer, gaussian_accuracy
 
 
 def get_feature_datasets(
@@ -284,7 +283,7 @@ def get_feature_datasets(
     dataset: Dataset,
     architecture: Architecture,
     mean_per_class: Dict,
-    sigma_per_layer_inv: Dict,
+    precision_root_per_layer: Dict,
     epsilons: List[float],
 ):
     assert architecture.is_trained
@@ -322,7 +321,7 @@ def get_feature_datasets(
             for layer_idx in all_feature_indices:
 
                 best_score = np.inf
-                sigma_l_inv = sigma_per_layer_inv[layer_idx]
+                precision_root = precision_root_per_layer[layer_idx]
                 mu_l = None
 
                 for clazz in all_classes:
@@ -331,7 +330,12 @@ def get_feature_datasets(
                         m_features[layer_idx].reshape(1, -1).cpu().detach().numpy()
                         - mu_clazz
                     )
-                    score_clazz = gap @ sigma_l_inv @ np.transpose(gap)
+                    score_clazz = (
+                        gap
+                        @ np.transpose(precision_root)
+                        @ precision_root
+                        @ np.transpose(gap)
+                    )
 
                     if score_clazz < best_score:
                         best_score = score_clazz[0, 0]
@@ -354,7 +358,7 @@ def get_feature_datasets(
                     x = x.detach()
                     x.requires_grad = True
 
-                    inv_sigma_tensor = torch.from_numpy(sigma_l_inv).to(device)
+                    precision_root_tensor = torch.from_numpy(precision_root).to(device)
                     mu_tensor = torch.from_numpy(mu_l).to(device)
 
                     # Adding perturbation on x
@@ -362,27 +366,14 @@ def get_feature_datasets(
                         x=x, store_for_graph=False, output="all_inner"
                     )[layer_idx].reshape(1, -1)
 
-                    live_score = (f - mu_tensor) @ inv_sigma_tensor @ (f - mu_tensor).T
+                    live_score = ((f - mu_tensor) @ precision_root_tensor.T) @ (
+                        precision_root_tensor @ (f - mu_tensor).T
+                    )
 
                     if not np.isclose(
                         live_score.cpu().detach().numpy(), best_score, atol=1e-3
                     ):
                         debug_messages = list()
-
-                        live_score_recomputed_with_numpy = (
-                            (
-                                f.cpu().detach().numpy()
-                                - mu_tensor.cpu().detach().numpy()
-                            )
-                            @ inv_sigma_tensor.cpu().detach().numpy()
-                            @ np.transpose(
-                                f.cpu().detach().numpy()
-                                - mu_tensor.cpu().detach().numpy()
-                            )
-                        )
-                        debug_messages.append(
-                            f"live_score_recomputed_with_numpy {live_score_recomputed_with_numpy}"
-                        )
 
                         distance = np.linalg.norm(
                             live_score.cpu().detach().numpy() - best_score, 2
@@ -404,8 +395,8 @@ def get_feature_datasets(
                     fhat = architecture.forward(
                         x=xhat, store_for_graph=False, output="all_inner"
                     )[layer_idx].reshape(1, -1)
-                    new_score = (
-                        (fhat - mu_tensor) @ inv_sigma_tensor @ (fhat - mu_tensor).T
+                    new_score = ((fhat - mu_tensor) @ precision_root_tensor.T) @ (
+                        precision_root_tensor @ (fhat - mu_tensor).T
                     )
 
                     logger.debug(
@@ -420,7 +411,9 @@ def get_feature_datasets(
                     for clazz in all_classes:
                         mu_clazz = mean_per_class[layer_idx][clazz]
                         gap = fhat - mu_clazz
-                        score_clazz = gap @ sigma_l_inv @ np.transpose(gap)
+                        score_clazz = (gap @ np.transpose(precision_root)) @ (
+                            precision_root @ np.transpose(gap)
+                        )
 
                         if score_clazz < best_score:
                             best_score = score_clazz[0, 0]
@@ -481,7 +474,7 @@ def run_experiment(config: Config):
 
     (
         mean_per_class,
-        sigma_per_class_inv,
+        precision_root_per_layer,
         gaussian_accuracy,
     ) = compute_means_and_sigmas_inv(
         config=config, dataset=dataset, architecture=architecture
@@ -507,7 +500,7 @@ def run_experiment(config: Config):
         dataset=dataset,
         architecture=architecture,
         mean_per_class=mean_per_class,
-        sigma_per_layer_inv=sigma_per_class_inv,
+        precision_root_per_layer=precision_root_per_layer,
     )
 
     if config.attack_type in ["DeepFool", "CW"]:
