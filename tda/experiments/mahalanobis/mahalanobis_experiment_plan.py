@@ -9,6 +9,7 @@ from tda.models.architectures import (
     mnist_lenet,
     fashion_mnist_lenet,
     cifar_resnet_1,
+    svhn_resnet_1,
 )
 from tda.rootpath import rootpath, db_path
 
@@ -21,13 +22,13 @@ base_configs = cartesian_product(
         "preproc_epsilon": [1e-2],
         "noise": [0.0],
         "successful_adv": [1],
-        "all_epsilons": ["0.1"],
+        "all_epsilons": ["0.01;0.05"],
         "covariance_method": [
             # CovarianceMethod.NAIVE,
             CovarianceMethod.NAIVE_SVD,
             # CovarianceMethod.LEDOIT_WOLF,
             # CovarianceMethod.GRAPHICAL_LASSO
-        ]
+        ],
     }
 )
 
@@ -36,10 +37,10 @@ binary = f"{rootpath}/tda/experiments/mahalanobis/mahalanobis_binary_v2.py"
 all_experiments = list()
 
 for model, dataset, nb_epochs in [
-    #[mnist_lenet.name, "MNIST", 50],
-    #[fashion_mnist_lenet.name, "FashionMNIST", 100],
-    [cifar_resnet_1.name, "CIFAR10", 100],
-
+    # [mnist_lenet.name, "MNIST", 50],
+    [fashion_mnist_lenet.name, "FashionMNIST", 100],
+    # [cifar_resnet_1.name, "CIFAR10", 100],
+    # [svhn_resnet_1.name, "SVHN", 100],
 ]:
     for config in base_configs:
         config = deepcopy(config)

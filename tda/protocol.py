@@ -221,6 +221,9 @@ def evaluate_embeddings(
     all_predictions_supervised = dict()
     aucs_l2_norm = dict()
 
+    param_curve = dict()
+    param_curve_supervised = dict()
+
     for key in all_adv_embeddings_train:
 
         best_metrics = dict()
@@ -303,6 +306,7 @@ def evaluate_embeddings(
                 logger.info(
                     f"[nu={nu}] AUC score for param = {param} : {metrics['auc'].value}"
                 )
+                param_curve["_".join([str(key), str(nu), str(param.get("gamma", 0))])] = metrics['auc'].value
 
                 if metrics["auc"].is_better_than(best_metrics.get("auc", worst_metric)):
                     best_metrics = metrics
@@ -354,6 +358,7 @@ def evaluate_embeddings(
             logger.info(
                 f"Supervised AUC score for param = {param} : {metrics['auc'].value}"
             )
+            param_curve_supervised["_".join([str(key), str(param.get("gamma", 0))])] = metrics['auc'].value
 
             if metrics["auc"].is_better_than(
                 best_metrics_supervised.get("auc", worst_metric)
@@ -385,6 +390,7 @@ def evaluate_embeddings(
         "supervised_metrics": all_metrics_supervised,
         "unsupervised_predictions": all_predictions,
         "supervised_predictions": all_predictions_supervised,
+        "param_curve": param_curve,
         "aucs_l2_norm": aucs_l2_norm if len(aucs_l2_norm) > 0 else "None",
     }
 

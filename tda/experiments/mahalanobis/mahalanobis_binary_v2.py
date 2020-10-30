@@ -513,7 +513,7 @@ def run_experiment(config: Config):
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,
         all_adv_embeddings_test=adv_embedding_test,
-        param_space=[{"gamma": gamma} for gamma in np.logspace(-3, 3, 6)],
+        param_space=[{"gamma": gamma} for gamma in np.logspace(-6, 3, 50)],
         kernel_type=KernelType.RBF,
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
