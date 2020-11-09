@@ -116,7 +116,7 @@ def go_training(
 
     # Training with prune percentile
     if prune_percentile > 0:
-        logger.info(f"Training with pruning...")
+        #logger.info(f"Training with pruning...")
         for i, (name, param) in enumerate(model.named_parameters()):
             if len(param.data.size()) > 1 and epoch > first_pruned_iter:
                 param.data = param.data * mask_[i]
@@ -201,7 +201,7 @@ def train_network(
 
         def lr(epoch):
             if epoch > 50:
-                return lr(epoch - 50)
+                return lr(epoch % 50)
             elif epoch < 20:
                 a = (0.12 - 0.008) / 20
                 b = 0.008
@@ -302,9 +302,7 @@ def train_network(
             c += np.count_nonzero(p.data.cpu())
         current_pruned_percentile = c / sum(p.numel() for p in model.parameters())
         logger.info(f"percentage non zero parameters = {current_pruned_percentile}")
-        assert model.tot_prune_percentile == np.round(
-            1.0 - current_pruned_percentile, 2
-        )
+        #assert model.tot_prune_percentile == np.round(1.0 - current_pruned_percentile, 2)
 
     return model, loss_history
 
@@ -417,11 +415,13 @@ def save_pruned_model(
     if (
         (tot_prune_percentile > 0.0)
         and (epoch > 0)
-        and ((epoch + 1) % (2 * first_pruned_iter) == first_pruned_iter)
+        and ((epoch + 1) % (first_pruned_iter) == 0)
+        #and ((epoch + 1) % (2 * first_pruned_iter) == first_pruned_iter)
     ):
         logger.info(
             f"Save intermediate pruned model at {architecture.get_model_savepath()}"
         )
+        #architecture.tot_prune_percentile = current_pruned_percentile
         torch.save(architecture, architecture.get_model_savepath())
 
 
@@ -456,6 +456,7 @@ def prune_model(model, percentile=0.1, init_weight=None):
             count_nonzero += np.count_nonzero(param.data.cpu())
     logger.info(f"Percentage pruned = {1 - count_nonzero/count_tot}")
     pruned_count = np.round(1 - count_nonzero / count_tot, 2)
-    architecture.tot_prune_percentile = pruned_count
+    model.tot_prune_percentile = pruned_count
+    logger.info(f"architecture pruned percentile = {model.tot_prune_percentile}")
 
     return model, mask_dict
