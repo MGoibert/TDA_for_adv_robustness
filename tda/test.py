@@ -126,7 +126,7 @@ def method2(architecture, dataset, epochs, thresholds, attack_type, all_epsilons
     edges_to_keep = process_thresholds_underopt(
         raw_thresholds=thresholds,
         architecture=architecture,
-        method=ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
+        method=ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         thresholds_are_low_pass=True,
     )
 
@@ -144,8 +144,7 @@ def method2(architecture, dataset, epochs, thresholds, attack_type, all_epsilons
         line=train_clean[0],
         architecture=architecture,
         thresholds=None,
-        edges_to_keep=edges_to_keep,
-        threshold_strategy=ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
+        threshold_strategy=ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         quantiles_helpers_for_sigmoid=quantiles_helpers,
         thresholds_are_low_pass=True,
         )
