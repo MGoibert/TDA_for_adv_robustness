@@ -344,9 +344,6 @@ def get_deep_model(
     architecture.train_noise = train_noise
     architecture.tot_prune_percentile = 0.0
 
-    if not os.path.exists(f"{rootpath}/trained_models"):
-        os.mkdir(f"{rootpath}/trained_models")
-
     try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
