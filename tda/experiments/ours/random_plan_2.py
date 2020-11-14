@@ -18,7 +18,8 @@ base_configs = cartesian_product(
         "attack_backend": [AttackBackend.FOOLBOX],
         "noise": [0.0],
         "n_jobs": [1],
-        "threshold_strategy": [ThresholdStrategy.UnderoptimizedMagnitudeIncrease]+ 10 * [ThresholdStrategy.UnderoptimizedRandom],
+        "threshold_strategy": [ThresholdStrategy.UnderoptimizedMagnitudeIncrease]
+        + 10 * [ThresholdStrategy.UnderoptimizedRandom],
         "all_epsilons": ["0.01"],
         "raw_graph_pca": [-1],
         "sigmoidize": [False],
