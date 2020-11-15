@@ -3,7 +3,7 @@ from r3d3.utils import cartesian_product
 
 from tda.dataset.adversarial_generation import AttackType, AttackBackend
 from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
-from tda.models.architectures import cifar_resnet_1, cifar_toy_resnet, svhn_resnet_1
+from tda.models.architectures import mnist_lenet, cifar_resnet_1, cifar_toy_resnet, svhn_resnet_1
 from tda.rootpath import rootpath, db_path
 from copy import deepcopy
 
@@ -18,8 +18,8 @@ base_configs = cartesian_product(
         "n_jobs": [1],
         "all_epsilons": ["0.01;0.05;0.1"],
         "raw_graph_pca": [-1],
-        "prune_percentile": [0.1],
-        "tot_prune_percentile": [0.5],
+        "prune_percentile": [0.5],
+        "tot_prune_percentile": [0.99],
         "first_pruned_iter": [100],
     }
 )
@@ -44,6 +44,14 @@ for (
         ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
         False,
     ],
+    #[   
+    #    mnist_lenet.name,
+    #    "MNIST",
+    #    100,
+    #    '0:0,025_2:0,025_4:0,025_6:0,025',
+    #    ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
+    #    False,
+    #],
 ]:
     for config in base_configs:
         config = deepcopy(config)

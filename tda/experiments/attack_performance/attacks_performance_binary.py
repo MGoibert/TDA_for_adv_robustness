@@ -129,7 +129,8 @@ def get_all_accuracies(config: Config):
         )
 
     if config.attack_type in ["FGSM", "PGD"]:
-        all_epsilons = list(sorted(np.linspace(0.0, 0.4, num=11)))
+        all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
+        #all_epsilons = [0, 0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1]
     else:
         all_epsilons = [0.0, 1]
 
@@ -144,6 +145,12 @@ def get_all_accuracies(config: Config):
         tot_prune_percentile=config.tot_prune_percentile,
         first_pruned_iter=config.first_pruned_iter,
     )
+    #architecture = torch.load(
+    #        f"{rootpath}/trained_models/cifar_resnet_1_e_99.model.model", map_location=device
+    #    )
+    #architecture.set_eval_mode()
+    #architecture.is_trained = True
+    #assert architecture.matrices_are_built is True
 
     accuracies = dict()
 
@@ -187,7 +194,7 @@ def plot_and_save(config, accuracies):
     plt.xlabel("Perturbation value")
     plt.ylabel("Accuracy")
     plt.ylim(0, 1)
-    plt.savefig(file_name, dpi=800)
+    plt.savefig(file_name, dpi=150)
     plt.close()
 
     end_time = time.time()

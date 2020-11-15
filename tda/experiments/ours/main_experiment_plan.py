@@ -18,13 +18,13 @@ from tda.dataset.adversarial_generation import AttackType, AttackBackend
 
 base_configs = cartesian_product(
     {
-        "embedding_type": [EmbeddingType.PersistentDiagram], #, EmbeddingType.RawGraph],
+        "embedding_type": [EmbeddingType.RawGraph],#[EmbeddingType.PersistentDiagram], #, EmbeddingType.RawGraph],
         "dataset_size": [500],
-        "attack_type": ["FGSM"],
-        #"attack_backend": [AttackBackend.FOOLBOX],
+        "attack_type": [AttackType.PGD, AttackType.CW, AttackType.BOUNDARY],#[AttackType.PGD],
+        "attack_backend": [AttackBackend.FOOLBOX],
         "noise": [0.0],
-        "n_jobs": [8],
-        "all_epsilons": ["0.1"],
+        "n_jobs": [1],
+        "all_epsilons": ["0.01;0.1;0.4"],
         "raw_graph_pca": [-1]
     }
 )
@@ -38,74 +38,18 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         mnist_lenet.name,
         "MNIST",
         50,
-        "0:0.01_2:0.01_4:0.01_5:0.01",
+        "0:0.025_2:0.025_4:0.025_6:0.025", # true threshold
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
     [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.025_2:0.025_4:0.025_5:0.025", # true threshold
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        fashion_mnist_lenet.name,
+        "FashionMNIST",
+        100,
+         "0:0.05_2:0.05_4:0.05_6:0.05",
+         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.05_2:0.05_4:0.05_5:0.05",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.1_2:0.1_4:0.1_5:0.1",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.3_2:0.3_4:0.3_5:0.3",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.5_2:0.5_4:0.5_5:0.5",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.7_2:0.7_4:0.7_5:0.7",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    [
-        mnist_lenet.name,
-        "MNIST",
-        50,
-        "0:0.9_2:0.9_4:0.9_5:0.9",
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
-    ],
-    #[
-    #    fashion_mnist_lenet.name,
-    #    "FashionMNIST",
-    #    100,
-    #    "0:0.05_2:0.05_4:0.05_5:0.05",
-    #    ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-    #    True,
-    #],
     #[
     #    svhn_lenet.name,
     #    "SVHN",
@@ -130,11 +74,10 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         config["epochs"] = nb_epochs
         config["thresholds"] = best_threshold
         config["threshold_strategy"] = threshold_strategy
-        config["sigmoidize"] = sigmoidize_rawgraph
+        config["sigmoidize"] = False #True
 
         if config["embedding_type"] == EmbeddingType.PersistentDiagram:
             config["kernel_type"] = KernelType.SlicedWasserstein
-            config["sigmoidize"] = True
         elif config["embedding_type"] == EmbeddingType.RawGraph:
             config["kernel_type"] = KernelType.RBF
 

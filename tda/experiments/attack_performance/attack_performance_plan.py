@@ -16,13 +16,14 @@ from tda.dataset.adversarial_generation import AttackType, AttackBackend
 
 base_configs = cartesian_product(
     {
-        "dataset_size": [500],
-        "attack_type": [AttackType.PGD, AttackType.CW],
+        "dataset_size": [1000],
+        "attack_type": [AttackType.PGD], #, AttackType.CW],
         "attack_backend": [
             AttackBackend.FOOLBOX,
         ],
         "noise": [0.0],
-        "all_epsilons": ["0.01;0.1;0.4"],
+        "all_epsilons": ["0.01;0.05;0.1"],
+        "num_iter": [20],
     }
 )
 
@@ -30,19 +31,21 @@ binary = f"{rootpath}/tda/experiments/attack_performance/attacks_performance_bin
 
 all_experiments = list()
 
-for model, dataset, nb_epochs in [
+for model, dataset, nb_epochs, tpp in [
     # [mnist_lenet.name, "MNIST", 50],
     # [fashion_mnist_lenet.name, "FashionMNIST", 100],
     # [svhn_lenet.name, "SVHN", 300],
     # [cifar_lenet.name, "CIFAR10", 300],
     # [cifar_toy_resnet.name, "CIFAR10", 300],
-    [cifar_resnet_1.name, "CIFAR10", 100],
+    #[cifar_resnet_1.name, "CIFAR10", 99, 0.52],
+    [mnist_lenet.name, "MNIST", 100, 0.83],
 ]:
     for config in base_configs:
         config = deepcopy(config)
         config["architecture"] = model
         config["dataset"] = dataset
         config["epochs"] = nb_epochs
+        config["tot_prune_percentile"] = tpp
 
         if not AttackType.require_epsilon(config["attack_type"]):
             config["all_epsilons"] = "1.0"
