@@ -1,6 +1,6 @@
 import os
 import time
-import typing
+from typing import Dict, Tuple
 from functools import reduce
 
 import numpy as np
@@ -14,44 +14,29 @@ from tda.tda_logging import get_logger
 logger = get_logger("Thresholds Underoptimized")
 
 
-def _process_raw_quantiles(
-    raw_quantiles: str, architecture: Architecture = None
-) -> typing.Dict[int, float]:
+def _process_raw_quantiles(raw_quantiles: str) -> Dict[int, Tuple]:
 
-    if not "_" in raw_quantiles:
-        # Uniform quantile
-        return {
-            layer_idx: round(float(raw_quantiles), 4)
-            for layer_idx in architecture.layer_visit_order
-        }
+    if not "_" in raw_quantiles or not ":" in raw_quantiles:
+        raise RuntimeError(f"Incorrect format for quantiles {raw_quantiles}")
 
     ret = dict()
     for raw_quantile in raw_quantiles.split("_"):
-        layer_idx, value = raw_quantile.split(":")
-        ret[int(layer_idx)] = float(value)
+        layer_idx, value_low, value_up = raw_quantile.split(":")
+        ret[int(layer_idx)] = (float(value_low), float(value_up))
     return ret
 
 
 def underopt_edges(
-    quantiles: typing.Dict,
-    method: str,
-    model: Architecture,
-    model_init: Architecture,
-    thresholds_are_low_pass: bool,
+    quantiles: Dict, method: str, model: Architecture, model_init: Architecture
 ):
-    limit_val = dict()
-    qtest = dict()
+    limit_val: Dict[int, torch.Tensor] = dict()
     underoptimized_edges = dict()
     for layer_idx, layer in enumerate(model.layers):
         if "weight" in layer.func.state_dict():
             param = layer.func.state_dict()["weight"]
             param_init = model_init.layers[layer_idx].func.state_dict()["weight"]
 
-            if method in [
-                ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-                ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
-                ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
-            ]:
+            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer_idx] = torch.abs(param)
@@ -66,27 +51,27 @@ def underopt_edges(
                 )
             limit_val[layer_idx] = limit_val[layer_idx].cpu()
 
-            qtest[layer_idx] = np.quantile(
-                limit_val[layer_idx], quantiles.get(layer_idx, 0.0)
-            )
-
-            if method == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement:
-                qtest[layer_idx] = np.quantile(
-                    limit_val[layer_idx], 1.0 - quantiles.get(layer_idx, 0.0)
-                )
-                thresholds_are_low_pass = not thresholds_are_low_pass
-
-            if thresholds_are_low_pass:
-                underoptimized_edges[layer_idx] = (
-                    (limit_val[layer_idx] < qtest[layer_idx])
-                    .nonzero()
-                    .cpu()
-                    .numpy()
-                    .tolist()
-                )
+            if layer_idx not in quantiles:
+                underoptimized_edges[layer_idx] = list()
             else:
+                low_quantile, up_quantile = quantiles[layer_idx]
+                logger.info(f"[{layer_idx}] Quantiles are {low_quantile}-{up_quantile}")
+
+                if low_quantile <= 0.0:
+                    lower_bound = -np.infty
+                else:
+                    lower_bound = np.quantile(limit_val[layer_idx], low_quantile)
+
+                if up_quantile >= 1.0:
+                    upper_bound = np.infty
+                else:
+                    upper_bound = np.quantile(limit_val[layer_idx], up_quantile)
+
                 underoptimized_edges[layer_idx] = (
-                    (limit_val[layer_idx] >= qtest[layer_idx])
+                    torch.logical_and(
+                        limit_val[layer_idx] < upper_bound,
+                        limit_val[layer_idx] >= lower_bound,
+                    )
                     .nonzero()
                     .cpu()
                     .numpy()
@@ -133,13 +118,11 @@ def kernel_to_edge_idx(kernel_idx, kernel_shape, mat_shape):
 
 
 def process_thresholds_underopt(
-    raw_thresholds: str,
-    architecture: Architecture,
-    method: str,
-    thresholds_are_low_pass: bool = True,
-) -> typing.Dict:
+    raw_thresholds: str, architecture: Architecture, method: str
+) -> Dict:
     """
 
+    :param quantile_number:
     :param thresholds_are_low_pass: if True keep underopt ; if False keep the opt edges
     :param method:
     :param raw_thresholds:
@@ -149,13 +132,12 @@ def process_thresholds_underopt(
 
     architecture_init = architecture.get_initial_model()
 
-    quantiles_per_layer = _process_raw_quantiles(raw_thresholds, architecture)
+    quantiles_per_layer = _process_raw_quantiles(raw_thresholds)
     underoptimized_edges = underopt_edges(
         quantiles=quantiles_per_layer,
         method=method,
         model=architecture,
         model_init=architecture_init,
-        thresholds_are_low_pass=thresholds_are_low_pass,
     )
 
     if architecture.name in ["mnist_lenet", "fashion_mnist_lenet"]:

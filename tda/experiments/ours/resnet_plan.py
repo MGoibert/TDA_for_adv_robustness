@@ -37,8 +37,8 @@ for (
         cifar_resnet_1.name,
         "CIFAR10",
         100,
-        '39:0.075_40:0.075_41:0.075_42:0.075_43:0.075',
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
+        '39:0.3_40:0.3_41:0.3_42:0.3_43:0.3',
+        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
        

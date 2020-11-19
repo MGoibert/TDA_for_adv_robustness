@@ -13,7 +13,6 @@ from joblib import delayed, Parallel
 from r3d3.experiment_db import ExperimentDB
 from sklearn.decomposition import PCA
 
-from tda.dataset.adversarial_generation import AttackType, AttackBackend
 from tda.embeddings import (
     get_embedding,
     EmbeddingType,
@@ -175,7 +174,6 @@ def get_all_embeddings(config: Config):
         quantiles_helpers = None
 
     thresholds = None
-    edges_to_keep = None
 
     if config.threshold_strategy == ThresholdStrategy.ActivationValue:
         thresholds = process_thresholds(
@@ -184,26 +182,17 @@ def get_all_embeddings(config: Config):
             architecture=architecture,
             dataset_size=100,
         )
-    elif config.threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
-        thresholds = config.thresholds.split("_")
-        thresholds = [val.split(";") for val in thresholds]
-        thresholds = {
-            (int(start), int(end)): float(val) for (start, end, val) in thresholds
-        }
-        logger.info(f"Using thresholds per graph {thresholds}")
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
         ThresholdStrategy.UnderoptimizedLargeFinal,
-        ThresholdStrategy.UnderoptimizedRandom,
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
+        ThresholdStrategy.UnderoptimizedRandom
     ]:
         edges_to_keep = process_thresholds_underopt(
             raw_thresholds=config.thresholds,
             architecture=architecture,
-            method=config.threshold_strategy,
-            thresholds_are_low_pass=config.thresholds_are_low_pass,
+            method=config.threshold_strategy
         )
+        architecture.threshold_layers(edges_to_keep)
 
     if config.attack_type not in ["FGSM", "PGD"]:
         all_epsilons = [1.0]
@@ -228,9 +217,6 @@ def get_all_embeddings(config: Config):
     )
     detailed_times["protocolar_datasets"] = time.time() - start_time
 
-    if config.threshold_strategy == ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3:
-        architecture.threshold_layers(edges_to_keep)
-
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
 
@@ -247,7 +233,6 @@ def get_all_embeddings(config: Config):
                     line=line,
                     architecture=architecture,
                     thresholds=thresholds,
-                    edges_to_keep=edges_to_keep,
                     threshold_strategy=config.threshold_strategy,
                     quantiles_helpers_for_sigmoid=quantiles_helpers,
                     thresholds_are_low_pass=config.thresholds_are_low_pass,
@@ -262,9 +247,14 @@ def get_all_embeddings(config: Config):
 
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
 
-        ret = Parallel(n_jobs=config.n_jobs)(
-            delayed(embedding_getter)(chunk) for chunk in my_chunks
-        )
+        if config.n_jobs > 1:
+            ret = Parallel(n_jobs=config.n_jobs)(
+                delayed(embedding_getter)(chunk) for chunk in my_chunks
+            )
+        else:
+            ret = [
+                embedding_getter(chunk) for chunk in my_chunks
+            ]
         ret = [item for sublist in ret for item in sublist]
 
         # Extracting stats
