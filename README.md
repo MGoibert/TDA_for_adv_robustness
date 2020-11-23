@@ -29,11 +29,12 @@ Some arguments are common to all scripts, some others are specific (hyperparamet
 ### A) Common arguments
 
 All our scripts have some common arguments:
-* attack_type (can be typically FGSM, PGD, CW, BOUNDARY)
-* dataset (can be MNIST, SVHN, CIFAR10)
-* architecture (see below)
-* epochs (number of epochs for the architecture ; see below)
-* dataset_size (we use 500 by default)
+* `attack_type` (can be typically FGSM, PGD, CW, BOUNDARY)
+* `dataset` (can be MNIST, SVHN, CIFAR10)
+* `architecture` (see below)
+* `epochs` (number of epochs for the architecture ; see below)
+* `dataset_size` (we use 500 by default)
+* `all_epsilons` (list of l-inf perturbations only for PGD and FGSM, separated by ;)
 
 Note that all combinations of dataset / architectures are not possible due to the different shapes of the images. In the paper, we use the following:
 
@@ -49,17 +50,28 @@ For all the combinations, the trained models are provided in the git repository 
 
 ### B) Our method
 
-Our hyperparameters are all discussed in the paper but here's a complementary table
+Our script takes the following arguments
 
-| Parameter | Description |
-| --- |---|
-| embedding_type | PersistentDiagram or RawGraph |
-| kernel_type | SlicedWassertein (to be used with Persistent Diagram) or RBF (to be used with RawGraph) |
-| thresholds | The maximum quantile to keep (see paper) expressed as layeridx:value_layeridx:value_ ...
-| sigmoidize | to remove |
-| raw_graph_pca | The dimension of the PCA to be used with RawGraph (deactivated by default) |
+| Parameter | Type | Description |
+| --- |---| ---|
+| embedding_type | str | PersistentDiagram or RawGraph |
+| kernel_type | str | SlicedWassertein (to be used with Persistent Diagram) or RBF (to be used with RawGraph) |
+| thresholds | str | the thresholds to apply to the induced graph (see below)
+| threshold_strategy | str | the threshold strategy to apply |
+| raw_graph_pca | int | The dimension of the PCA to be used with RawGraph (deactivated by default) |
 
-Example:
+The format for the threshods argument is 
+
+`idx1:qmin1:qmax1_idx2:qmin2:qmax2_....`
+
+where `idx1`, `idx2`, ... are the indices of the layers we want to use for the induced graph.
+For each layer, we keep the edges whose value is in between the quantiles `qmin` and `qmax`.
+
+The value used for the thresholding depends on the `threshold_strategy` parameter:
+* if `UnderoptimizedMagnitudeIncrease` then we use the magnitude increase criteria
+* if `UnderoptimizedLargeFinal` we use the absolute value of the weight
+
+*Example 1: using 30% underoptimized edges with Magnitude Increase criteria on CIFAR10*
 
 ```bash
 python tda/experiments/ours/our_binary.py \
@@ -69,8 +81,22 @@ python tda/experiments/ours/our_binary.py \
     --epochs 100 \
     --embedding_type PersistentDiagram \
     --kernel_type SlicedWasserstein \
-    --thresholds 0.05 \
-    --sigmoidize True
+    --thresholds 39:0.0:0.3_40:0.0:0.3_41:0.0:0.3_42:0.0:0.3_43:0.0:0.3 \
+    --threshold_strategy UnderoptimizedMagnitudeIncrease
+```
+
+*Example 2: using 30% edges with largest value on CIFAR10*
+
+```bash
+python tda/experiments/ours/our_binary.py \
+    --attack_type PGD \
+    --architecture cifar_resnet_1 \
+    --dataset CIFAR10 \
+    --epochs 100 \
+    --embedding_type PersistentDiagram \
+    --kernel_type SlicedWasserstein \
+    --thresholds 39:0.7:1.0_40:0.7:1.0_41:0.7:1.0_42:0.7:1.0_43:0.7:1.0 \
+    --threshold_strategy UnderoptimizedLargeFinal
 ```
 
 ### C) LID Baseline
@@ -102,6 +128,90 @@ python tda/experiments/mahalanobis/mahalanobis_binary.py \
     --dataset CIFAR10 \
     --epochs 300 \
     --number_of_samples_for_mu_sigma 500 \
-    --preproc_epsilon 0.01
+    --preproc_epsilon 0.01`
 ```
 
+## 3) How to reproduce main figures ?
+
+### Figure 2: Influence of q
+
+### Figure 3: Main detection results
+
+### Figure 5: Edge selection method
+
+Total of 6 experiments to launch
+
+* MNIST
+    - Magnitude Increase
+        ```
+        python tda/experiments/ours/our_binary.py \
+            --attack_type PGD \
+            --architecture mnist_lenet \
+            --dataset MNIST \
+            --epochs 50 \
+            --embedding_type PersistentDiagram \
+            --kernel_type SlicedWasserstein \
+            --thresholds "0:0.0:0.025_2:0.0:0.025_4:0.0:0.025_6:0.0:0.025" \
+            --threshold_strategy UnderoptimizedMagnitudeIncrease
+        ```
+    - Small-valued edges
+        ```
+        python tda/experiments/ours/our_binary.py \
+            --attack_type PGD \
+            --architecture mnist_lenet \
+            --dataset MNIST \
+            --epochs 50 \
+            --embedding_type PersistentDiagram \
+            --kernel_type SlicedWasserstein \
+            --thresholds "0:0.0:0.025_2:0.0:0.025_4:0.0:0.025_6:0.0:0.025" \
+            --threshold_strategy UnderoptimizedLargeFinal
+        ```
+    - Large-valued edges
+        ```
+        python tda/experiments/ours/our_binary.py \
+            --attack_type PGD \
+            --architecture mnist_lenet \
+            --dataset MNIST \
+            --epochs 50 \
+            --embedding_type PersistentDiagram \
+            --kernel_type SlicedWasserstein \
+            --thresholds "0:0.975:1.0_2:0.975:1.0_4:0.975:1.0_6:0.975:1.0" \
+            --threshold_strategy UnderoptimizedLargeFinal
+        ```
+* CIFAR
+    - Magnitude Increase
+        ```
+        python tda/experiments/ours/our_binary.py \
+            --attack_type PGD \
+            --architecture cifar_resnet_1 \
+            --dataset CIFAR10 \
+            --epochs 100 \
+            --embedding_type PersistentDiagram \
+            --kernel_type SlicedWasserstein \
+            --thresholds "39:0.0:0.3_40:0.0:0.3_41:0.0:0.3_42:0.0:0.3_43:0.0:0.3" \
+            --threshold_strategy UnderoptimizedMagnitudeIncrease
+        ```
+    - Small-valued edges
+        ```
+        python tda/experiments/ours/our_binary.py \
+            --attack_type PGD \
+            --architecture cifar_resnet_1 \
+            --dataset CIFAR10 \
+            --epochs 100 \
+            --embedding_type PersistentDiagram \
+            --kernel_type SlicedWasserstein \
+            --thresholds "39:0.0:0.3_40:0.0:0.3_41:0.0:0.3_42:0.0:0.3_43:0.0:0.3" \
+            --threshold_strategy UnderoptimizedLargeFinal
+        ```
+    - Large-valued edges
+        ```
+        python tda/experiments/ours/our_binary.py \
+            --attack_type PGD \
+            --architecture cifar_resnet_1 \
+            --dataset CIFAR10 \
+            --epochs 100 \
+            --embedding_type PersistentDiagram \
+            --kernel_type SlicedWasserstein \
+            --thresholds "39:0.7:1.0_40:0.7:1.0_41:0.7:1.0_42:0.7:1.0_43:0.7:1.0" \
+            --threshold_strategy UnderoptimizedLargeFinal
+        ```
