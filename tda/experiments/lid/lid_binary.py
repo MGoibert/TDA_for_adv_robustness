@@ -4,26 +4,23 @@
 import argparse
 import io
 import os
+import re
 import time
 import traceback
 from typing import NamedTuple, Optional, Set, List
-import re
 
 import numpy as np
 import torch
-from r3d3.experiment_db import ExperimentDB
 from sklearn.metrics.pairwise import euclidean_distances
 
-from tda.embeddings import KernelType
+from tda.dataset.adversarial_generation import AttackType
 from tda.dataset.graph_dataset import DatasetLine
-from tda.tda_logging import get_logger
+from tda.embeddings import KernelType
 from tda.models import Dataset, get_deep_model, mnist_lenet
 from tda.models.architectures import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
-from tda.rootpath import db_path
-
-from tda.dataset.adversarial_generation import AttackType, AttackBackend
+from tda.tda_logging import get_logger
 
 logger = get_logger("LID")
 
@@ -32,8 +29,6 @@ start_time = time.time()
 plot_path = f"{os.path.dirname(os.path.realpath(__file__))}/plots"
 if not os.path.exists(plot_path):
     os.mkdir(plot_path)
-
-my_db = ExperimentDB(db_path=db_path)
 
 
 class Config(NamedTuple):
@@ -65,10 +60,6 @@ class Config(NamedTuple):
     first_pruned_iter: int = 10
     prune_percentile: float = 0.0
     tot_prune_percentile: float = 0.0
-    # Default parameters when running interactively for instance
-    # Used to store the results in the DB
-    experiment_id: int = int(time.time())
-    run_id: int = 0
 
     all_epsilons: List[float] = None
 
@@ -82,8 +73,6 @@ def str2bool(value):
 
 def get_config() -> Config:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--experiment_id", type=int, default=-1)
-    parser.add_argument("--run_id", type=int, default=-1)
 
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--dataset", type=str, default="MNIST")
@@ -164,7 +153,10 @@ def create_lid_dataset(
         valid_lid_columns = list()
 
         for layer_idx in archi.layer_visit_order:
-            if config.selected_layers is not None and layer_idx not in config.selected_layers:
+            if (
+                config.selected_layers is not None
+                and layer_idx not in config.selected_layers
+            ):
                 # Skipping layer since not in selected_layers
                 continue
             if layer_idx == -1:
@@ -249,12 +241,14 @@ def get_feature_datasets(
             archi=trsf_archi,
             dataset_size=config.dataset_size,
             attack_type=config.attack_type,
-            #attack_backend=config.attack_backend,
+            # attack_backend=config.attack_backend,
             all_epsilons=epsilons,
             transfered_attacks=config.transfered_attacks,
         )
         archi.epochs = archi.epochs - 1
-        logger.info(f"After generating transferred attacks, archi epochs = {archi.epochs}")
+        logger.info(
+            f"After generating transferred attacks, archi epochs = {archi.epochs}"
+        )
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
@@ -262,7 +256,7 @@ def get_feature_datasets(
         archi=archi,
         dataset_size=config.dataset_size,  # 2 * config.batch_size * config.nb_batches,  # Train + Test
         attack_type=config.attack_type,
-        #attack_backend=config.attack_backend,
+        # attack_backend=config.attack_backend,
         all_epsilons=epsilons,
         transfered_attacks=config.transfered_attacks,
     )
@@ -298,13 +292,6 @@ def get_feature_datasets(
 
 def run_experiment(config: Config):
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id}")
-
-    if __name__ != "__main__":
-        my_db.add_experiment(
-            experiment_id=config.experiment_id,
-            run_id=config.run_id,
-            config=config._asdict(),
-        )
 
     dataset = Dataset(name=config.dataset)
 
@@ -354,15 +341,12 @@ def run_experiment(config: Config):
 
     logger.info(evaluation_results)
 
-    my_db.update_experiment(
-        experiment_id=config.experiment_id,
-        run_id=config.run_id,
-        metrics={"name": "LID", "time": time.time() - start_time, **evaluation_results},
-    )
+    metrics = {"name": "LID", "time": time.time() - start_time, **evaluation_results}
 
     logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !")
+    logger.info(metrics)
 
-    return evaluation_results
+    return metrics
 
 
 if __name__ == "__main__":
@@ -374,9 +358,3 @@ if __name__ == "__main__":
         traceback.print_exc(file=my_trace)
 
         logger.error(my_trace.getvalue())
-
-        my_db.update_experiment(
-            experiment_id=my_config.experiment_id,
-            run_id=my_config.run_id,
-            metrics={"ERROR": re.escape(my_trace.getvalue())},
-        )

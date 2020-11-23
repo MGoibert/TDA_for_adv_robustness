@@ -9,18 +9,16 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-from r3d3 import ExperimentDB
 
 from tda.dataset.graph_dataset import get_sample_dataset, AttackBackend
 from tda.models import Dataset, get_deep_model
 from tda.models.architectures import Architecture
 from tda.models.architectures import get_architecture, svhn_lenet
 from tda.tda_logging import get_logger
-from tda.rootpath import db_path, rootpath
+from tda.rootpath import rootpath
 
 start_time = time.time()
 
-my_db = ExperimentDB(db_path=db_path)
 
 logger = get_logger("GraphStats")
 
@@ -121,16 +119,9 @@ def compute_adv_accuracy(
 
 def get_all_accuracies(config: Config):
 
-    if __name__ != "__main__":
-        my_db.add_experiment(
-            experiment_id=config.experiment_id,
-            run_id=config.run_id,
-            config=config._asdict(),
-        )
-
     if config.attack_type in ["FGSM", "PGD"]:
         all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
-        #all_epsilons = [0, 0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1]
+        # all_epsilons = [0, 0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1]
     else:
         all_epsilons = [0.0, 1]
 
@@ -145,12 +136,12 @@ def get_all_accuracies(config: Config):
         tot_prune_percentile=config.tot_prune_percentile,
         first_pruned_iter=config.first_pruned_iter,
     )
-    #architecture = torch.load(
+    # architecture = torch.load(
     #        f"{rootpath}/trained_models/cifar_resnet_1_e_99.model.model", map_location=device
     #    )
-    #architecture.set_eval_mode()
-    #architecture.is_trained = True
-    #assert architecture.matrices_are_built is True
+    # architecture.set_eval_mode()
+    # architecture.is_trained = True
+    # assert architecture.matrices_are_built is True
 
     accuracies = dict()
 
@@ -200,13 +191,12 @@ def plot_and_save(config, accuracies):
     end_time = time.time()
     total_time = end_time - start_time
 
-    my_db.update_experiment(
-        experiment_id=config.experiment_id,
-        run_id=config.run_id,
-        metrics={"accuracies": accuracies, "total_time": total_time},
-    )
+    metrics = {"accuracies": accuracies, "total_time": total_time}
 
     logger.info(f"Success in {total_time} seconds")
+    logger.info(metrics)
+
+    return metrics
 
 
 if __name__ == "__main__":

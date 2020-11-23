@@ -4,15 +4,14 @@
 import argparse
 import io
 import time
-import re
 import traceback
 from typing import NamedTuple, List
 
 import numpy as np
 from joblib import delayed, Parallel
-from r3d3.experiment_db import ExperimentDB
 from sklearn.decomposition import PCA
 
+from tda.dataset.adversarial_generation import AttackType, AttackBackend
 from tda.embeddings import (
     get_embedding,
     EmbeddingType,
@@ -21,21 +20,15 @@ from tda.embeddings import (
     Embedding,
 )
 from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors
+from tda.graph_stats import get_quantiles_helpers
 from tda.models import get_deep_model, Dataset
 from tda.models.architectures import mnist_mlp, get_architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
-from tda.rootpath import db_path
 from tda.tda_logging import get_logger
 from tda.threshold_underoptimized_edges import process_thresholds_underopt
-from tda.thresholds import process_thresholds
-from tda.graph_stats import get_quantiles_helpers
-
-from tda.dataset.adversarial_generation import AttackType, AttackBackend
 
 logger = get_logger("Detector")
 start_time = time.time()
-
-my_db = ExperimentDB(db_path=db_path)
 
 
 class Config(NamedTuple):
@@ -173,14 +166,7 @@ def get_all_embeddings(config: Config):
 
     thresholds = None
 
-    if config.threshold_strategy == ThresholdStrategy.ActivationValue:
-        thresholds = process_thresholds(
-            raw_thresholds=config.thresholds,
-            dataset=dataset,
-            architecture=architecture,
-            dataset_size=100,
-        )
-    elif config.threshold_strategy in [
+    if config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
         ThresholdStrategy.UnderoptimizedRandom,
@@ -382,13 +368,6 @@ def run_experiment(config: Config):
 
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id} !!")
 
-    if __name__ != "__main__":
-        my_db.add_experiment(
-            experiment_id=config.experiment_id,
-            run_id=config.run_id,
-            config=config._asdict(),
-        )
-
     (
         embedding_train,
         embedding_test,
@@ -422,11 +401,6 @@ def run_experiment(config: Config):
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
 
-    logger.info(f"Threshold final = {thresholds}")
-    logger.info(
-        f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}"
-    )
-
     metrics = {
         "name": "Graph",
         "time": time.time() - start_time,
@@ -441,11 +415,14 @@ def run_experiment(config: Config):
             {"_".join([str(v) for v in key]): thresholds[key] for key in thresholds},
         )
 
-    my_db.update_experiment(
-        experiment_id=config.experiment_id, run_id=config.run_id, metrics=metrics
+    logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !!")
+    logger.info(metrics)
+
+    logger.info(
+        f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}"
     )
 
-    logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !!")
+    return metrics
 
 
 if __name__ == "__main__":
@@ -457,9 +434,3 @@ if __name__ == "__main__":
         traceback.print_exc(file=my_trace)
 
         logger.error(my_trace.getvalue())
-
-        my_db.update_experiment(
-            experiment_id=my_config.experiment_id,
-            run_id=my_config.run_id,
-            metrics={"ERROR": re.escape(my_trace.getvalue())},
-        )

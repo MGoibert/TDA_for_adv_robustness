@@ -12,7 +12,6 @@ from typing import Dict, List, NamedTuple, Set, Optional
 
 import numpy as np
 import torch
-from r3d3.experiment_db import ExperimentDB
 
 from tda.devices import device
 from tda.embeddings import KernelType
@@ -21,7 +20,6 @@ from tda.tda_logging import get_logger
 from tda.models import mnist_mlp, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
-from tda.rootpath import db_path
 
 from tda.covariance import (
     CovarianceStreamComputer,
@@ -39,7 +37,6 @@ plot_path = f"{os.path.dirname(os.path.realpath(__file__))}/plots"
 if not os.path.exists(plot_path):
     os.mkdir(plot_path)
 
-my_db = ExperimentDB(db_path=db_path)
 
 # Custom types for better readability
 LayerIndex = int
@@ -111,7 +108,9 @@ def get_config() -> Config:
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
     parser.add_argument("--selected_layers", type=str, default="all")
-    parser.add_argument("--covariance_method", type=str, default=CovarianceMethod.NAIVE_SVD)
+    parser.add_argument(
+        "--covariance_method", type=str, default=CovarianceMethod.NAIVE_SVD
+    )
 
     args, _ = parser.parse_known_args()
 
@@ -452,13 +451,6 @@ def get_feature_datasets(
 def run_experiment(config: Config):
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id}")
 
-    if __name__ != "__main__":
-        my_db.add_experiment(
-            experiment_id=config.experiment_id,
-            run_id=config.run_id,
-            config=config._asdict(),
-        )
-
     dataset = Dataset(name=config.dataset)
 
     logger.info(f"Getting deep model...")
@@ -520,16 +512,16 @@ def run_experiment(config: Config):
 
     logger.info(evaluation_results)
 
-    my_db.update_experiment(
-        experiment_id=config.experiment_id,
-        run_id=config.run_id,
-        metrics={
-            "name": "Mahalanobis",
-            "time": time.time() - start_time,
-            "gaussian_accuracy": gaussian_accuracy,
-            **evaluation_results,
-        },
-    )
+    metrics = {
+        "name": "Mahalanobis",
+        "time": time.time() - start_time,
+        "gaussian_accuracy": gaussian_accuracy,
+        **evaluation_results,
+    }
+
+    logger.info(metrics)
+
+    return metrics
 
 
 if __name__ == "__main__":
@@ -541,9 +533,3 @@ if __name__ == "__main__":
         traceback.print_exc(file=my_trace)
 
         logger.error(my_trace.getvalue())
-
-        my_db.update_experiment(
-            experiment_id=my_config.experiment_id,
-            run_id=my_config.run_id,
-            metrics={"ERROR": re.escape(my_trace.getvalue())},
-        )
