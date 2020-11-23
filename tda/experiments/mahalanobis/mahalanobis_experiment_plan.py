@@ -4,7 +4,7 @@ from r3d3.experiment import R3D3ExperimentPlan, R3D3Experiment
 from r3d3.utils import cartesian_product
 
 from tda.dataset.adversarial_generation import AttackType, AttackBackend
-from tda.experiments.mahalanobis.mahalanobis_binary_v2 import CovarianceMethod
+from tda.experiments.mahalanobis.mahalanobis_binary import CovarianceMethod
 from tda.models.architectures import (
     mnist_lenet,
     fashion_mnist_lenet,

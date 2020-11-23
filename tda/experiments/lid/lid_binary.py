@@ -91,7 +91,7 @@ def get_config() -> Config:
     parser.add_argument("--attack_type", type=str, default="FGSM")
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--train_noise", type=float, default=0.0)
-    parser.add_argument("--dataset_size", type=int, default=100)
+    parser.add_argument("--dataset_size", type=int, default=500)
     parser.add_argument("--batch_size", type=int, default=100)
     parser.add_argument("--perc_of_nn", type=float, default=0.2)
     parser.add_argument("--successful_adv", type=int, default=1)

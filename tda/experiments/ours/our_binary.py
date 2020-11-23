@@ -47,8 +47,6 @@ class Config(NamedTuple):
     thresholds: str
     # Which thresholding strategy should we use
     threshold_strategy: str
-    # Are the threshold low pass or not
-    thresholds_are_low_pass: bool
     # Noise to consider for the noisy samples
     noise: float
     # Number of epochs for the model
@@ -116,7 +114,7 @@ def get_config() -> Config:
     parser.add_argument("--dataset", type=str, default="MNIST")
     parser.add_argument("--architecture", type=str, default=mnist_mlp.name)
     parser.add_argument("--train_noise", type=float, default=0.0)
-    parser.add_argument("--dataset_size", type=int, default=100)
+    parser.add_argument("--dataset_size", type=int, default=500)
     parser.add_argument("--successful_adv", type=int, default=1)
     parser.add_argument("--raw_graph_pca", type=int, default=-1)
     parser.add_argument("--attack_type", type=str, default=AttackType.FGSM)
@@ -126,8 +124,6 @@ def get_config() -> Config:
     parser.add_argument("--n_jobs", type=int, default=1)
     parser.add_argument("--all_epsilons", type=str, default=None)
     parser.add_argument("--l2_norm_quantile", type=bool, default=True)
-    parser.add_argument("--sigmoidize", type=str2bool, default=False)
-    parser.add_argument("--thresholds_are_low_pass", type=str2bool, default=True)
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
@@ -139,8 +135,10 @@ def get_config() -> Config:
 
     if args.embedding_type == EmbeddingType.PersistentDiagram:
         args.kernel_type = KernelType.SlicedWasserstein
+        args.sigmoidize = False
     elif args.embedding_type == EmbeddingType.RawGraph:
         args.kernel_type = KernelType.RBF
+        args.sigmoidize = True
 
     logger.info(args.__dict__)
 
@@ -185,12 +183,12 @@ def get_all_embeddings(config: Config):
     elif config.threshold_strategy in [
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         ThresholdStrategy.UnderoptimizedLargeFinal,
-        ThresholdStrategy.UnderoptimizedRandom
+        ThresholdStrategy.UnderoptimizedRandom,
     ]:
         edges_to_keep = process_thresholds_underopt(
             raw_thresholds=config.thresholds,
             architecture=architecture,
-            method=config.threshold_strategy
+            method=config.threshold_strategy,
         )
         architecture.threshold_layers(edges_to_keep)
 
@@ -207,7 +205,8 @@ def get_all_embeddings(config: Config):
         logger.info(f"Generating datasets on the trensferred architecture")
         trsf_archi = architecture
         trsf_archi.epochs += 1
-        train_clean_, test_clean_, train_adv_, test_adv_ = get_protocolar_datasets(
+        # Run the attacks on the external model (to generate the cache)
+        get_protocolar_datasets(
             noise=config.noise,
             dataset=dataset,
             succ_adv=config.successful_adv > 0,
@@ -220,7 +219,10 @@ def get_all_embeddings(config: Config):
             transfered_attacks=config.transfered_attacks,
         )
         architecture.epochs = architecture.epochs - 1
-        logger.info(f"After generating transferred attacks, archi epochs = {architecture.epochs}")
+        logger.info(
+            f"After generating transferred attacks, archi epochs = {architecture.epochs}"
+        )
+    # Get the protocolar datasets
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
@@ -250,10 +252,7 @@ def get_all_embeddings(config: Config):
                     embedding_type=config.embedding_type,
                     line=line,
                     architecture=architecture,
-                    thresholds=thresholds,
-                    threshold_strategy=config.threshold_strategy,
                     quantiles_helpers_for_sigmoid=quantiles_helpers,
-                    thresholds_are_low_pass=config.thresholds_are_low_pass,
                 )
             )
             c += 1
@@ -261,7 +260,7 @@ def get_all_embeddings(config: Config):
 
     stats_inside_embeddings = dict()
 
-    def process(input_dataset) -> List[Embedding]:
+    def process(input_dataset) -> List:
 
         my_chunks = chunks(input_dataset, len(input_dataset) // config.n_jobs)
 
@@ -270,9 +269,7 @@ def get_all_embeddings(config: Config):
                 delayed(embedding_getter)(chunk) for chunk in my_chunks
             )
         else:
-            ret = [
-                embedding_getter(chunk) for chunk in my_chunks
-            ]
+            ret = [embedding_getter(chunk) for chunk in my_chunks]
         ret = [item for sublist in ret for item in sublist]
 
         # Extracting stats
