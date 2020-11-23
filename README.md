@@ -59,6 +59,7 @@ Our script takes the following arguments
 | thresholds | str | the thresholds to apply to the induced graph (see below)
 | threshold_strategy | str | the threshold strategy to apply |
 | raw_graph_pca | int | The dimension of the PCA to be used with RawGraph (deactivated by default) |
+| transfered_attacks | bool | Use attacks computed on a different model |
 
 The format for the threshods argument is 
 
