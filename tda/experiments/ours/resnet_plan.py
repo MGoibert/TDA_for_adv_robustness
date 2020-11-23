@@ -38,7 +38,7 @@ for (
         "CIFAR10",
         100,
         '39:0.3_40:0.3_41:0.3_42:0.3_43:0.3',
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
+        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         False,
     ],
     [
@@ -46,7 +46,7 @@ for (
         "SVHN",
         100,
         '39:0.275_40:0.275_41:0.275_42:0.275_43:0.275',
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
+        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         False,
     ],
 ]:

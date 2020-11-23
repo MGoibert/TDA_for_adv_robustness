@@ -37,21 +37,15 @@ class KernelType(object):
 class ThresholdStrategy(object):
     NoThreshold = "NoThreshold"
     ActivationValue = "ActivationValue"
-    UnderoptimizedMagnitudeIncrease = "UnderoptimizedMagnitudeIncrease"
-    UnderoptimizedMagnitudeIncreaseComplement = (
-        "UnderoptimizedMagnitudeIncreaseComplement"
-    )
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
     UnderoptimizedRandom = "UnderoptimizedRandom"
-    QuantilePerGraphLayer = "QuantilePerGraphLayer"
-    UnderoptimizedMagnitudeIncreaseV3 = "UnderoptimizedMagnitudeIncreaseV3"
+    UnderoptimizedMagnitudeIncrease = "UnderoptimizedMagnitudeIncrease"
 
 
 def get_embedding(
     embedding_type: str,
     line: DatasetLine,
     architecture: Architecture,
-    edges_to_keep,
     thresholds: Dict,
     threshold_strategy: str,
     quantiles_helpers_for_sigmoid=None,
@@ -69,7 +63,6 @@ def get_embedding(
     else:
         graph = line.graph
 
-
     if quantiles_helpers_for_sigmoid is not None:
         start = time.time()
         graph.sigmoidize(quantiles_helpers=quantiles_helpers_for_sigmoid)
@@ -78,17 +71,6 @@ def get_embedding(
     start = time.time()
     if threshold_strategy == ThresholdStrategy.ActivationValue:
         graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
-    elif threshold_strategy in [
-        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        ThresholdStrategy.UnderoptimizedLargeFinal,
-        ThresholdStrategy.UnderoptimizedRandom,
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseComplement,
-    ]:
-        graph.thresholdize_underopt(edges_to_keep)
-    elif threshold_strategy == ThresholdStrategy.QuantilePerGraphLayer:
-        graph.thresholdize_per_graph(
-            thresholds=thresholds, low_pass=thresholds_are_low_pass
-        )
 
     time_taken[f"T_{threshold_strategy}"] = time.time() - start
 

@@ -47,7 +47,7 @@ for model, dataset, nb_epochs, best_threshold, threshold_strategy, sigmoidize_ra
         "MNIST",
         50,
         "0:0.025_2:0.025_4:0.025_6:0.025", # true threshold
-        ThresholdStrategy.UnderoptimizedMagnitudeIncreaseV3,
+        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
         True,
     ],
     

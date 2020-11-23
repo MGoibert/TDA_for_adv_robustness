@@ -59,7 +59,7 @@ class AttackType(object):
     BOUNDARY = "BOUNDARY"
 
     @staticmethod
-    def require_epsilon(attack_type: "AttackType") -> bool:
+    def require_epsilon(attack_type: str) -> bool:
         return attack_type in [AttackType.FGSM, AttackType.PGD]
 
 

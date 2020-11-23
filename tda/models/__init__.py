@@ -370,9 +370,8 @@ def get_deep_model(
 
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
-
-    #try:
-    if False:
+        
+    try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
         #filename_ = f"{rootpath}/trained_models/cifar_resnet_1_e_99_p_0.53.model"
@@ -383,8 +382,7 @@ def get_deep_model(
         logger.info(
             f"Loaded successfully model from {architecture.get_model_savepath()}"
         )
-    #except FileNotFoundError:
-    else:
+    except FileNotFoundError:
         logger.info(
             f"Unable to find model in {architecture.get_model_savepath()}... Retraining it..."
         )
