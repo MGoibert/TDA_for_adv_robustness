@@ -238,7 +238,23 @@ def get_feature_datasets(
     config: Config, epsilons: List[float], dataset: Dataset, archi: Architecture
 ):
     logger.info(f"Evaluating epsilon={epsilons}")
-
+    if config.transfered_attacks:
+        logger.info(f"Generating datasets on the trensferred architecture")
+        trsf_archi = archi
+        trsf_archi.epochs += 1
+        train_clean_, test_clean_, train_adv_, test_adv_ = get_protocolar_datasets(
+            noise=config.noise,
+            dataset=dataset,
+            succ_adv=config.successful_adv > 0,
+            archi=trsf_archi,
+            dataset_size=config.dataset_size,
+            attack_type=config.attack_type,
+            #attack_backend=config.attack_backend,
+            all_epsilons=epsilons,
+            transfered_attacks=config.transfered_attacks,
+        )
+        archi.epochs = archi.epochs - 1
+        logger.info(f"After generating transferred attacks, archi epochs = {archi.epochs}")
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
@@ -246,6 +262,7 @@ def get_feature_datasets(
         archi=archi,
         dataset_size=config.dataset_size,  # 2 * config.batch_size * config.nb_batches,  # Train + Test
         attack_type=config.attack_type,
+        #attack_backend=config.attack_backend,
         all_epsilons=epsilons,
         transfered_attacks=config.transfered_attacks,
     )

@@ -3,7 +3,7 @@ from r3d3.utils import cartesian_product
 
 from tda.dataset.adversarial_generation import AttackType, AttackBackend
 from tda.embeddings import EmbeddingType, KernelType, ThresholdStrategy
-from tda.models.architectures import cifar_resnet_1, cifar_toy_resnet
+from tda.models.architectures import cifar_resnet_1, cifar_toy_resnet, svhn_resnet_1
 from tda.rootpath import rootpath, db_path
 from copy import deepcopy
 
@@ -12,7 +12,7 @@ base_configs = cartesian_product(
     {
         "embedding_type": [EmbeddingType.PersistentDiagram],
         "dataset_size": [500],
-        "attack_type": [AttackType.FGSM, AttackType.PGD, AttackType.DeepFool, AttackType.CW, AttackType.BOUNDARY],
+        "attack_type": [AttackType.PGD, AttackType.CW, AttackType.BOUNDARY],
         "attack_backend": [AttackBackend.FOOLBOX],
         "noise": [0.0],
         "n_jobs": [1],
@@ -33,15 +33,22 @@ for (
     threshold_strategy,
     sigmoidize_rawgraph,
 ) in [
-    [
+    [   
         cifar_resnet_1.name,
         "CIFAR10",
         100,
         '39:0.3_40:0.3_41:0.3_42:0.3_43:0.3',
         ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
-        True,
+        False,
     ],
-       
+    [
+        svhn_resnet_1.name,
+        "SVHN",
+        100,
+        '39:0.275_40:0.275_41:0.275_42:0.275_43:0.275',
+        ThresholdStrategy.UnderoptimizedMagnitudeIncrease,
+        False,
+    ],
 ]:
     for config in base_configs:
         config = deepcopy(config)
@@ -50,7 +57,7 @@ for (
         config["epochs"] = nb_epochs
         config["thresholds"] = best_threshold
         config["threshold_strategy"] = threshold_strategy
-        config["sigmoidize"] = sigmoidize_rawgraph
+        config["sigmoidize"] = False #sigmoidize_rawgraph
 
         #if config["embedding_type"] == EmbeddingType.PersistentDiagram:
         #    config["sigmoidize"] = True

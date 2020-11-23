@@ -3,6 +3,9 @@
 import typing
 import glob
 import pathlib
+import socket
+import inspect
+import os
 
 import numpy as np
 import torch
@@ -15,6 +18,7 @@ from tda.tda_logging import get_logger
 from tda.models.architectures import Architecture, mnist_mlp
 from tda.dataset.datasets import Dataset
 from tda.rootpath import rootpath
+from tda.models import get_deep_model
 
 
 logger = get_logger("GraphDataset")
@@ -68,6 +72,29 @@ class DatasetLine(typing.NamedTuple):
     sample_id: int
     x: torch.tensor
 
+def get_my_path(list_locals):
+    if os.path.exists("/var/opt/data/user_data"):
+        # We are on gpu
+        cache_root = f"/var/opt/data/user_data/tda/"
+    elif "mesos" in socket.gethostname():
+        # We are in mozart
+        cache_root = f"{os.environ['HOME']}/tda_cache/"
+    else:
+        # Other cases (local)
+        cache_root = f"{rootpath}/cache/"
+    base_path = f"{cache_root}get_sample_dataset/"
+    pathlib.Path(base_path).mkdir(parents=True, exist_ok=True)
+    if list_locals['adv']==True:
+        remove_keys = ['list_arg', 'architecture', 'per_class']
+    else:
+        remove_keys = ['list_arg', 'architecture', 'num_iter', 'per_class']
+    cache_path = (
+        base_path
+        + "_".join(sorted([f"{key}={str(list_locals[key])}" for key in list_locals.keys() if key not in remove_keys]))
+        + ".cached"
+        )
+    logger.info(f"cache_path = {cache_path}")
+    return cache_path
 
 @cached
 def get_sample_dataset(
@@ -104,23 +131,42 @@ def get_sample_dataset(
         logger.info("This dataset will be non-adversarial !")
 
     if transfered_attacks:
-        pathname = saved_adv_path() + f"{dataset.name}/{archi.name}/*{attack_type}*"
-        path = glob.glob(pathname)
-        source_dataset = torch.load(path[0], map_location=device)[f"{attack_type}"]
-        if attack_type in ["FGSM", "PGD"]:
-            source_dataset = source_dataset[epsilon]
-        source_dataset_size = len(source_dataset["y"])
+        logger.info(f"Loading the architecture to generate adversaries with transferred attacks with {archi.epochs} epochs")
+        archi = architecture = get_deep_model(
+            num_epochs=archi.epochs,
+            dataset=dataset,
+            architecture=archi,
+            train_noise=archi.train_noise,
+        )
+        if archi.epochs % 10 == 0:
+            archi.epochs += 1
+            list_locals = locals()
+            logger.info(f"locals = {list_locals}")
+            source_dataset_path = get_my_path(list_locals)
+            if os.path.exists(source_dataset_path):
+                source_dataset = torch.load(source_dataset_path)
+            source_dataset_size = len(source_dataset)
+            logger.info(f"Successfully loaded dataset of trsf attacks (len {source_dataset_size})")
+            archi.epochs -= 1
+            current_sample_id = 0
+        else:
+            source_dataset = (
+            dataset.train_dataset if train else dataset.test_and_val_dataset
+            )
+            source_dataset_size = len(source_dataset)
+            current_sample_id = offset
     else:
         source_dataset = (
             dataset.train_dataset if train else dataset.test_and_val_dataset
         )
         source_dataset_size = len(source_dataset)
+        current_sample_id = offset
 
     final_dataset = list()
 
     per_class_nb_samples = np.repeat(0, 10)
 
-    current_sample_id = offset
+    #current_sample_id = offset
 
     dataset_done = False
     batch_size = 32
@@ -133,7 +179,7 @@ def get_sample_dataset(
 
         while processed_samples is None and current_sample_id < source_dataset_size:
 
-            if transfered_attacks:
+            if False: #transfered_attacks:
                 samples = (
                     source_dataset["x"][
                         current_sample_id : current_sample_id + batch_size
@@ -158,9 +204,13 @@ def get_sample_dataset(
                 batch = source_dataset[
                     current_sample_id : current_sample_id + batch_size
                 ]
-
-                x = torch.cat([torch.unsqueeze(s[0], 0) for s in batch], 0).to(device)
-                y = np.array([s[1] for s in batch])
+                if isinstance(batch[0], DatasetLine):
+                    x = torch.cat([torch.unsqueeze(s.x, 0) for s in batch], 0).to(device)
+                    y = np.array([s.y for s in batch])
+                    logger.info(f"shape of x = {x.shape}")
+                else:
+                    x = torch.cat([torch.unsqueeze(s[0], 0) for s in batch], 0).to(device)
+                    y = np.array([s[1] for s in batch])
                 samples = (x, y)
 
                 # Calling process_sample on the batch
@@ -214,7 +264,7 @@ def get_sample_dataset(
                 p=2,
                 dim=1,
             )
-            .cpu()
+            .cpu().detach()
             .numpy()
         )
 
@@ -224,7 +274,7 @@ def get_sample_dataset(
                 p=float("inf"),
                 dim=1,
             )
-            .cpu()
+            .cpu().detach()
             .numpy()
         )
 
