@@ -214,6 +214,24 @@ def get_all_embeddings(config: Config):
         all_epsilons = config.all_epsilons
 
     start_time = time.time()
+    if config.transfered_attacks:
+        logger.info(f"Generating datasets on the trensferred architecture")
+        trsf_archi = architecture
+        trsf_archi.epochs += 1
+        train_clean_, test_clean_, train_adv_, test_adv_ = get_protocolar_datasets(
+            noise=config.noise,
+            dataset=dataset,
+            succ_adv=config.successful_adv > 0,
+            archi=trsf_archi,
+            dataset_size=config.dataset_size,
+            attack_type=config.attack_type,
+            attack_backend=config.attack_backend,
+            all_epsilons=all_epsilons,
+            compute_graph=False,
+            transfered_attacks=config.transfered_attacks,
+        )
+        architecture.epochs = architecture.epochs - 1
+        logger.info(f"After generating transferred attacks, archi epochs = {architecture.epochs}")
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=config.noise,
         dataset=dataset,
