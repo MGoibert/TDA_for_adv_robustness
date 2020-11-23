@@ -99,7 +99,7 @@ def get_config() -> Config:
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--dataset", type=str, default="MNIST")
     parser.add_argument("--architecture", type=str, default=mnist_mlp.name)
-    parser.add_argument("--dataset_size", type=int, default=100)
+    parser.add_argument("--dataset_size", type=int, default=500)
     parser.add_argument("--number_of_samples_for_mu_sigma", type=int, default=100)
     parser.add_argument("--attack_type", type=str, default="FGSM")
     parser.add_argument("--preproc_epsilon", type=float, default=0.0)

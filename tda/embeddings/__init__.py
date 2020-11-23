@@ -36,7 +36,6 @@ class KernelType(object):
 
 class ThresholdStrategy(object):
     NoThreshold = "NoThreshold"
-    ActivationValue = "ActivationValue"
     UnderoptimizedLargeFinal = "UnderoptimizedLargeFinal"
     UnderoptimizedRandom = "UnderoptimizedRandom"
     UnderoptimizedMagnitudeIncrease = "UnderoptimizedMagnitudeIncrease"
@@ -46,10 +45,7 @@ def get_embedding(
     embedding_type: str,
     line: DatasetLine,
     architecture: Architecture,
-    thresholds: Dict,
-    threshold_strategy: str,
-    quantiles_helpers_for_sigmoid=None,
-    thresholds_are_low_pass: bool = True,
+    quantiles_helpers_for_sigmoid=None
 ) -> Embedding:
 
     time_taken = dict()
@@ -67,12 +63,6 @@ def get_embedding(
         start = time.time()
         graph.sigmoidize(quantiles_helpers=quantiles_helpers_for_sigmoid)
         time_taken["sigmoidize"] = time.time() - start
-
-    start = time.time()
-    if threshold_strategy == ThresholdStrategy.ActivationValue:
-        graph.thresholdize(thresholds=thresholds, low_pass=thresholds_are_low_pass)
-
-    time_taken[f"T_{threshold_strategy}"] = time.time() - start
 
     if embedding_type == EmbeddingType.PersistentDiagram:
         start = time.time()

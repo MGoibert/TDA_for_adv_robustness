@@ -81,21 +81,18 @@ python tda/experiments/ours/our_binary.py \
     --epochs 100 \
     --embedding_type PersistentDiagram \
     --kernel_type SlicedWasserstein \
-    --thresholds 39:0.0:0.3_40:0.0:0.3_41:0.0:0.3_42:0.0:0.3_43:0.0:0.3 \
+    --thresholds 39:0.0:0.3_43:0.0:0.3 \
     --threshold_strategy UnderoptimizedMagnitudeIncrease
 ```
 
+(the layer indices of the last conv. and linear layers are respectively 39 and 43)
+
 *Example 2: using 30% edges with largest value on CIFAR10*
 
-```bash
-python tda/experiments/ours/our_binary.py \
-    --attack_type PGD \
-    --architecture cifar_resnet_1 \
-    --dataset CIFAR10 \
-    --epochs 100 \
-    --embedding_type PersistentDiagram \
-    --kernel_type SlicedWasserstein \
-    --thresholds 39:0.7:1.0_40:0.7:1.0_41:0.7:1.0_42:0.7:1.0_43:0.7:1.0 \
+we modify the previous command with 
+
+```
+    --thresholds 39:0.7:1.0_43:0.7:1.0 \
     --threshold_strategy UnderoptimizedLargeFinal
 ```
 
@@ -128,16 +125,27 @@ python tda/experiments/mahalanobis/mahalanobis_binary.py \
     --dataset CIFAR10 \
     --epochs 300 \
     --number_of_samples_for_mu_sigma 500 \
-    --preproc_epsilon 0.01`
+    --preproc_epsilon 0.01
 ```
 
 ## 3) How to reproduce main figures ?
 
-### Figure 2: Influence of q
+### Example 1: Figure 2: Influence of q
 
-### Figure 3: Main detection results
+Our curve to be run for different values of q between 0 and 1:
+```bash
+python tda/experiments/ours/our_binary.py \
+    --attack_type PGD \
+    --architecture cifar_resnet_1 \
+    --dataset CIFAR10 \
+    --epochs 100 \
+    --embedding_type PersistentDiagram \
+    --kernel_type SlicedWasserstein \
+    --thresholds 39:0.0:q_43:0.0:q \
+    --threshold_strategy UnderoptimizedMagnitudeIncrease
+```
 
-### Figure 5: Edge selection method
+### Example 2: Figure 5: Edge selection method
 
 Total of 6 experiments to launch
 
@@ -155,30 +163,20 @@ Total of 6 experiments to launch
             --threshold_strategy UnderoptimizedMagnitudeIncrease
         ```
     - Small-valued edges
+        
+        same as above but with
         ```
-        python tda/experiments/ours/our_binary.py \
-            --attack_type PGD \
-            --architecture mnist_lenet \
-            --dataset MNIST \
-            --epochs 50 \
-            --embedding_type PersistentDiagram \
-            --kernel_type SlicedWasserstein \
             --thresholds "0:0.0:0.025_2:0.0:0.025_4:0.0:0.025_6:0.0:0.025" \
             --threshold_strategy UnderoptimizedLargeFinal
         ```
     - Large-valued edges
+        
+        same as above but with
         ```
-        python tda/experiments/ours/our_binary.py \
-            --attack_type PGD \
-            --architecture mnist_lenet \
-            --dataset MNIST \
-            --epochs 50 \
-            --embedding_type PersistentDiagram \
-            --kernel_type SlicedWasserstein \
             --thresholds "0:0.975:1.0_2:0.975:1.0_4:0.975:1.0_6:0.975:1.0" \
             --threshold_strategy UnderoptimizedLargeFinal
         ```
-* CIFAR
+* CIFAR10
     - Magnitude Increase
         ```
         python tda/experiments/ours/our_binary.py \
@@ -188,30 +186,86 @@ Total of 6 experiments to launch
             --epochs 100 \
             --embedding_type PersistentDiagram \
             --kernel_type SlicedWasserstein \
-            --thresholds "39:0.0:0.3_40:0.0:0.3_41:0.0:0.3_42:0.0:0.3_43:0.0:0.3" \
+            --thresholds "39:0.0:0.3_43:0.0:0.3" \
             --threshold_strategy UnderoptimizedMagnitudeIncrease
         ```
     - Small-valued edges
+        
+        same as above but with
         ```
-        python tda/experiments/ours/our_binary.py \
-            --attack_type PGD \
-            --architecture cifar_resnet_1 \
-            --dataset CIFAR10 \
-            --epochs 100 \
-            --embedding_type PersistentDiagram \
-            --kernel_type SlicedWasserstein \
-            --thresholds "39:0.0:0.3_40:0.0:0.3_41:0.0:0.3_42:0.0:0.3_43:0.0:0.3" \
+            --thresholds "39:0.0:0.3_43:0.0:0.3" \
             --threshold_strategy UnderoptimizedLargeFinal
         ```
     - Large-valued edges
+        
+        same as above but with
         ```
-        python tda/experiments/ours/our_binary.py \
-            --attack_type PGD \
-            --architecture cifar_resnet_1 \
-            --dataset CIFAR10 \
-            --epochs 100 \
-            --embedding_type PersistentDiagram \
-            --kernel_type SlicedWasserstein \
-            --thresholds "39:0.7:1.0_40:0.7:1.0_41:0.7:1.0_42:0.7:1.0_43:0.7:1.0" \
+            --thresholds "39:0.7:1.0_43:0.7:1.0" \
             --threshold_strategy UnderoptimizedLargeFinal
         ```
+      
+      
+
+## 4) Layer indices
+
+Here we detail the layer indices of our architectures.
+
+### A) LeNet
+
+0. Conv(1 -> 10, 5)
+1. MaxPool2dLayer(2)
+2. Conv(10 -> 20, 5)
+3. MaxPool2dLayer(2)
+4. Linear(320 -> 50)
+5. DropOut()
+6. Linear(50 -> 10)
+7. SoftMaxLayer()
+
+### B) ResNet
+
+	
+0.	Conv(3->64, 3)
+1.	BatchNorm2d(ReLU)
+2.	Conv(64->64, 3) # Block 1/a
+3.	BatchNorm2d(ReLU)
+4.	Conv(64->64, 3)
+5.	BatchNorm2d
+6.	ReLU	
+7.	Conv(64->64, 3)  # Block 1/b
+8.	BatchNorm2d(ReLU)
+9.	Conv(64->64, 3)
+10.	BatchNorm2d
+11.	ReLU	
+12.	Conv(64->128, 3) # Block 2/a
+13.	BatchNorm2d(ReLU)
+14.	Conv(128->128, 3)
+15.	BatchNorm2d
+16.	ReLU	
+17.	Conv(128->128, 3) # Block 2/b
+18.	BatchNorm2d(ReLU)
+19.	Conv(128->128, 3)
+20.	BatchNorm2d
+21.	ReLU	
+22.	Conv(128->256, 3) # Block 3/a
+23.	BatchNorm2d(ReLU)
+24.	Conv(256->256, 3)
+25.	BatchNorm2d
+26.	ReLU	
+27.	Conv(256->256, 3) # Block 3/b
+28.	BatchNorm2d(ReLU)
+29.	Conv(256->256, 3)
+30.	BatchNorm2d
+31.	ReLU
+32.	Conv(256->512, 3) # Block 4/a
+33.	BatchNorm2d(ReLU)
+34.	Conv(512->512, 3)
+35.	BatchNorm2d
+36.	ReLU	
+37.	Conv(512->512, 3) # Block 4/b
+38.	BatchNorm2d(ReLU)
+39.	Conv(512->512, 3)
+40.	BatchNorm2d
+41.	ReLU	
+42.	AvgPool2d # Skips
+43.	Linear(512->10)
+44.	Softmax
