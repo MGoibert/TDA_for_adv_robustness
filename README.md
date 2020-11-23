@@ -267,6 +267,9 @@ Here we detail the layer indices of our architectures.
 39.	Conv(512->512, 3)
 40.	BatchNorm2d
 41.	ReLU	
-42.	AvgPool2d # Skips
+42.	AvgPool2d
 43.	Linear(512->10)
 44.	Softmax
+45. Conv(64 -> 128, 1, stride=2) # Skips
+46. Conv(128 -> 256, 1, stride=2)
+47. Conv(256 -> 512, 1, stride=2)
