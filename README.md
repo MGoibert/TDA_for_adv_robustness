@@ -42,11 +42,11 @@ Note that all combinations of dataset / architectures are not possible due to th
 | --- |:---:| ---:|
 | MNIST      | mnist_lenet | 50 |
 | FashionMNIST | fashion_mnist_lenet | 100 |
-| SVHN | svhn_lenet | 300 |
-| CIFAR10 | cifar_lenet | 300 |
 | CIFAR10 | cifar_resnet_1 | 100 |
+| SVHN | svhn_resnet_1 | 100 |
 
-For all the combinations, the trained models are provided in the git repository so the code won't have to retrain them. Due to the size of the cifar_resnet_1 model, it wasn't included in git and it will be automatically retrained if you launch it.
+For all the combinations, the trained models are provided in the git repository so the code won't have to retrain them. 
+Due to the size of the resnet models (10Gb per model), it wasn't included in git and it will be automatically retrained if you launch it.
 
 ### B) Our method
 
