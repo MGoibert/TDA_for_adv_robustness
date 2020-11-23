@@ -21,7 +21,7 @@ $ pip install -e .
 To launch the detection experiments, there are three main scripts
 
 * `tda/experiments/lid/lid_binary.py` to launch the LID detector
-* `tda/experiments/mahalanobis/mahalanobis_binary.py` to launc the Mahalanobis detector
+* `tda/experiments/mahalanobis/mahalanobis_binary.py` to launch the Mahalanobis detector
 * `tda/experiments/ours/our_binary.py` to launch our detector
 
 Some arguments are common to all scripts, some others are specific (hyperparameters of the methods).
@@ -30,7 +30,7 @@ Some arguments are common to all scripts, some others are specific (hyperparamet
 
 All our scripts have some common arguments:
 * `attack_type` (can be typically FGSM, PGD, CW, BOUNDARY)
-* `dataset` (can be MNIST, SVHN, CIFAR10)
+* `dataset` (can be MNIST, Fashion MNIST, SVHN, CIFAR10)
 * `architecture` (see below)
 * `epochs` (number of epochs for the architecture ; see below)
 * `dataset_size` (we use 500 by default)
@@ -55,11 +55,10 @@ Our script takes the following arguments
 | Parameter | Type | Description |
 | --- |---| ---|
 | embedding_type | str | PersistentDiagram or RawGraph |
-| kernel_type | str | SlicedWassertein (to be used with Persistent Diagram) or RBF (to be used with RawGraph) |
+| kernel_type | str | SlicedWassertein (to be used with Persistence Diagram) or RBF (to be used with RawGraph) |
 | thresholds | str | the thresholds to apply to the induced graph (see below)
 | threshold_strategy | str | the threshold strategy to apply |
 | raw_graph_pca | int | The dimension of the PCA to be used with RawGraph (deactivated by default) |
-| transfered_attacks | bool | Use attacks computed on a different model (default False) |
 
 The format for the threshods argument is 
 
