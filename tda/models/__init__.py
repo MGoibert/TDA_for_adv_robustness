@@ -102,10 +102,9 @@ def go_training(
             x_noisy = torch.clamp(
                 x + train_noise * torch.randn(x.size()), 0, 1
             ).double()
-            y_noisy = y_batch
             y_pred = model(x)
             y_pred_noisy = model(x_noisy)
-            loss = 0.75 * loss_func(y_pred, y) + 0.25 * loss_func(y_pred_noisy, y_noisy)
+            loss = 0.75 * loss_func(y_pred, y) + 0.25 * loss_func(y_pred_noisy, y)
             loss.backward()
             optimizer.step()
         else:
@@ -116,9 +115,8 @@ def go_training(
 
     # Training with prune percentile
     if prune_percentile > 0 and mask_ != None:
-        #logger.info(f"Training with pruning...")
         for i, (name, param) in enumerate(model.named_parameters()):
-            if len(param.data.size()) > 1:# and epoch > first_pruned_iter:
+            if len(param.data.size()) > 1:
                 param.data = param.data * mask_[i]
                 param.grad.data = param.grad.data * mask_[i]
 
@@ -153,9 +151,10 @@ def train_network(
         nb_iter_prune = 10
         nepochs = num_epochs
         num_epochs = first_pruned_iter * nb_iter_prune + num_epochs
-        #logger.info(f"The initial model = {architecture.get_model_savepath(initial=True)}")
+        # logger.info(f"The initial model = {architecture.get_model_savepath(initial=True)}")
         modelinit = torch.load(
-            f"{rootpath}/trained_models/cifar_resnet_1_e_99_init.model", map_location=device
+            f"{rootpath}/trained_models/cifar_resnet_1_e_99_init.model",
+            map_location=device,
         )
         init_weight_dict = copy.deepcopy(modelinit.state_dict())
         logger.info(
@@ -164,7 +163,8 @@ def train_network(
         logger.info(f"Loading last pruned model")
         del model
         model = torch.load(
-            f"{rootpath}/trained_models/cifar_resnet_1_e_99_p_0.24.model", map_location=device
+            f"{rootpath}/trained_models/cifar_resnet_1_e_99_p_0.24.model",
+            map_location=device,
         )
         model.epochs = 99
         model.to_device(device)
@@ -199,18 +199,6 @@ def train_network(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5
         )
     elif model.name in [cifar_resnet_1.name, svhn_resnet_1.name]:
-
-        def lr_old(epoch):
-            if epoch < 20:
-                a = (0.12 - 0.008) / 20
-                b = 0.008
-            elif epoch < 40:
-                a = (0.008 - 0.12) / (40 - 20)
-                b = 0.12 - a * 20
-            else:
-                a = (0.0008 - 0.008) / (50 - 40)
-                b = 0.008 - a * 40
-            return a * epoch / 2.0 + b
 
         def lr(epoch):
             if epoch > 50:
@@ -261,13 +249,18 @@ def train_network(
             custom_scheduler_step(optimizer, epoch)
 
         if epoch == 0:
-            #mask_ = None
-            model, mask_ = prune_model(model, percentile=prune_percentile, init_weight=init_weight_dict, zero_grad=False)
+            # mask_ = None
+            model, mask_ = prune_model(
+                model,
+                percentile=prune_percentile,
+                init_weight=init_weight_dict,
+                zero_grad=False,
+            )
 
         for x_batch, y_batch in train_loader:
             # Training !!
-            #if epoch == 0:
-                #mask_ = None
+            # if epoch == 0:
+            # mask_ = None
             go_training(
                 model,
                 x_batch,
@@ -314,12 +307,12 @@ def train_network(
             model, mask_ = prune_model(
                 model, percentile=prune_percentile, init_weight=init_weight_dict
             )
-        #c = 0
-        #for i, p in enumerate(model.parameters()):
+        # c = 0
+        # for i, p in enumerate(model.parameters()):
         #    c += np.count_nonzero(p.data.cpu())
-        #current_pruned_percentile = c / sum(p.numel() for p in model.parameters())
-        #logger.info(f"percentage non zero parameters = {current_pruned_percentile}")
-        #assert model.tot_prune_percentile == np.round(1.0 - current_pruned_percentile, 2)
+        # current_pruned_percentile = c / sum(p.numel() for p in model.parameters())
+        # logger.info(f"percentage non zero parameters = {current_pruned_percentile}")
+        # assert model.tot_prune_percentile == np.round(1.0 - current_pruned_percentile, 2)
         count_tot_ = 0
         count_nonzero_ = 0
         for (name, param) in model.named_parameters():
@@ -328,7 +321,9 @@ def train_network(
                 count_nonzero_ += np.count_nonzero(param.data.cpu())
         pruned_count_ = np.round(1 - count_nonzero_ / count_tot_, 2)
         current_pruned_percentile = 1 - pruned_count_
-        logger.info(f"Percentgage of zero parameters = {pruned_count_} and model pruned param = {model.tot_prune_percentile}")
+        logger.info(
+            f"Percentgage of zero parameters = {pruned_count_} and model pruned param = {model.tot_prune_percentile}"
+        )
 
     return model, loss_history
 
@@ -366,18 +361,16 @@ def get_deep_model(
 
     architecture.epochs = num_epochs
     architecture.train_noise = train_noise
-    architecture.tot_prune_percentile = 0#tot_prune_percentile
+    architecture.tot_prune_percentile = 0  # tot_prune_percentile
 
     if not os.path.exists(f"{rootpath}/trained_models"):
         os.mkdir(f"{rootpath}/trained_models")
-        
+
     try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
-        #filename_ = f"{rootpath}/trained_models/cifar_resnet_1_e_99_p_0.53.model"
         architecture = torch.load(
             architecture.get_model_savepath(), map_location=device
-            #filename_, map_location=device
         )
         logger.info(
             f"Loaded successfully model from {architecture.get_model_savepath()}"
@@ -390,10 +383,6 @@ def get_deep_model(
         x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
         assert architecture.matrices_are_built is True
-        #torch.save(architecture, architecture.get_model_savepath(initial=True))
-        #logger.info(
-        #    f"Saved initial model in {architecture.get_model_savepath(initial=True)}"
-        #)
 
         # Train the NN
         train_network(
@@ -443,14 +432,13 @@ def save_pruned_model(
         (tot_prune_percentile > 0.0)
         and (epoch > 0)
         and ((epoch + 1) % (first_pruned_iter) == 0)
-        #and ((epoch + 1) % (2 * first_pruned_iter) == first_pruned_iter)
     ):
         logger.info(
             f"Save intermediate pruned model at {architecture.get_model_savepath()}"
         )
-        #architecture.tot_prune_percentile = current_pruned_percentile
         torch.save(architecture, architecture.get_model_savepath())
         logger.info(f"Model correctly saved")
+
 
 def prune_model(model, percentile=0.1, init_weight=None, zero_grad=True):
     percentile = 100 * percentile
