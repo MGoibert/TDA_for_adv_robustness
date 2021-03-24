@@ -81,6 +81,7 @@ def get_config() -> Config:
 
 
 def compute_adv_accuracy(
+    config: Config,
     epsilon: float,
     noise: float,
     dataset: Dataset,
@@ -117,7 +118,7 @@ def compute_adv_accuracy(
     return corr / dataset_size, some_images
 
 
-def get_all_accuracies(config: Config):
+def get_all_accuracies(config: Config, with_image=True):
 
     if config.attack_type in ["FGSM", "PGD"]:
         all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
@@ -148,6 +149,7 @@ def get_all_accuracies(config: Config):
     for epsilon in all_epsilons:
 
         adversarial_acc, some_images = compute_adv_accuracy(
+            config=config,
             epsilon=epsilon,
             noise=config.noise,
             dataset=dataset,
@@ -160,8 +162,9 @@ def get_all_accuracies(config: Config):
         logger.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
         accuracies[epsilon] = adversarial_acc
 
-        with open(config.result_path + f"/images_eps_{epsilon}.pickle", "wb") as fw:
-            pickle.dump(some_images, fw)
+        if with_image:
+            with open(config.result_path + f"/images_eps_{epsilon}.pickle", "wb") as fw:
+                pickle.dump(some_images, fw)
 
     return accuracies
 
@@ -201,5 +204,5 @@ def plot_and_save(config, accuracies):
 
 if __name__ == "__main__":
     config = get_config()
-    accuracies = get_all_accuracies(config)
+    accuracies = get_all_accuracies(config, with_image=True)
     plot_and_save(config, accuracies)

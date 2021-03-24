@@ -18,6 +18,7 @@ class ConvLayer(Layer):
         input_shape=None,
         stride=1,
         padding=0,
+        groups=1,
         bias=False,
         activ=None,
         name=None,
@@ -30,6 +31,7 @@ class ConvLayer(Layer):
                 kernel_size=kernel_size,
                 stride=stride,
                 padding=padding,
+                groups=groups,
                 bias=bias,
             ),
             graph_layer=True,
@@ -42,6 +44,7 @@ class ConvLayer(Layer):
         self._stride = stride
         self._padding = padding
         self._input_shape = input_shape
+        self._groups = groups
 
     @staticmethod
     def _get_nb_elements(t):

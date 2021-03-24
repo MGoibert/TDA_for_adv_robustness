@@ -1,0 +1,17 @@
+numpy
+scipy
+seaborn
+torch==1.4.0
+torchvision==0.5.0
+ipython
+tqdm
+joblib
+dionysus
+scikit-learn
+networkx==1.11
+r3d3==0.8.4
+qgrid
+numba>=0.47.0
+cached-property>=1.5.1
+pandas
+cached-property

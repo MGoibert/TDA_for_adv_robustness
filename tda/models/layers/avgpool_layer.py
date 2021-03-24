@@ -5,12 +5,13 @@ from scipy.sparse import coo_matrix
 
 
 class AvgPool2dLayer(Layer):
-    def __init__(self, kernel_size, activ=None):
+    def __init__(self, kernel_size, stride=None, activ=None):
 
         self._activ = activ
         self._k = kernel_size
+        self._stride = stride
 
-        super().__init__(func=nn.AvgPool2d(kernel_size=kernel_size), graph_layer=True)
+        super().__init__(func=nn.AvgPool2d(kernel_size=kernel_size, stride=stride), graph_layer=True)
 
     def build_matrix(self) -> coo_matrix:
         # Unfortunately, we cannot precompute the matrix

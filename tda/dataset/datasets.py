@@ -9,6 +9,8 @@ from random import shuffle, seed
 import torch
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
+from sklearn import datasets
+import numpy as np
 
 from tda.tda_logging import get_logger
 from tda.devices import device
@@ -36,6 +38,27 @@ torch.manual_seed(1)
 seed(1)
 
 logger = get_logger("Datasets")
+
+class dsetsCircleToy(torch.utils.data.Dataset):
+    def __init__(self, n_samples=5000, noise=0.05, factor=0.5):
+        X_, Y_ = datasets.make_circles(n_samples=n_samples, shuffle=True,
+            noise=noise, factor=factor)
+        X_ = [(x_ + 1.3)/2.6 for x_ in X_]
+        Y__ = np.reshape(Y_, len(Y_))
+        self.X = torch.tensor(X_, dtype=torch.float)
+        self.Y = torch.tensor(Y__, dtype=torch.long)
+        self.n_samples=n_samples
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        x = self.X[idx,:]
+        y = self.Y[idx]
+        return [x, y]
 
 
 class Dataset(object):
@@ -106,6 +129,10 @@ class Dataset(object):
             self.test_and_val_dataset = dset.FashionMNIST(
                 root=_root, train=False, transform=_trans, download=True
             )
+        elif name == "CircleToy":
+            self.train_dataset = dsetsCircleToy(2000)
+            self.test_and_val_dataset = dsetsCircleToy(2000)
+
         else:
             raise NotImplementedError(f"Unknown dataset {name}")
 

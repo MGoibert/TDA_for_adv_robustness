@@ -32,6 +32,8 @@ from .cifar10_models import cifar_lenet, cifar_toy_resnet
 from .cifar10_resnet_model_1 import cifar_resnet_1
 from .svhn_resnet_model_1 import svhn_resnet_1
 
+from .toy_models import toy_mlp, toy_mlp2, toy_mlp3, toy_mlp4
+
 known_architectures: List[Architecture] = [
     mnist_mlp,
     svhn_cnn_simple,
@@ -49,7 +51,11 @@ known_architectures: List[Architecture] = [
     fashion_mnist_lenet_05,
     cifar_toy_resnet,
     cifar_resnet_1,
-    svhn_resnet_1
+    svhn_resnet_1,
+    toy_mlp,
+    toy_mlp2,
+    toy_mlp3,
+    toy_mlp4
 ]
 
 
