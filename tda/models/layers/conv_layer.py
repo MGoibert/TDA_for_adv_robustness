@@ -22,7 +22,17 @@ class ConvLayer(Layer):
         bias=False,
         activ=None,
         name=None,
+        grouped_channels: bool = False,
     ):
+
+        if grouped_channels is True:
+            groups = in_channels
+            if in_channels != out_channels:
+                raise RuntimeError(
+                    "We don't support groups with different number of chans in input/output"
+                )
+        else:
+            groups = 1
 
         super().__init__(
             func=nn.Conv2d(
@@ -44,7 +54,7 @@ class ConvLayer(Layer):
         self._stride = stride
         self._padding = padding
         self._input_shape = input_shape
-        self._groups = groups
+        self._grouped_channels = grouped_channels
 
     @staticmethod
     def _get_nb_elements(t):
@@ -63,7 +73,7 @@ class ConvLayer(Layer):
         stride: int,
         padding: int,
     ):
-        #logger.info(f"In _generate_cnn_edges")
+        # logger.info(f"In _generate_cnn_edges")
 
         nbrows_kernel = kernel.shape[-2]
         nbcols_kernel = kernel.shape[-1]
@@ -136,7 +146,7 @@ class ConvLayer(Layer):
         ##############################################
 
         # logging.info(f"Processing in={in_channel} and out={out_channel}")
-        #logger.info(f"In build_matrix_for_channel")
+        # logger.info(f"In build_matrix_for_channel")
 
         for param_ in self.func.named_parameters():
             # logger.info(f"size param {param[1].size()} and name = {param[0]}")
@@ -169,10 +179,13 @@ class ConvLayer(Layer):
             stride=self._stride,
         )
 
-        return coo_matrix((data, (row_ind, col_ind)), shape=(nbrows, nbcols))
+        if self._grouped_channels and in_channel != out_channel:
+            return coo_matrix(([], ([], [])), shape=(nbrows, nbcols))
+        else:
+            return coo_matrix((data, (row_ind, col_ind)), shape=(nbrows, nbcols))
 
     def build_matrix(self) -> coo_matrix:
-        #logger.info(f"In build_matrix")
+        # logger.info(f"In build_matrix")
         matrix_grid = [
             [
                 self.build_matrix_for_channel(in_c, out_c)
@@ -184,7 +197,7 @@ class ConvLayer(Layer):
         return self.matrix
 
     def process(self, x, store_for_graph):
-        #logger.info(f"In process")
+        # logger.info(f"In process")
         assert isinstance(x, dict)
         if store_for_graph:
             self._activations = x

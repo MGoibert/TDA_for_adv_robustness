@@ -173,6 +173,8 @@ def train_network(
         model.epochs = 99
         model.to_device(device)
         model.tot_prune_percentile = 0.76
+    else:
+        init_weight_dict = None
 
     if model.name in [mnist_lenet.name, fashion_mnist_lenet.name]:
         lr = 0.001
