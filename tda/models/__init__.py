@@ -21,6 +21,10 @@ from tda.models.architectures import (
     fashion_mnist_mlp,
     cifar_resnet_1,
     svhn_resnet_1,
+    toy_mlp,
+    toy_mlp2,
+    toy_mlp3,
+    toy_mlp4
 )
 from tda.dataset.datasets import Dataset
 from tda.rootpath import rootpath
@@ -224,6 +228,13 @@ def train_network(
         optimizer = optim.SGD(
             model.parameters(), lr=lr(0), weight_decay=0.0005, momentum=0.9
         )
+    elif model.name in [toy_mlp.name, toy_mlp2.name, toy_mlp3, toy_mlp4]:
+        lr = 5
+        patience = 5
+        optimizer = optim.SGD(model.parameters(), lr=lr)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", patience=patience, verbose=True, factor=0.75
+        )
 
     else:
         logger.warn(f"Unknown model {model.name}... Using default optimizer")
@@ -248,7 +259,7 @@ def train_network(
         if custom_scheduler_step is not None:
             custom_scheduler_step(optimizer, epoch)
 
-        if epoch == 0:
+        if (epoch == 0) and (prune_percentile > 0.0):
             # mask_ = None
             model, mask_ = prune_model(
                 model,
@@ -256,6 +267,8 @@ def train_network(
                 init_weight=init_weight_dict,
                 zero_grad=False,
             )
+        elif (epoch == 0) and (prune_percentile == 0.0):
+            mask_ = None
 
         for x_batch, y_batch in train_loader:
             # Training !!
@@ -383,6 +396,9 @@ def get_deep_model(
         x = dataset.train_dataset[0][0].to(device)
         architecture.forward(x, store_for_graph=False, output="final")
         assert architecture.matrices_are_built is True
+
+        # Save initial model
+        torch.save(architecture, architecture.get_model_savepath(initial=True))
 
         # Train the NN
         train_network(
