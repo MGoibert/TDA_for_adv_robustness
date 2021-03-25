@@ -16,6 +16,7 @@ class AvgPool2dLayer(Layer):
     def build_matrix(self) -> coo_matrix:
         # Unfortunately, we cannot precompute the matrix
         # for AvgPool2dLayers
+        # (it depends dynamically on the input since it's an avg ope)
         self.matrix = None
 
     def get_matrix(self):
@@ -31,7 +32,7 @@ class AvgPool2dLayer(Layer):
         m = np.zeros((dim, dim_out))
         for idx_out in range(dim_out):
             idx = [
-                self._k * idx_out + i + j * self._activations_shape[-1]
+                self._stride * idx_out + i + j * self._activations_shape[-1]
                 for j in range(self._k)
                 for i in range(self._k)
             ]
