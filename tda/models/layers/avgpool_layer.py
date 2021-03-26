@@ -8,10 +8,20 @@ class AvgPool2dLayer(Layer):
     def __init__(self, kernel_size, stride=None, activ=None):
 
         self._activ = activ
-        self._k = kernel_size
-        self._stride = stride
+        self._k = (
+            kernel_size
+            if isinstance(kernel_size, tuple)
+            else (kernel_size, kernel_size)
+        )
 
-        super().__init__(func=nn.AvgPool2d(kernel_size=kernel_size, stride=stride), graph_layer=True)
+        if stride is None:
+            self._stride = self._k
+        else:
+            self._stride = stride if isinstance(stride, tuple) else (stride, stride)
+
+        super().__init__(
+            func=nn.AvgPool2d(kernel_size=kernel_size, stride=stride), graph_layer=True
+        )
 
     def build_matrix(self) -> coo_matrix:
         # Unfortunately, we cannot precompute the matrix
@@ -23,21 +33,30 @@ class AvgPool2dLayer(Layer):
         """
         Return the weight of the linear layer, ignore biases
         """
-        dim_out = 1
         dim = 1
         for d in self._activations_shape:
             dim *= d
-        for d in self._out_shape:
-            dim_out *= d
+
+        nb_step_x = (self._activations_shape[-1] - self._k[1]) // self._stride[1]
+        nb_step_y = self._activations_shape[-2] - self._k[0] // self._stride[0]
+
+        dim_out = nb_step_x * nb_step_y
+
         m = np.zeros((dim, dim_out))
         for idx_out in range(dim_out):
+            nx = idx_out // nb_step_x
+            ny = idx_out % nb_step_x
             idx = [
-                self._stride * idx_out + i + j * self._activations_shape[-1]
-                for j in range(self._k)
-                for i in range(self._k)
+                nx * self._stride[1]
+                + idx_x
+                + self._activations_shape[-1] * (ny * self._stride[0] + idx_y)
+                for idx_y in range(self._k[0])
+                for idx_x in range(self._k[1])
             ]
             m[:, idx_out][idx] = (
-                1.0 / (2 * self._k) * self._activation_values.flatten().cpu().detach()[idx]
+                1.0
+                / (self._k[0] * self._k[1])
+                * self._activation_values.flatten().cpu().detach()[idx]
             )
         return {
             parentidx: coo_matrix(np.matrix(m.transpose()))
