@@ -30,15 +30,28 @@ class AvgPool2dLayer(Layer):
         self.matrix = None
 
     def get_matrix(self):
+        return AvgPool2dLayer.get_matrix_from_values(
+            activation_values=self._activation_values,
+            activations_shape=self._activations_shape,
+            kernel_size=self._k,
+            strides=self._stride,
+            parent_indices=self._parent_indices,
+        )
+
+    @staticmethod
+    def get_matrix_from_values(
+        activation_values, activations_shape, kernel_size, strides, parent_indices
+    ):
+
         """
         Return the weight of the linear layer, ignore biases
         """
         dim = 1
-        for d in self._activations_shape:
+        for d in activations_shape:
             dim *= d
 
-        nb_step_x = (self._activations_shape[-1] - self._k[1]) // self._stride[1]
-        nb_step_y = self._activations_shape[-2] - self._k[0] // self._stride[0]
+        nb_step_x = (activations_shape[-1] - kernel_size[1]) // strides[1]
+        nb_step_y = activations_shape[-2] - kernel_size[0] // strides[0]
 
         dim_out = nb_step_x * nb_step_y
 
@@ -47,20 +60,20 @@ class AvgPool2dLayer(Layer):
             nx = idx_out % nb_step_x
             ny = idx_out // nb_step_x
             idx = [
-                nx * self._stride[1]
+                nx * strides[1]
                 + idx_x
-                + self._activations_shape[-1] * (ny * self._stride[0] + idx_y)
-                for idx_y in range(self._k[0])
-                for idx_x in range(self._k[1])
+                + activations_shape[-1] * (ny * strides[0] + idx_y)
+                for idx_y in range(kernel_size[0])
+                for idx_x in range(kernel_size[1])
             ]
             m[:, idx_out][idx] = (
                 1.0
-                / (self._k[0] * self._k[1])
-                * self._activation_values.flatten().cpu().detach()[idx]
+                / (kernel_size[0] * kernel_size[1])
+                * activation_values.flatten().cpu().detach()[idx]
             )
         return {
             parentidx: coo_matrix(np.matrix(m.transpose()))
-            for parentidx in self._parent_indices
+            for parentidx in parent_indices
         }
 
     def process(self, x, store_for_graph):
