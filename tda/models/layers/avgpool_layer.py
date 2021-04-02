@@ -44,8 +44,8 @@ class AvgPool2dLayer(Layer):
 
         m = np.zeros((dim, dim_out))
         for idx_out in range(dim_out):
-            nx = idx_out // nb_step_x
-            ny = idx_out % nb_step_x
+            nx = idx_out % nb_step_x
+            ny = idx_out // nb_step_x
             idx = [
                 nx * self._stride[1]
                 + idx_x
