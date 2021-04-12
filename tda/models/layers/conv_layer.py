@@ -145,7 +145,7 @@ class ConvLayer(Layer):
         ##############################################
 
         # logging.info(f"Processing in={in_channel} and out={out_channel}")
-        # logger.info(f"In build_matrix_for_channel")
+        logger.info(f"In build_matrix_for_channel")
 
         for param_ in self.func.named_parameters():
             # logger.info(f"size param {param[1].size()} and name = {param[0]}")
@@ -181,10 +181,11 @@ class ConvLayer(Layer):
         if self._grouped_channels and in_channel != out_channel:
             return coo_matrix(([], ([], [])), shape=(nbrows, nbcols))
         else:
-            return coo_matrix((data, (row_ind, col_ind)), shape=(nbrows, nbcols))
+            mat = coo_matrix((data, (row_ind, col_ind)), shape=(nbrows, nbcols))
+            return mat
 
     def build_matrix(self) -> coo_matrix:
-        # logger.info(f"In build_matrix")
+        logger.info(f"In build_matrix : inc_c = {self._in_channels} and out_c = {self._out_channels}")
         matrix_grid = [
             [
                 self.build_matrix_for_channel(in_c, out_c)
@@ -193,6 +194,7 @@ class ConvLayer(Layer):
             for out_c in range(self._out_channels)
         ]
         self.matrix = sparse_bmat(matrix_grid)
+        logger.info(f"Conv layer, building matrix {matrix_grid}")
         return self.matrix
 
     def process(self, x, store_for_graph):
