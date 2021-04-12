@@ -1,7 +1,7 @@
 from . import AvgPool2dLayer
 from .layer import Layer
 from torch import nn
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, bmat as sparse_bmat
 
 
 class AdaptativeAvgPool2dLayer(Layer):
@@ -14,34 +14,34 @@ class AdaptativeAvgPool2dLayer(Layer):
         )
 
     def build_matrix(self) -> coo_matrix:
-        # Unfortunately, we cannot precompute the matrix
-        # for AvgPool2dLayers
-        # (it depends dynamically on the input since it's an avg ope)
-        self.matrix = None
-
-    def get_matrix(self):
-        return AvgPool2dLayer.get_matrix_from_values(
-            activation_values=self._activation_values,
-            activations_shape=self._activations_shape,
-            kernel_size=self._k,
-            strides=self._stride,
-            parent_indices=self._parent_indices,
-        )
+        nb_channels = self._activations_shape[1]
+        matrix_grid = [
+            [
+                AvgPool2dLayer.build_matrix_for_channel(
+                    activations_shape=self._activations_shape,
+                    kernel_size=self._k,
+                    strides=self._stride,
+                    in_channel=in_c,
+                    out_channel=out_c,
+                )
+                for in_c in range(nb_channels)
+            ]
+            for out_c in range(nb_channels)
+        ]
+        self.matrix = sparse_bmat(matrix_grid)
+        return self.matrix
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
-        parent_indices = list(x.keys())
-        x = sum(x.values()).double()
-        out = self.func(x)
+        x_sum = sum(x.values()).double()
+        out = self.func(x_sum)
         if store_for_graph:
-            self._parent_indices = parent_indices
-            self._activation_values = x
-            self._activations_shape = x.shape
-            self._out_shape = out.shape
+            self._activations = x
+            self._activations_shape = x_sum.shape
 
             output_height, output_width = self._output_size
-            input_height = self._activations_shape[0]
-            input_width = self._activations_shape[1]
+            input_height = self._activations_shape[-2]
+            input_width = self._activations_shape[-1]
 
             stride_width = input_width // output_width
             kernel_width = input_width - (output_width - 1) * stride_width
