@@ -154,8 +154,13 @@ class ConvLayer(Layer):
             param = param_[1]
             # name_ = param_[0]
             if len(param.size()) > 1:
-                kernel = param.data[out_channel, in_channel, :, :]
+                if not self._grouped_channels:
+                    kernel = param.data[out_channel, in_channel, :, :]
+                else:
+                    kernel = param.data[out_channel, 0, :, :]
                 # logger.info(f"name = {name_} and kernel = {kernel.size()}")
+            else:
+                raise RuntimeError()
 
         ##################################
         # Compute the size of the matrix #

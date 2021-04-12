@@ -5,10 +5,10 @@ import numpy as np
 
 
 class LinearLayer(Layer):
-    def __init__(self, in_width, out_width, activ=None, name=None):
+    def __init__(self, in_width, out_width, activ=None, name=None, bias=True):
 
         super().__init__(
-            func=nn.Linear(in_width, out_width), graph_layer=True, name=name
+            func=nn.Linear(in_width, out_width, bias=bias), graph_layer=True, name=name
         )
 
         self._in_width = in_width

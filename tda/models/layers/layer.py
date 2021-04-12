@@ -24,9 +24,9 @@ class Layer(object):
         for parentidx in self._activations:
             activ = self._activations[parentidx].reshape(-1)
             ret[parentidx] = coo_matrix(self.matrix @ diags(activ.cpu().detach().numpy()))
-        key = list(ret.keys())[0]
-        #a = {(r, c): d for r,c,d in zip(ret[key].row,ret[key].col,ret[key].data)}
-        #logger.info(f"{a}")
+        #  key = list(ret.keys())[0]
+        #  a = {(r, c): d for r,c,d in zip(ret[key].row,ret[key].col,ret[key].data)}
+        #  logger.info(f"{a}")
         return ret
 
     def get_matrix_thresholded(self, edges_to_keep_layer):
