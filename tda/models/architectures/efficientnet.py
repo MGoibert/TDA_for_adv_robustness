@@ -15,7 +15,7 @@ cifar_resnet_1 = Architecture(
     preprocess=svhn_preprocess,
     layers=[
         # Beginning
-        # -1
+        # 0
         ConvLayer(
             in_channels=3,
             out_channels=32,
@@ -24,12 +24,12 @@ cifar_resnet_1 = Architecture(
             padding=1,
             bias=False,
         ),
-        # 0
+        # 1
         BatchNorm2d(channels=32, activ=F.relu),
 
         # Block 1
         # Sub-block 1
-        # 1
+        # 2
         ConvLayer(
             in_channels=32,
             out_channels=32,
@@ -39,9 +39,9 @@ cifar_resnet_1 = Architecture(
             groups=32,
             bias=False,
         ),
-        # 2
-        BatchNorm2d(channels=32, activ=F.relu),
         # 3
+        BatchNorm2d(channels=32, activ=F.relu),
+        # 4
         ConvLayer(
             in_channels=32,
             out_channels=16,
@@ -51,11 +51,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 4
+        # 5
         BatchNorm2d(channels=16),
 
         # Sub-block 2
-        # 5
+        # 6
         ConvLayer(
             in_channels=16,
             out_channels=16,
@@ -65,9 +65,9 @@ cifar_resnet_1 = Architecture(
             groups=16,
             bias=False,
         ),
-        # 6
-        BatchNorm2d(channels=16, activ=F.relu),
         # 7
+        BatchNorm2d(channels=16, activ=F.relu),
+        # 8
         ConvLayer(
             in_channels=16,
             out_channels=16,
@@ -77,12 +77,12 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 8
+        # 9
         BatchNorm2d(channels=16),
 
         # Block 2
         # Sub-block 1
-        # 9
+        # 10
         ConvLayer(
             in_channels=16,
             out_channels=96,
@@ -92,9 +92,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 10
-        BatchNorm2d(channels=96, activ=F.relu),
         # 11
+        BatchNorm2d(channels=96, activ=F.relu),
+        # 12
         ConvLayer(
             in_channels=96,
             out_channels=96,
@@ -104,9 +104,9 @@ cifar_resnet_1 = Architecture(
             groups=96,
             bias=False,
         ),
-        # 12
-        BatchNorm2d(channels=96, activ=F.relu),
         # 13
+        BatchNorm2d(channels=96, activ=F.relu),
+        # 14
         ConvLayer(
             in_channels=96,
             out_channels=24,
@@ -116,11 +116,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 14
+        # 15
         BatchNorm2d(channels=24),
 
         # Sub-block 2
-        # 15
+        # 16
         ConvLayer(
             in_channels=24,
             out_channels=144,
@@ -130,9 +130,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 16
-        BatchNorm2d(channels=144, activ=F.relu),
         # 17
+        BatchNorm2d(channels=144, activ=F.relu),
+        # 18
         ConvLayer(
             in_channels=144,
             out_channels=144,
@@ -142,9 +142,9 @@ cifar_resnet_1 = Architecture(
             groups=144,
             bias=False,
         ),
-        # 18
-        BatchNorm2d(channels=144, activ=F.relu),
         # 19
+        BatchNorm2d(channels=144, activ=F.relu),
+        # 20
         ConvLayer(
             in_channels=144,
             out_channels=24,
@@ -154,11 +154,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 20
+        # 21
         BatchNorm2d(channels=24),
 
         # Sub-block 3
-        # 21
+        # 22
         ConvLayer(
             in_channels=24,
             out_channels=144,
@@ -168,9 +168,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 22
-        BatchNorm2d(channels=144, activ=F.relu),
         # 23
+        BatchNorm2d(channels=144, activ=F.relu),
+        # 24
         ConvLayer(
             in_channels=144,
             out_channels=144,
@@ -180,9 +180,9 @@ cifar_resnet_1 = Architecture(
             groups=144,
             bias=False,
         ),
-        # 24
-        BatchNorm2d(channels=144, activ=F.relu),
         # 25
+        BatchNorm2d(channels=144, activ=F.relu),
+        # 26
         ConvLayer(
             in_channels=144,
             out_channels=24,
@@ -192,12 +192,12 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 26
+        # 27
         BatchNorm2d(channels=24),
 
         # Block 3
         # Sub-block 1
-        # 27
+        # 28
         ConvLayer(
             in_channels=24,
             out_channels=144,
@@ -207,9 +207,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 28
-        BatchNorm2d(channels=144, activ=F.relu),
         # 29
+        BatchNorm2d(channels=144, activ=F.relu),
+        # 30
         ConvLayer(
             in_channels=144,
             out_channels=144,
@@ -219,9 +219,9 @@ cifar_resnet_1 = Architecture(
             groups=144,
             bias=False,
         ),
-        # 30
-        BatchNorm2d(channels=144, activ=F.relu),
         # 31
+        BatchNorm2d(channels=144, activ=F.relu),
+        # 32
         ConvLayer(
             in_channels=144,
             out_channels=40,
@@ -231,11 +231,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 32
+        # 33
         BatchNorm2d(channels=40),
 
         # Sub-block 2
-        # 33
+        # 34
         ConvLayer(
             in_channels=40,
             out_channels=240,
@@ -245,9 +245,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 34
-        BatchNorm2d(channels=240, activ=F.relu),
         # 35
+        BatchNorm2d(channels=240, activ=F.relu),
+        # 36
         ConvLayer(
             in_channels=240,
             out_channels=240,
@@ -257,9 +257,9 @@ cifar_resnet_1 = Architecture(
             groups=240,
             bias=False,
         ),
-        # 36
-        BatchNorm2d(channels=240, activ=F.relu),
         # 37
+        BatchNorm2d(channels=240, activ=F.relu),
+        # 38
         ConvLayer(
             in_channels=240,
             out_channels=40,
@@ -269,11 +269,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 38
+        # 39
         BatchNorm2d(channels=40),
 
         # Sub-block 3
-        # 39
+        # 40
         ConvLayer(
             in_channels=40,
             out_channels=240,
@@ -283,9 +283,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 40
-        BatchNorm2d(channels=240, activ=F.relu),
         # 41
+        BatchNorm2d(channels=240, activ=F.relu),
+        # 42
         ConvLayer(
             in_channels=240,
             out_channels=240,
@@ -295,9 +295,9 @@ cifar_resnet_1 = Architecture(
             groups=240,
             bias=False,
         ),
-        # 42
-        BatchNorm2d(channels=240, activ=F.relu),
         # 43
+        BatchNorm2d(channels=240, activ=F.relu),
+        # 44
         ConvLayer(
             in_channels=240,
             out_channels=40,
@@ -307,13 +307,13 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 44
+        # 45
         BatchNorm2d(channels=40),
 
 
         # Block 4
         # Sub-block 1
-        # 45
+        # 46
         ConvLayer(
             in_channels=40,
             out_channels=240,
@@ -323,9 +323,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 46
-        BatchNorm2d(channels=240, activ=F.relu),
         # 47
+        BatchNorm2d(channels=240, activ=F.relu),
+        # 48
         ConvLayer(
             in_channels=240,
             out_channels=240,
@@ -335,9 +335,9 @@ cifar_resnet_1 = Architecture(
             groups=240,
             bias=False,
         ),
-        # 48
-        BatchNorm2d(channels=240, activ=F.relu),
         # 49
+        BatchNorm2d(channels=240, activ=F.relu),
+        # 50
         ConvLayer(
             in_channels=240,
             out_channels=80,
@@ -347,11 +347,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 50
+        # 51
         BatchNorm2d(channels=80),
 
         # Sub-block 2
-        # 51
+        # 52
         ConvLayer(
             in_channels=80,
             out_channels=480,
@@ -361,9 +361,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 52
-        BatchNorm2d(channels=480, activ=F.relu),
         # 53
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 54
         ConvLayer(
             in_channels=480,
             out_channels=480,
@@ -373,9 +373,9 @@ cifar_resnet_1 = Architecture(
             groups=480,
             bias=False,
         ),
-        # 54
-        BatchNorm2d(channels=480, activ=F.relu),
         # 55
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 56
         ConvLayer(
             in_channels=480,
             out_channels=80,
@@ -385,11 +385,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 56
+        # 57
         BatchNorm2d(channels=80),
 
         # Sub-block 3
-        # 57
+        # 58
         ConvLayer(
             in_channels=80,
             out_channels=480,
@@ -399,9 +399,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 58
-        BatchNorm2d(channels=480, activ=F.relu),
         # 59
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 60
         ConvLayer(
             in_channels=480,
             out_channels=480,
@@ -411,9 +411,9 @@ cifar_resnet_1 = Architecture(
             groups=480,
             bias=False,
         ),
-        # 60
-        BatchNorm2d(channels=480, activ=F.relu),
         # 61
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 62
         ConvLayer(
             in_channels=480,
             out_channels=80,
@@ -423,11 +423,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 62
+        # 63
         BatchNorm2d(channels=80),
 
         # Sub-block 4
-        # 63
+        # 64
         ConvLayer(
             in_channels=80,
             out_channels=480,
@@ -437,9 +437,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 64
-        BatchNorm2d(channels=480, activ=F.relu),
         # 65
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 66
         ConvLayer(
             in_channels=480,
             out_channels=480,
@@ -449,9 +449,9 @@ cifar_resnet_1 = Architecture(
             groups=480,
             bias=False,
         ),
-        # 66
-        BatchNorm2d(channels=480, activ=F.relu),
         # 67
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 68
         ConvLayer(
             in_channels=480,
             out_channels=80,
@@ -461,13 +461,13 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 68
+        # 69
         BatchNorm2d(channels=80),
 
 
         # Block 5
         # Sub-block 1
-        # 69
+        # 70
         ConvLayer(
             in_channels=80,
             out_channels=480,
@@ -477,9 +477,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 70
-        BatchNorm2d(channels=480, activ=F.relu),
         # 71
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 72
         ConvLayer(
             in_channels=480,
             out_channels=480,
@@ -489,9 +489,9 @@ cifar_resnet_1 = Architecture(
             groups=480,
             bias=False,
         ),
-        # 72
-        BatchNorm2d(channels=480, activ=F.relu),
         # 73
+        BatchNorm2d(channels=480, activ=F.relu),
+        # 74
         ConvLayer(
             in_channels=480,
             out_channels=112,
@@ -501,11 +501,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 74
+        # 75
         BatchNorm2d(channels=112),
 
         # Sub-block 2
-        # 75
+        # 76
         ConvLayer(
             in_channels=112,
             out_channels=672,
@@ -515,9 +515,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 76
-        BatchNorm2d(channels=672, activ=F.relu),
         # 77
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 78
         ConvLayer(
             in_channels=672,
             out_channels=672,
@@ -527,9 +527,9 @@ cifar_resnet_1 = Architecture(
             groups=672,
             bias=False,
         ),
-        # 78
-        BatchNorm2d(channels=672, activ=F.relu),
         # 79
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 80
         ConvLayer(
             in_channels=672,
             out_channels=112,
@@ -539,11 +539,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 80
+        # 81
         BatchNorm2d(channels=112),
 
         # Sub-block 3
-        # 81
+        # 82
         ConvLayer(
             in_channels=112,
             out_channels=672,
@@ -553,9 +553,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 82
-        BatchNorm2d(channels=672, activ=F.relu),
         # 83
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 84
         ConvLayer(
             in_channels=672,
             out_channels=672,
@@ -565,9 +565,9 @@ cifar_resnet_1 = Architecture(
             groups=672,
             bias=False,
         ),
-        # 84
-        BatchNorm2d(channels=672, activ=F.relu),
         # 85
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 86
         ConvLayer(
             in_channels=672,
             out_channels=112,
@@ -577,11 +577,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 86
+        # 87
         BatchNorm2d(channels=112),
 
         # Sub-block 4
-        # 87
+        # 88
         ConvLayer(
             in_channels=112,
             out_channels=672,
@@ -591,9 +591,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 88
-        BatchNorm2d(channels=672, activ=F.relu),
         # 89
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 90
         ConvLayer(
             in_channels=672,
             out_channels=672,
@@ -603,9 +603,9 @@ cifar_resnet_1 = Architecture(
             groups=672,
             bias=False,
         ),
-        # 90
-        BatchNorm2d(channels=672, activ=F.relu),
         # 91
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 92
         ConvLayer(
             in_channels=672,
             out_channels=112,
@@ -615,14 +615,14 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 92
+        # 93
         BatchNorm2d(channels=112),
 
 
 
         # Block 6
         # Sub-block 1
-        # 93
+        # 94
         ConvLayer(
             in_channels=112,
             out_channels=672,
@@ -632,9 +632,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 94
-        BatchNorm2d(channels=672, activ=F.relu),
         # 95
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 96
         ConvLayer(
             in_channels=672,
             out_channels=672,
@@ -644,9 +644,9 @@ cifar_resnet_1 = Architecture(
             groups=672,
             bias=False,
         ),
-        # 96
-        BatchNorm2d(channels=672, activ=F.relu),
         # 97
+        BatchNorm2d(channels=672, activ=F.relu),
+        # 98
         ConvLayer(
             in_channels=672,
             out_channels=192,
@@ -656,11 +656,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 98
+        # 99
         BatchNorm2d(channels=192),
 
         # Sub-block 2
-        # 99
+        # 100
         ConvLayer(
             in_channels=192,
             out_channels=1152,
@@ -670,9 +670,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 100
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 101
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 102
         ConvLayer(
             in_channels=1152,
             out_channels=1152,
@@ -682,9 +682,9 @@ cifar_resnet_1 = Architecture(
             groups=1152,
             bias=False,
         ),
-        # 102
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 103
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 104
         ConvLayer(
             in_channels=1152,
             out_channels=192,
@@ -694,11 +694,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 104
+        # 105
         BatchNorm2d(channels=192),
 
         # Sub-block 3
-        # 105
+        # 106
         ConvLayer(
             in_channels=192,
             out_channels=1152,
@@ -708,9 +708,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 106
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 107
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 108
         ConvLayer(
             in_channels=1152,
             out_channels=1152,
@@ -720,9 +720,9 @@ cifar_resnet_1 = Architecture(
             groups=1152,
             bias=False,
         ),
-        # 108
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 109
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 110
         ConvLayer(
             in_channels=1152,
             out_channels=192,
@@ -732,11 +732,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 110
+        # 111
         BatchNorm2d(channels=192),
 
         # Sub-block 4
-        # 111
+        # 112
         ConvLayer(
             in_channels=192,
             out_channels=1152,
@@ -746,9 +746,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 112
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 113
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 114
         ConvLayer(
             in_channels=1152,
             out_channels=1152,
@@ -758,9 +758,9 @@ cifar_resnet_1 = Architecture(
             groups=1152,
             bias=False,
         ),
-        # 114
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 115
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 116
         ConvLayer(
             in_channels=1152,
             out_channels=192,
@@ -770,11 +770,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 116
+        # 117
         BatchNorm2d(channels=192),
 
         # Sub-block 5
-        # 117
+        # 118
         ConvLayer(
             in_channels=192,
             out_channels=1152,
@@ -784,9 +784,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 118
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 119
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 120
         ConvLayer(
             in_channels=1152,
             out_channels=1152,
@@ -796,9 +796,9 @@ cifar_resnet_1 = Architecture(
             groups=1152,
             bias=False,
         ),
-        # 120
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 121
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 122
         ConvLayer(
             in_channels=1152,
             out_channels=192,
@@ -808,14 +808,14 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 122
+        # 123
         BatchNorm2d(channels=192),
 
 
 
         # Block 7
         # Sub-block 1
-        # 123
+        # 124
         ConvLayer(
             in_channels=192,
             out_channels=1152,
@@ -825,9 +825,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 124
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 125
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 126
         ConvLayer(
             in_channels=1152,
             out_channels=1152,
@@ -837,9 +837,9 @@ cifar_resnet_1 = Architecture(
             groups=1152,
             bias=False,
         ),
-        # 126
-        BatchNorm2d(channels=1152, activ=F.relu),
         # 127
+        BatchNorm2d(channels=1152, activ=F.relu),
+        # 128
         ConvLayer(
             in_channels=1152,
             out_channels=320,
@@ -849,11 +849,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 128
+        # 129
         BatchNorm2d(channels=320),
 
         # Sub-block 2
-        # 129
+        # 130
         ConvLayer(
             in_channels=320,
             out_channels=1920,
@@ -863,9 +863,9 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 130
-        BatchNorm2d(channels=1920, activ=F.relu),
         # 131
+        BatchNorm2d(channels=1920, activ=F.relu),
+        # 132
         ConvLayer(
             in_channels=1920,
             out_channels=1920,
@@ -875,9 +875,9 @@ cifar_resnet_1 = Architecture(
             groups=1920,
             bias=False,
         ),
-        # 132
-        BatchNorm2d(channels=1920, activ=F.relu),
         # 133
+        BatchNorm2d(channels=1920, activ=F.relu),
+        # 134
         ConvLayer(
             in_channels=1920,
             out_channels=320,
@@ -887,12 +887,12 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 134
+        # 135
         BatchNorm2d(channels=320),
 
 
         # End
-        # 135
+        # 136
         ConvLayer(
             in_channels=320,
             out_channels=1280,
@@ -902,21 +902,22 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 136
-        AdaptativeAvgPool2dLayer(1),
         # 137
-        LinearLayer(1280, 10),
+        AdaptativeAvgPool2dLayer(1),
         # 138
+        LinearLayer(1280, 10),
+        # 139
         SoftMaxLayer(),
 
 
-
+        #############
+        #############
         # Skip layers
 
         # For block 2
-        # 139
-        AvgPool2dLayer(kernel_size=2, stride=2),
         # 140
+        AvgPool2dLayer(kernel_size=2, stride=2),
+        # 141
         ConvLayer(
             in_channels=16,
             out_channels=24,
@@ -926,13 +927,13 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 141
+        # 142
         BatchNorm2d(channels=24),
 
         # For block 3
-        # 142
-        AvgPool2dLayer(kernel_size=2, stride=2),
         # 143
+        AvgPool2dLayer(kernel_size=2, stride=2),
+        # 144
         ConvLayer(
             in_channels=24,
             out_channels=40,
@@ -942,13 +943,13 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 144
+        # 145
         BatchNorm2d(channels=40),
 
         # For block 4
-        # 145
-        AvgPool2dLayer(kernel_size=2, stride=2),
         # 146
+        AvgPool2dLayer(kernel_size=2, stride=2),
+        # 147
         ConvLayer(
             in_channels=40,
             out_channels=80,
@@ -958,11 +959,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 147
+        # 148
         BatchNorm2d(channels=48),
 
         # For block 5
-        # 148
+        # 149
         ConvLayer(
             in_channels=80,
             out_channels=112,
@@ -972,13 +973,13 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 149
+        # 150
         BatchNorm2d(channels=112),
 
         # For block 6
-        # 150
-        AvgPool2dLayer(kernel_size=2, stride=2),
         # 151
+        AvgPool2dLayer(kernel_size=2, stride=2),
+        # 152
         ConvLayer(
             in_channels=112,
             out_channels=192,
@@ -988,11 +989,11 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 152
+        # 153
         BatchNorm2d(channels=192),
 
         # For block 6
-        # 153
+        # 154
         ConvLayer(
             in_channels=192,
             out_channels=320,
@@ -1002,33 +1003,33 @@ cifar_resnet_1 = Architecture(
             groups=1,
             bias=False,
         ),
-        # 154
+        # 155
         BatchNorm2d(channels=320),
 ],
-    layer_links=[(i - 1, i) for i in range(138)]
-    + [(139,140), (140,141)]
-    + [(142,143), (143,144)]
-    + [(145,146), (146,147)]
-    + [(148,149)]
-    + [(150,151), (151,152)]
-    + [(153,154)]
+    layer_links=[(i - 1, i) for i in range(139)]
+    + [(140,141), (141,142)]
+    + [(143,144), (144,145)]
+    + [(146,147), (147,148)]
+    + [(149,150)]
+    + [(151,152), (152,153)]
+    + [(154,155)]
     + [
-        (8, 139),
-        (141, 15),
+        (9, 140),
+        (142, 16),
 
-        (26, 142),
-        (144, 33),
+        (27, 143),
+        (145, 34),
 
-        (44, 145),
-        (147, 51),
+        (45, 146),
+        (148, 52),
 
-        (68, 148),
-        (149, 75),
+        (69, 149),
+        (150, 76),
 
-        (92, 150),
-        (152, 99),
+        (93, 151),
+        (153, 100),
 
-        (122, 153),
-        (154, 129),
+        (123, 154),
+        (155, 130),
     ],
 )
