@@ -10,6 +10,8 @@ from tda.models.layers import (
 )
 import torch.nn.functional as F
 
+from ..layers.adaptativeavgpool_layer import AdaptativeAvgPool2dLayer
+
 cifar_resnet_1 = Architecture(
     name="efficientnet",
     preprocess=svhn_preprocess,
@@ -903,7 +905,7 @@ cifar_resnet_1 = Architecture(
             bias=False,
         ),
         # 137
-        AdaptativeAvgPool2dLayer(1),
+        AdaptativeAvgPool2dLayer(output_size=1),
         # 138
         LinearLayer(1280, 10),
         # 139
