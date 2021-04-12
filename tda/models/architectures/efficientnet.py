@@ -905,7 +905,7 @@ cifar_resnet_1 = Architecture(
             bias=False,
         ),
         # 136
-        AdaptativeAvgPool2dLayer(input_size=..., output_size=1),
+        AdaptativeAvgPool2dLayer(output_size=1),
         # 137
         LinearLayer(1280, 10),
         # 138
