@@ -18,7 +18,6 @@ class ConvLayer(Layer):
         input_shape=None,
         stride=1,
         padding=0,
-        groups=1,
         bias=False,
         activ=None,
         name=None,
