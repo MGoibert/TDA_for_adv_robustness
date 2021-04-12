@@ -24,7 +24,8 @@ from tda.models.architectures import (
     toy_mlp,
     toy_mlp2,
     toy_mlp3,
-    toy_mlp4
+    toy_mlp4,
+    efficientnet
 )
 from tda.dataset.datasets import Dataset
 from tda.rootpath import rootpath
@@ -197,7 +198,7 @@ def train_network(
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5
         )
-    elif model.name == cifar_lenet.name:
+    elif model.name in [cifar_lenet.name, efficientnet.name]:
         lr = 0.0008
         patience = 50
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))

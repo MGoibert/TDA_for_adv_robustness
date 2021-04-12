@@ -34,6 +34,8 @@ from .svhn_resnet_model_1 import svhn_resnet_1
 
 from .toy_models import toy_mlp, toy_mlp2, toy_mlp3, toy_mlp4
 
+from .efficientnet import efficientnet
+
 known_architectures: List[Architecture] = [
     mnist_mlp,
     svhn_cnn_simple,
@@ -55,7 +57,8 @@ known_architectures: List[Architecture] = [
     toy_mlp,
     toy_mlp2,
     toy_mlp3,
-    toy_mlp4
+    toy_mlp4,
+    efficientnet
 ]
 
 
@@ -78,4 +81,5 @@ from tda.models.layers import (
     BatchNorm2d,
     MaxPool2dLayer,
     AvgPool2dLayer,
+    AdaptativeAvgPool2dLayer
 )

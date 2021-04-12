@@ -4,3 +4,4 @@ from .avgpool_layer import AvgPool2dLayer
 from .maxpool_layer import MaxPool2dLayer
 from .conv_layer import ConvLayer
 from .misc_layers import SoftMaxLayer, BatchNorm2d, DropOut, ReluLayer
+from .adaptativeavgpool_layer import AdaptativeAvgPool2dLayer

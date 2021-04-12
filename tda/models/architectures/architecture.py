@@ -230,7 +230,7 @@ class Architecture(nn.Module):
 
         # Going through all layers
         for layer_idx in self.layer_visit_order:
-            # logger.info(f"Layer nb {layer_idx}")
+            logger.info(f"Layer nb {layer_idx}")
             if layer_idx != -1:
                 layer = self.layers[layer_idx]
                 input = {

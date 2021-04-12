@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from ..layers.adaptativeavgpool_layer import AdaptativeAvgPool2dLayer
 
-cifar_resnet_1 = Architecture(
+efficientnet = Architecture(
     name="efficientnet",
     preprocess=svhn_preprocess,
     layers=[
@@ -38,7 +38,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=32,
+            grouped_channels=True,
             bias=False,
         ),
         # 3
@@ -50,7 +50,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 5
@@ -64,7 +64,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=16,
+            grouped_channels=True,
             bias=False,
         ),
         # 7
@@ -76,7 +76,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 9
@@ -91,7 +91,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 11
@@ -103,7 +103,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=2,
             padding=1,
-            groups=96,
+            grouped_channels=True,
             bias=False,
         ),
         # 13
@@ -115,7 +115,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 15
@@ -129,7 +129,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 17
@@ -141,7 +141,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=144,
+            grouped_channels=True,
             bias=False,
         ),
         # 19
@@ -153,7 +153,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 21
@@ -167,7 +167,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 23
@@ -179,7 +179,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=144,
+            grouped_channels=True,
             bias=False,
         ),
         # 25
@@ -191,7 +191,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 27
@@ -206,7 +206,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 29
@@ -218,7 +218,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=2,
             padding=1,
-            groups=144,
+            grouped_channels=True,
             bias=False,
         ),
         # 31
@@ -230,7 +230,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 33
@@ -244,7 +244,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 35
@@ -256,7 +256,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=240,
+            grouped_channels=True,
             bias=False,
         ),
         # 37
@@ -268,7 +268,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 39
@@ -282,7 +282,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 41
@@ -294,7 +294,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=240,
+            grouped_channels=True,
             bias=False,
         ),
         # 43
@@ -306,7 +306,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 45
@@ -322,7 +322,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 47
@@ -334,7 +334,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=2,
             padding=1,
-            groups=240,
+            grouped_channels=True,
             bias=False,
         ),
         # 49
@@ -346,7 +346,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 51
@@ -360,7 +360,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 53
@@ -372,7 +372,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=480,
+            grouped_channels=True,
             bias=False,
         ),
         # 55
@@ -384,7 +384,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 57
@@ -398,7 +398,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 59
@@ -410,7 +410,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=480,
+            grouped_channels=True,
             bias=False,
         ),
         # 61
@@ -422,7 +422,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 63
@@ -436,7 +436,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 65
@@ -448,7 +448,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=480,
+            grouped_channels=True,
             bias=False,
         ),
         # 67
@@ -460,7 +460,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 69
@@ -476,7 +476,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 71
@@ -488,7 +488,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=480,
+            grouped_channels=True,
             bias=False,
         ),
         # 73
@@ -500,7 +500,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 75
@@ -514,7 +514,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 77
@@ -526,7 +526,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=672,
+            grouped_channels=True,
             bias=False,
         ),
         # 79
@@ -538,7 +538,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 81
@@ -552,7 +552,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 83
@@ -564,7 +564,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=672,
+            grouped_channels=True,
             bias=False,
         ),
         # 85
@@ -576,7 +576,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 87
@@ -590,7 +590,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 89
@@ -602,7 +602,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=672,
+            grouped_channels=True,
             bias=False,
         ),
         # 91
@@ -614,7 +614,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 93
@@ -631,7 +631,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 95
@@ -643,7 +643,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=2,
             padding=1,
-            groups=672,
+            grouped_channels=True,
             bias=False,
         ),
         # 97
@@ -655,7 +655,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 99
@@ -669,7 +669,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 101
@@ -681,7 +681,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=1152,
+            grouped_channels=True,
             bias=False,
         ),
         # 103
@@ -693,7 +693,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 105
@@ -707,7 +707,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 107
@@ -719,7 +719,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=1152,
+            grouped_channels=True,
             bias=False,
         ),
         # 109
@@ -731,7 +731,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 111
@@ -745,7 +745,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 113
@@ -757,7 +757,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=1152,
+            grouped_channels=True,
             bias=False,
         ),
         # 115
@@ -769,7 +769,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 117
@@ -783,7 +783,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 119
@@ -795,7 +795,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=5,
             stride=1,
             padding=1,
-            groups=1152,
+            grouped_channels=True,
             bias=False,
         ),
         # 121
@@ -807,7 +807,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 123
@@ -824,7 +824,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 125
@@ -836,7 +836,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=1152,
+            grouped_channels=True,
             bias=False,
         ),
         # 127
@@ -848,7 +848,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 129
@@ -862,7 +862,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 131
@@ -874,7 +874,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=3,
             stride=1,
             padding=1,
-            groups=1920,
+            grouped_channels=True,
             bias=False,
         ),
         # 133
@@ -886,7 +886,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 135
@@ -901,7 +901,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 137
@@ -926,7 +926,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 142
@@ -942,7 +942,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 145
@@ -958,7 +958,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 148
@@ -972,7 +972,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 150
@@ -988,7 +988,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 153
@@ -1002,7 +1002,7 @@ cifar_resnet_1 = Architecture(
             kernel_size=1,
             stride=1,
             padding=1,
-            groups=1,
+            grouped_channels=False,
             bias=False,
         ),
         # 155
