@@ -59,16 +59,12 @@ class MaxPool2dLayer(Layer):
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
-        parent_indices = list(x.keys())
-        x = sum(x.values()).double()
-        out, indx = self.func(x)
+        x_sum = sum(x.values()).double()
+        out = self.func(x_sum)
         if store_for_graph:
-            self._parent_indices = parent_indices
-            self._activations_shape = x.shape
-            self._indx = indx
-            self._out_shape = out.shape
             self._activations = x
-            self._out = out
+            self._activations_shape = x_sum.shape
+            self._activations_values = x_sum
         if self._activ:
             if type(self._activ) == list:
                 for act in self._activ:
