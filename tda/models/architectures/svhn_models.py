@@ -23,6 +23,12 @@ def svhn_preprocess(x):
 def svhn_preprocess_bandw(x):
     return x.view(-1, 1, 32, 32)
 
+def svhn_preprocess_resize(x):
+    x = x.reshape(-1, 3, 32, 32)
+    x = F.interpolate(x, scale_factor=7.5)
+    x = x.reshape(-1, 3, 240, 240)
+    return x
+
 
 svhn_cnn_simple = Architecture(
     name="simple_cnn_svhn",

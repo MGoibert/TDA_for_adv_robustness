@@ -20,7 +20,7 @@ class AvgPool2dLayer(Layer):
             self._stride = stride if isinstance(stride, tuple) else (stride, stride)
 
         super().__init__(
-            func=nn.AvgPool2d(kernel_size=kernel_size, stride=stride), graph_layer=True
+            func=nn.AvgPool2d(kernel_size=kernel_size, stride=stride, ceil_mode=True), graph_layer=True
         )
 
     def build_matrix(self) -> coo_matrix:
