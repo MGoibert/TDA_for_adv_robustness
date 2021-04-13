@@ -9,7 +9,8 @@ from tda.models.layers import LinearLayer, ConvLayer, AvgPool2dLayer, Adaptative
     (ConvLayer(in_channels=2, out_channels=3, kernel_size=2, input_shape=(7, 7)), (1, 2, 7, 7)),
     (ConvLayer(in_channels=2, out_channels=3, kernel_size=2, stride=2, input_shape=(7, 7)), (1, 2, 7, 7)),
     (ConvLayer(in_channels=2, out_channels=2, kernel_size=2, grouped_channels=True, input_shape=(7, 7)), (1, 2, 7, 7)),
-    (AvgPool2dLayer(kernel_size=3), (1, 2, 7, 7)),
+    (AvgPool2dLayer(kernel_size=3, ceil_mode=False), (1, 2, 7, 7)),
+    (AvgPool2dLayer(kernel_size=3, ceil_mode=True), (1, 2, 7, 7)),
     (AdaptativeAvgPool2dLayer(output_size=(2, 2)), (1, 2, 7, 7))
 ])
 def test_build_matrix(layer, input_shape):

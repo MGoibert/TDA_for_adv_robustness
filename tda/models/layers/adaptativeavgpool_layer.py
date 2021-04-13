@@ -23,6 +23,7 @@ class AdaptativeAvgPool2dLayer(Layer):
                     strides=self._stride,
                     in_channel=in_c,
                     out_channel=out_c,
+                    ceil_mode=False
                 )
                 for in_c in range(nb_channels)
             ]
