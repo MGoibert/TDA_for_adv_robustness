@@ -67,6 +67,7 @@ class MaxPool2dLayer(Layer):
             self._out_shape = out.shape
             self._activations_shape = x_sum.shape
             self._activations_values = x_sum
+            self._parent_indices = list(x.keys())
         if self._activ:
             if type(self._activ) == list:
                 for act in self._activ:
