@@ -51,8 +51,6 @@ class AvgPool2dLayer(Layer):
                 nx = idx_out % nb_step_x
                 ny = idx_out // nb_step_x
 
-                print(nx, ny)
-
                 idx = list()
 
                 for idx_x in range(kernel_size[0]):

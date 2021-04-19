@@ -60,7 +60,7 @@ class MaxPool2dLayer(Layer):
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
         x_sum = sum(x.values()).double()
-        out = self.func(x_sum)
+        out, indx = self.func(x_sum)
         if store_for_graph:
             self._activations = x
             self._activations_shape = x_sum.shape
