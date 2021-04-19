@@ -63,6 +63,8 @@ class MaxPool2dLayer(Layer):
         out, indx = self.func(x_sum)
         if store_for_graph:
             self._activations = x
+            self._indx = indx
+            self._out_shape = out.shape
             self._activations_shape = x_sum.shape
             self._activations_values = x_sum
         if self._activ:
