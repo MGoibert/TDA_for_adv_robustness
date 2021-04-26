@@ -14,6 +14,7 @@ import numpy as np
 
 from tda.tda_logging import get_logger
 from tda.devices import device
+from tda.dataset.tiny_image_net import load_tiny_image_net
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
@@ -132,7 +133,9 @@ class Dataset(object):
         elif name == "CircleToy":
             self.train_dataset = dsetsCircleToy(2000)
             self.test_and_val_dataset = dsetsCircleToy(2000)
-
+        elif name == "TinyImageNet":
+            self.train_dataset = load_tiny_image_net(mode="train", transform=_trans)
+            self.test_and_val_dataset = load_tiny_image_net(mode="test", transform=_trans)
         else:
             raise NotImplementedError(f"Unknown dataset {name}")
 
