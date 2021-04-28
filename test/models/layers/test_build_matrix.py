@@ -74,7 +74,7 @@ from tda.models.layers import (
         (AvgPool2dLayer(kernel_size=3, ceil_mode=True), (1, 2, 7, 7)),
         (AdaptativeAvgPool2dLayer(output_size=(2, 2)), (1, 2, 7, 7)),
         (AdaptativeAvgPool2dLayer(output_size=(1, 1)), (1, 2, 7, 7)),
-        (MaxPool2dLayer(kernel_size=2, stride=2), (1, 2, 4, 4))
+        (MaxPool2dLayer(kernel_size=2, stride=2), (1, 2, 4, 5))
     ],
 )
 def test_build_matrix(layer, input_shape):
