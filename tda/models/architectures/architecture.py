@@ -91,8 +91,9 @@ class Architecture(nn.Module):
         try:
             self.build_matrices()
             done = True
-        except Exception:
+        except Exception as e:
             done = False
+            raise e
         return done
 
     def get_layer_matrices(self):
@@ -230,7 +231,7 @@ class Architecture(nn.Module):
 
         # Going through all layers
         for layer_idx in self.layer_visit_order:
-            logger.info(f"Layer nb {layer_idx}")
+            #  logger.info(f"Layer nb {layer_idx}")
             if layer_idx != -1:
                 layer = self.layers[layer_idx]
                 input = {

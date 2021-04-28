@@ -153,20 +153,21 @@ class ConvLayer(Layer):
         # logging.info(f"Processing in={in_channel} and out={out_channel}")
         logger.info(f"In build_matrix_for_channel")
 
-        for param_ in self.func.named_parameters():
+        kernel = None
+        grouped_channels = hasattr(self, "_grouped_channels") and self._grouped_channels
+
+        for name, param in self.func.named_parameters():
             # logger.info(f"size param {param[1].size()} and name = {param[0]}")
             # logger.info(f"out channel = {out_channel} and in channel = {in_channel}")
             # TODO: why this order out / in ???
-            param = param_[1]
-            # name_ = param_[0]
-            if len(param.size()) > 1:
-                if not self._grouped_channels:
+            if name == "weight":
+                if not grouped_channels:
                     kernel = param.data[out_channel, in_channel, :, :]
                 else:
                     kernel = param.data[out_channel, 0, :, :]
                 # logger.info(f"name = {name_} and kernel = {kernel.size()}")
-            else:
-                raise RuntimeError()
+
+        assert kernel is not None
 
         ##################################
         # Compute the size of the matrix #
@@ -189,7 +190,9 @@ class ConvLayer(Layer):
             stride=self._stride,
         )
 
-        if self._grouped_channels and in_channel != out_channel:
+        grouped_channels = hasattr(self, "_grouped_channels") and self._grouped_channels
+
+        if grouped_channels and in_channel != out_channel:
             return coo_matrix(([], ([], [])), shape=(nbrows, nbcols))
         else:
             mat = coo_matrix((data, (row_ind, col_ind)), shape=(nbrows, nbcols))

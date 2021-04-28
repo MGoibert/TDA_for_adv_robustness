@@ -73,6 +73,7 @@ class AvgPool2dLayer(Layer):
 
     def build_matrix(self) -> coo_matrix:
         nb_channels = self._activations_shape[1]
+        ceil_mode = hasattr(self, "_ceil_mode") and self._ceil_mode
         matrix_grid = [
             [
                 AvgPool2dLayer.build_matrix_for_channel(
@@ -81,7 +82,7 @@ class AvgPool2dLayer(Layer):
                     strides=self._stride,
                     in_channel=in_c,
                     out_channel=out_c,
-                    ceil_mode=self._ceil_mode,
+                    ceil_mode=ceil_mode,
                 )
                 for in_c in range(nb_channels)
             ]
@@ -96,7 +97,7 @@ class AvgPool2dLayer(Layer):
         out = self.func(x_sum)
         if store_for_graph:
             self._activations = x
-            self._activations_shape = x_sum.shape
+        self._activations_shape = x_sum.shape
         if self._activ:
             if type(self._activ) == list:
                 for act in self._activ:
