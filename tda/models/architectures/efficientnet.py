@@ -905,7 +905,7 @@ efficientnet = Architecture(
             bias=False,
         ),
         # 137
-        AdaptativeAvgPool2dLayer(output_size=1),
+        AdaptativeAvgPool2dLayer(output_size=(1, 1)),
         # 138
         LinearLayer(1280, 10),
         # 139

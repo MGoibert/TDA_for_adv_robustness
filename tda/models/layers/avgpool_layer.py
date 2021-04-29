@@ -97,7 +97,7 @@ class AvgPool2dLayer(Layer):
         out = self.func(x_sum)
         if store_for_graph:
             self._activations = x
-            self._activations_shape = x_sum.shape
+        self._activations_shape = x_sum.shape
         if self._activ:
             if type(self._activ) == list:
                 for act in self._activ:

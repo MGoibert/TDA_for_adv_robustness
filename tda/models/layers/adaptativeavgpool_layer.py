@@ -23,7 +23,7 @@ class AdaptativeAvgPool2dLayer(Layer):
                     strides=self._stride,
                     in_channel=in_c,
                     out_channel=out_c,
-                    ceil_mode=False
+                    ceil_mode=False,
                 )
                 for in_c in range(nb_channels)
             ]
@@ -38,19 +38,19 @@ class AdaptativeAvgPool2dLayer(Layer):
         out = self.func(x_sum)
         if store_for_graph:
             self._activations = x
-            self._activations_shape = x_sum.shape
+        self._activations_shape = x_sum.shape
 
-            output_height, output_width = self._output_size
-            input_height = self._activations_shape[-2]
-            input_width = self._activations_shape[-1]
+        output_height, output_width = self._output_size
+        input_height = self._activations_shape[-2]
+        input_width = self._activations_shape[-1]
 
-            stride_width = input_width // output_width
-            kernel_width = input_width - (output_width - 1) * stride_width
+        stride_width = input_width // output_width
+        kernel_width = input_width - (output_width - 1) * stride_width
 
-            stride_height = input_height // output_height
-            kernel_height = input_height - (output_height - 1) * stride_height
+        stride_height = input_height // output_height
+        kernel_height = input_height - (output_height - 1) * stride_height
 
-            self._stride = (stride_width, stride_height)
-            self._k = (kernel_width, kernel_height)
+        self._stride = (stride_width, stride_height)
+        self._k = (kernel_width, kernel_height)
 
         return out
