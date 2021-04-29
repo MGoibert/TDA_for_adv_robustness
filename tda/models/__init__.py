@@ -6,6 +6,7 @@ from time import time
 import numpy as np
 import torch
 from torch import nn, optim, no_grad
+from torch.optim.lr_scheduler import _LRScheduler
 
 from tda.devices import device
 from tda.models.architectures import (
@@ -37,6 +38,34 @@ torch.set_default_tensor_type(torch.DoubleTensor)
 
 pathlib.Path("/tmp/tda/trained_models").mkdir(parents=True, exist_ok=True)
 
+class GradualWarmupScheduler(_LRScheduler):
+    """ Gradually warm-up(increasing) learning rate in optimizer.
+    Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        multiplier: target learning rate = base lr * multiplier
+        total_epoch: target learning rate is reached at total_epoch, gradually
+        after_scheduler: after target_epoch, use this scheduler(eg. ReduceLROnPlateau)
+    """
+
+    def __init__(self, optimizer, multiplier, total_epoch, after_scheduler):
+        self.multiplier = multiplier
+        if self.multiplier <= 1.:
+            raise ValueError('multiplier should be greater than 1.')
+        self.total_epoch = total_epoch
+        self.after_scheduler = after_scheduler
+        self.finished = False
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        return [base_lr / self.multiplier * ((self.multiplier - 1.) * self.last_epoch / self.total_epoch + 1.)
+                for base_lr in self.base_lrs]
+
+    def step(self, epoch=0):
+        if epoch > self.total_epoch:
+            self.after_scheduler.step(epoch - self.total_epoch)
+        else:
+            super(GradualWarmupScheduler, self).step(epoch)
 
 def compute_val_acc(model, val_loader):
     """
@@ -198,7 +227,7 @@ def train_network(
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5
         )
-    elif model.name in [cifar_lenet.name, efficientnet.name]:
+    elif model.name in [cifar_lenet.name]:
         lr = 0.0008
         patience = 50
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
@@ -238,6 +267,15 @@ def train_network(
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.75
         )
+    elif model.name in [efficientnet.name]:
+        lr = 0.1
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+        def get_scheduler(optimizer, n_iter_per_epoch):
+            cosine_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, eta_min=0.000001,
+                               T_max=(num_epochs - 0 - 20)*n_iter_per_epoch)
+            scheduler = GradualWarmupScheduler(optimizer,multiplier=16,total_epoch=20*n_iter_per_epoch,after_scheduler=cosine_scheduler)
+            return scheduler
+        scheduler = get_scheduler(optimizer, len(train_loader))
 
     else:
         logger.warn(f"Unknown model {model.name}... Using default optimizer")
@@ -273,7 +311,7 @@ def train_network(
         elif (epoch == 0) and (prune_percentile == 0.0):
             mask_ = None
 
-        for x_batch, y_batch in train_loader:
+        for i_batch, (x_batch, y_batch) in enumerate(train_loader):
             # Training !!
             # if epoch == 0:
             # mask_ = None
@@ -300,8 +338,9 @@ def train_network(
             loss_history.append(val_loss.item())
             break
         if (prune_percentile == 0.0) or (epoch > first_pruned_iter * nb_iter_prune):
+            step = epoch * len(train_loader) + i_batch
             if scheduler is not None:
-                scheduler.step(val_loss)
+                scheduler.step(step)
         if epoch % 10 == 9:
             logger.info(f"Val acc = {compute_val_acc(model, val_loader)}")
         if epoch > 0:
@@ -396,12 +435,17 @@ def get_deep_model(
             f"Unable to find model in {architecture.get_model_savepath()}... Retraining it..."
         )
 
-        x = dataset.train_dataset[0][0].to(device)
-        architecture.forward(x, store_for_graph=False, output="final")
-        assert architecture.matrices_are_built is True
+        #x = dataset.train_dataset[0][0].to(device)
+        #architecture.forward(x, store_for_graph=False, output="final")
+        #assert architecture.matrices_are_built is True
 
         # Save initial model
-        torch.save(architecture, architecture.get_model_savepath(initial=True))
+        #torch.save(architecture, architecture.get_model_savepath(initial=True))
+        # Load already pre-trained efficient net model
+        pretrained_path = "/mnt/nfs/home/m.goibert/TDA_for_adv_robustness/trained_models/efficientnet_e_100.model"
+        architecture = torch.load(pretrained_path, map_location=device)
+        assert architecture.matrices_are_built is True
+        logger.info(f"Correctly downloaded pre-trained model")
 
         # Train the NN
         train_network(
