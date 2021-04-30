@@ -5,6 +5,7 @@ from time import time
 
 import numpy as np
 import torch
+import mlflow
 from torch import nn, optim, no_grad
 from torch.optim.lr_scheduler import _LRScheduler
 
@@ -33,6 +34,9 @@ from tda.rootpath import rootpath
 from tda.tda_logging import get_logger
 
 logger = get_logger("Models")
+
+mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+mlflow.set_experiment("tda_adv_detection")
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
@@ -153,6 +157,8 @@ def go_training(
             if len(param.data.size()) > 1:
                 param.data = param.data * mask_[i]
                 param.grad.data = param.grad.data * mask_[i]
+
+    return loss.item()
 
 
 def train_network(
@@ -296,6 +302,7 @@ def train_network(
         )
         t = time()
         model.set_train_mode()
+        mlflow.log_metric("lr", [param['lr'] for param in optimizer.param_groups][0], step=epoch)
 
         if custom_scheduler_step is not None:
             custom_scheduler_step(optimizer, epoch)
@@ -311,11 +318,12 @@ def train_network(
         elif (epoch == 0) and (prune_percentile == 0.0):
             mask_ = None
 
+        train_loss = list()
         for i_batch, (x_batch, y_batch) in enumerate(train_loader):
             # Training !!
             # if epoch == 0:
             # mask_ = None
-            go_training(
+            loss = go_training(
                 model,
                 x_batch,
                 y_batch,
@@ -327,6 +335,8 @@ def train_network(
                 first_pruned_iter=first_pruned_iter,
                 mask_=mask_,
             )
+            train_loss.append(loss)
+        mlflow.log_metric("train_loss", np.mean(train_loss), step=epoch)
 
         model.set_eval_mode()
         for x_val, y_val in val_loader:
@@ -334,6 +344,7 @@ def train_network(
             x_val = x_val.double()
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
+            mlflow.log_metric("val_loss", np.around(val_loss.item(), decimals=4), step=epoch)
             logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")
             loss_history.append(val_loss.item())
             break
@@ -342,7 +353,9 @@ def train_network(
             if scheduler is not None:
                 scheduler.step(step)
         if epoch % 10 == 9:
-            logger.info(f"Val acc = {compute_val_acc(model, val_loader)}")
+            acc = compute_val_acc(model, val_loader)
+            logger.info(f"Val acc = {acc}")
+            mlflow.log_metric("val_acc", acc, step=epoch)
         if epoch > 0:
             save_pruned_model(
                 model,
@@ -435,30 +448,31 @@ def get_deep_model(
             f"Unable to find model in {architecture.get_model_savepath()}... Retraining it..."
         )
 
-        #x = dataset.train_dataset[0][0].to(device)
-        #architecture.forward(x, store_for_graph=False, output="final")
-        #assert architecture.matrices_are_built is True
+        x = dataset.train_dataset[0][0].to(device)
+        architecture.forward(x, store_for_graph=False, output="final")
+        assert architecture.matrices_are_built is True
 
         # Save initial model
-        #torch.save(architecture, architecture.get_model_savepath(initial=True))
+        torch.save(architecture, architecture.get_model_savepath(initial=True))
         # Load already pre-trained efficient net model
-        pretrained_path = "/mnt/nfs/home/m.goibert/TDA_for_adv_robustness/trained_models/efficientnet_e_100.model"
-        architecture = torch.load(pretrained_path, map_location=device)
-        assert architecture.matrices_are_built is True
-        logger.info(f"Correctly downloaded pre-trained model")
+        #pretrained_path = "/mnt/nfs/home/m.goibert/TDA_for_adv_robustness/trained_models/efficientnet_e_100.model"
+        #architecture = torch.load(pretrained_path, map_location=device)
+        #assert architecture.matrices_are_built is True
+        #logger.info(f"Correctly downloaded pre-trained model")
 
         # Train the NN
-        train_network(
-            architecture,
-            dataset.train_loader,
-            dataset.val_loader,
-            loss_func,
-            num_epochs,
-            train_noise,
-            prune_percentile,
-            tot_prune_percentile,
-            first_pruned_iter,
-        )
+        with mlflow.start_run(run_name=f"Train {architecture.name}"):
+            train_network(
+                architecture,
+                dataset.train_loader,
+                dataset.val_loader,
+                loss_func,
+                num_epochs,
+                train_noise,
+                prune_percentile,
+                tot_prune_percentile,
+                first_pruned_iter,
+            )
 
         # Saving model
         torch.save(architecture, architecture.get_model_savepath())
