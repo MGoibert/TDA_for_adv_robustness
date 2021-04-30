@@ -12,9 +12,12 @@ import torch.nn.functional as F
 
 from ..layers.adaptativeavgpool_layer import AdaptativeAvgPool2dLayer
 
+def tinyimagenet_preprocess(x):
+    return x.reshape(-1, 3, 64, 64)
+
 efficientnet = Architecture(
     name="efficientnet",
-    preprocess=svhn_preprocess_resize,
+    preprocess=tinyimagenet_preprocess,
     layers=[
         # Beginning
         # 0
