@@ -28,16 +28,18 @@ from tda.threshold_underoptimized_edges import process_thresholds_underopt
 from tda.rootpath import rootpath
 from tda.embeddings.raw_graph import to_sparse_vector
 from tda.graph import Graph
-from tda.dataset.graph_dataset import DatasetLine
+from tda.dataset.graph_dataset import DatasetLine, process_sample
 from tda.embeddings.persistent_diagrams import (
     sliced_wasserstein_kernel,
     compute_dgm_from_graph,
 )
+from tda.devices import device
 import pathlib
 from itertools import cycle, islice
 import matplotlib.pyplot as plt
 from operator import itemgetter
 from numpy import inf
+from scipy.sparse import coo_matrix
 
 logger = get_logger("Simple example")
 start_time = time.time()
@@ -167,7 +169,117 @@ def get_config() -> Config:
 # 6) Get model parameters
 # 7) Persistent diagram and Raw Graph
 
-plt.style.use('ggplot') 
+plt.style.use('seaborn-dark') 
+
+def get_protocolar_datasets2(
+        dataset,
+        archi,
+        all_epsilons,
+        offset=0,
+        dataset_size=20,
+        attack_type="FGSM",
+        num_iter=20,
+        attack_backend=AttackBackend.FOOLBOX):
+
+    source_dataset = dataset.test_and_val_dataset
+    source_dataset_size = len(source_dataset)
+    current_sample_id = offset
+    compute_graph = False
+    final_dataset_clean = list()
+    final_dataset_adv = dict()
+    batch_size = dataset_size
+
+    while len(final_dataset_clean)<dataset_size and current_sample_id < source_dataset_size:
+        samples = None
+        processed_samples = None
+        y_pred = None
+
+        batch = source_dataset[current_sample_id:current_sample_id+batch_size]
+        if isinstance(batch[0], DatasetLine):
+            x = torch.cat([torch.unsqueeze(s.x, 0) for s in batch], 0).to(device)
+            y = np.array([s.y for s in batch])
+            logger.info(f"shape of x = {x.shape}")
+        else:
+            x = torch.cat([torch.unsqueeze(s[0], 0) for s in batch], 0).to(device)
+            y = np.array([s[1] for s in batch])
+        samples = (x, y)
+
+        processed_samples_clean = process_sample(
+                sample=samples,
+                adversarial=False,
+                noise=0.0,
+                epsilon=0.0,
+                model=archi,
+                attack_type=attack_type,
+                num_iter=num_iter,
+                attack_backend=attack_backend,
+            )
+
+        current_sample_id += batch_size
+        assert (samples[1] == processed_samples_clean[1]).all()
+        y_pred = archi(processed_samples_clean[0]).argmax(dim=-1).cpu().numpy()
+
+        for i in range(len(processed_samples_clean[1])):
+            x = torch.unsqueeze(processed_samples_clean[0][i], 0).double()
+            graph = (
+                Graph.from_architecture_and_data_point(architecture=archi, x=x)
+                if compute_graph
+                else None
+            )
+            final_dataset_clean.append(
+                DatasetLine(
+                    graph=graph,
+                    x=x,
+                    y=processed_samples_clean[1][i],
+                    y_pred=y_pred[i],
+                    y_adv=False,
+                    l2_norm=None,
+                    linf_norm=None,
+                    sample_id=current_sample_id,
+                )
+            )
+
+        for epsilon in all_epsilons:
+            logger.info(f"processing eps={epsilon}")
+            final_dataset_adv[epsilon] = list()
+            processed_samples_adv = process_sample(
+                sample=samples,
+                adversarial=True,
+                noise=0.0,
+                epsilon=epsilon,
+                model=archi,
+                attack_type=attack_type,
+                num_iter=num_iter,
+                attack_backend=attack_backend,
+            )
+
+            current_sample_id += batch_size
+            assert (samples[1] == processed_samples_adv[1]).all()
+            y_pred = archi(processed_samples_adv[0]).argmax(dim=-1).cpu().numpy()
+
+            for i in range(len(processed_samples_adv[1])):
+                x = torch.unsqueeze(processed_samples_adv[0][i], 0).double()
+                graph = (
+                    Graph.from_architecture_and_data_point(architecture=archi, x=x)
+                    if compute_graph
+                    else None
+                )
+                final_dataset_adv[epsilon].append(
+                DatasetLine(
+                    graph=graph,
+                    x=x,
+                    y=processed_samples_adv[1][i],
+                    y_pred=y_pred[i],
+                    y_adv=True,
+                    l2_norm=None,
+                    linf_norm=None,
+                    sample_id=current_sample_id,
+                )
+            )
+
+    return final_dataset_clean, final_dataset_adv
+
+    
 
 def get_all_inputs(config: Config, myeps=None):
     # Dataset and architecture
@@ -207,18 +319,32 @@ def get_all_inputs(config: Config, myeps=None):
     logger.info(f"all epsilons = {all_epsilons} !!")
 
     # Get the protocolar datasets --> clean and adv datasets
-    train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
-        noise=config.noise,
+    #train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
+    #    noise=config.noise,
+    #    dataset=dataset,
+    #    succ_adv=False,#config.successful_adv > 0,
+    #    archi=architecture,
+    #    dataset_size=config.dataset_size,
+    #    attack_type=config.attack_type,
+    #    attack_backend=config.attack_backend,
+    #    all_epsilons=all_epsilons,
+    #    compute_graph=False,
+    #    transfered_attacks=config.transfered_attacks,
+    #)
+
+    # Get the protocolar datasets --> clean and adv datasets
+    test_clean, test_adv = get_protocolar_datasets2(
         dataset=dataset,
-        succ_adv=False,#config.successful_adv > 0,
         archi=architecture,
+        all_epsilons=all_epsilons,
+        offset=0,
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
+        num_iter=config.num_iter,
         attack_backend=config.attack_backend,
-        all_epsilons=all_epsilons,
-        compute_graph=False,
-        transfered_attacks=config.transfered_attacks,
     )
+    train_clean=None
+    train_adv=None
 
     return architecture, train_clean, test_clean, train_adv, test_adv
 
@@ -313,7 +439,7 @@ def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=T
     line_list = list()
     for elem in dataset:
         line_list.append(elem)
-        if (target != None) and (elem.y == target) and (clean*(elem.y_pred == target) or (not clean)*(elem.y_pred != target)):
+        if (target != None) and (target != False) and (elem.y == target) and (clean*(elem.y_pred == target) or (not clean)*(elem.y_pred != target)):
             line_list.append(elem)
             if len(line_list) >= nb:
                 break
@@ -322,15 +448,20 @@ def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=T
             line_list.append(elem)
             if len(line_list) >= nb:
                 break
+        elif (target == False) :
+            #logger.info(f"Here")
+            line_list.append(elem)
+            if len(line_list) >= nb:
+                break
 
     graph_list = list()
-    dgm_list = list()
+    dgm_list = None #list()
     for line in line_list:
         graph = Graph.from_architecture_and_data_point(
                 architecture=architecture, x=line.x.double()
             )
         graph_list.append(graph)
-        dgm_list.append(compute_dgm_from_graph(graph))
+        #dgm_list.append(compute_dgm_from_graph(graph))
 
     return line_list, graph_list, dgm_list
 
@@ -539,6 +670,353 @@ def plot_errorbar_pts_dmgs(config, eps, m1s, yerr1s, m2s=None, yerr2s=None, m3s=
     plt.savefig(file_name, dpi=200)
     plt.close()
 
+#####
+#####
+# Reducing the dim of each layer for viz
+#####
+#####
+
+def from_old_to_new(old_indx, old_shape=4, new_shape=2):
+    old_row = old_indx//old_shape
+    old_col = old_indx%old_shape
+    new_row = old_row//(old_shape/new_shape)
+    new_col = old_col//(old_shape/new_shape)
+    new_indx = int(new_row*new_shape + new_col)
+    return new_indx
+
+def new_to_old(new_row, new_col=None, old_shape=4, new_shape=2, previous_cumsum_shape=0):
+    if new_col != None:
+        #logger.info(f"new to old for conv layer")
+        old_row = list(range(int(new_row*(old_shape/new_shape)), int((new_row+1)*(old_shape/new_shape))))
+        old_col = list(range(int(new_col*(old_shape/new_shape)), int((new_col+1)*(old_shape/new_shape))))
+        old_row_col_list_ = [[i,j] for i in old_row for j in old_col]
+        old_indx = [int(old_row*old_shape + old_col + previous_cumsum_shape) for (old_row, old_col) in old_row_col_list_]
+    else:
+        #logger.info(f"new to old for linear layer")
+        new_indx = new_row
+        old_indx_ = list( range( int(new_indx*(old_shape/new_shape)), int((new_indx+1)*(old_shape/new_shape))))
+        old_indx = [int(oi_ + previous_cumsum_shape) for oi_ in old_indx_]
+    return old_indx
+
+def new_to_old_linear(new_indx, old_shape=50, new_shape=25, previous_cumsum_shape=0):
+    old_indx_ = list( range( int(new_indx*(old_shape/new_shape)), int((new_indx+1)*(old_shape/new_shape))))
+    old_indx = [int(oi_ + previous_cumsum_shape) for oi_ in old_indx_]
+    return old_indx
+
+def from_indx_to_rowcol(indx, shape):
+    row = indx//shape
+    col = indx%shape
+    return [row, col]
+
+def mnist_viz(old_sparse_mat, new_dim_total_=[16, 10, 20, 10, 10]):
+    old_sparse_mat = old_sparse_mat.todense().T
+    channels = [1, 10, 10, 20, 20, 1, 1, 1]
+
+    old_shape_ = [28, 24, 24, 8, 8, 50, 50, 10]
+    old_dim_ = [28*28, 24*24*10, 24*24*10, 8*8*20, 8*8*20, 50, 50, 10]
+
+    new_shape_ = [0]*8
+    new_dim_ = [0]*8
+    for layer in range(5):
+        if layer == 0:
+            theshape_ = int(np.sqrt(new_dim_total_[layer]/channels[0]))
+            new_shape_[0] = theshape_
+            new_dim_[0] = (theshape_**2)*channels[0]
+        elif layer == 1:
+            theshape_ = int(np.sqrt(new_dim_total_[layer]/channels[1]))
+            new_shape_[1:3] = [theshape_]*2
+            new_dim_[1:3] = [(theshape_**2)*channels[1]]*2
+        elif layer == 2:
+            theshape_ = int(np.sqrt(new_dim_total_[layer]/channels[3]))
+            new_shape_[3:5] = [theshape_]*2
+            new_dim_[3:5] = [(theshape_**2)*channels[3]]*2
+        elif layer == 3:
+            theshape_ = int(new_dim_total_[layer]/channels[5])
+            new_shape_[5:7] = [theshape_]*2
+            new_dim_[5:7] = [theshape_*channels[5]]*2
+        elif layer == 4:
+            theshape_ = int(new_dim_total_[layer]/channels[7])
+            new_shape_[7] = theshape_
+            new_dim_[7] = theshape_*channels[7]
+    logger.info(f"Total dim = {new_dim_total_}, new_shape_={new_shape_} and new_dim_={new_dim_}")
+
+    old_dim_cum_ = [0] + list(np.cumsum(old_dim_))
+    new_dim_cum_ = [0] + list(np.cumsum(new_dim_))
+    new_dim = np.sum(new_dim_)
+
+    lim_sup = [-np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf]
+    lim_inf = [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, np.inf]
+    #rescaling_layer = [1*10**4, 1*10**4, 4*10**4, 4*10**4, 1*10**5, 1*10**5, 1*10**6, 1*10**6]
+    #lim_sup = [38, np.inf, 35, np.inf, 25, np.inf, 30, np.inf]
+    #lim_inf = [0, -np.inf, 0, -np.inf, 0, -np.inf, 0, -np.inf]
+    rescaling_layer = [10**2, np.inf, 10**3/2, np.inf, 5*10**3, np.inf, 5*10**4, np.inf]
+
+    new_mat = np.zeros((np.sum(new_dim_total_),np.sum(new_dim_total_)))
+    for layer_ in range(4):
+        all_edges_layer = list()
+        logger.info(f"layer {layer_}")
+        for i in range(new_dim_[layer_]):
+            ri, ci = from_indx_to_rowcol(i, shape=new_shape_[layer_])
+            nto_i = new_to_old(ri, ci,
+                    old_shape=old_shape_[layer_], new_shape=new_shape_[layer_],
+                    previous_cumsum_shape=old_dim_cum_[layer_])
+            new_i = i+new_dim_cum_[layer_]
+            if layer_ >= 2:
+                new_i = new_i - new_dim_[2]
+
+            for j in range(new_dim_[layer_+1]):
+                rj, cj = from_indx_to_rowcol(j, shape=new_shape_[layer_+1])
+                nto_j = new_to_old(rj, cj,
+                    old_shape=old_shape_[layer_+1], new_shape=new_shape_[layer_+1],
+                    previous_cumsum_shape=old_dim_cum_[layer_+1])
+                new_j = j+new_dim_cum_[layer_+1]
+
+                if layer_ >= 1:
+                    new_j = new_j - new_dim_[2]
+                if layer_ >= 3:
+                    new_j = new_j - new_dim_[4]
+
+                val__ = [old_sparse_mat[n,m] for n in nto_i for m in nto_j ]
+                val_ = np.array(val__)#[np.nonzero(val__)]
+                val = np.mean(val_)/rescaling_layer[layer_] if len(val_) > 0 else 0
+                if val < lim_sup[layer_] and val > lim_inf[layer_]:
+                    val = 0
+                else:
+                    all_edges_layer.append(val)
+                new_mat[new_i,new_j] = val
+        if len(all_edges_layer)>0:
+            logger.info(f"Layer {layer_}: nb={len(all_edges_layer)}, min={np.min(all_edges_layer)}, mean={np.mean(all_edges_layer)}, max={np.max(all_edges_layer)}")
+
+    layer_ = 4
+    all_edges_layer = list()
+    for i in range(new_dim_[layer_]):
+        ri, ci = from_indx_to_rowcol(i, shape=new_shape_[layer_])
+        nto_i = new_to_old(ri, ci,
+                old_shape=old_shape_[layer_], new_shape=new_shape_[layer_],
+                previous_cumsum_shape=old_dim_cum_[layer_])
+        new_i = i+new_dim_cum_[layer_]
+        new_i = new_i - new_dim_[2] - new_dim_[4]
+        for j in range(new_dim_[layer_+1]):
+            nto_j = new_to_old_linear(j,
+                old_shape=old_shape_[layer_+1],
+                new_shape=new_shape_[layer_+1],
+                previous_cumsum_shape=old_dim_cum_[layer_+1])
+            new_j = j+new_dim_cum_[layer_+1]
+            new_j = new_j - new_dim_[2] - new_dim_[4]
+            val__ = [old_sparse_mat[n,m] for n in nto_i for m in nto_j ]
+            val_ = np.array(val__)#[np.nonzero(val__)]
+            val = np.mean(val_)/rescaling_layer[layer_] if len(val_) > 0 else 0
+            if val < lim_sup[layer_] and val > lim_inf[layer_]:
+                val = 0
+            else:
+                all_edges_layer.append(val)
+            new_mat[new_i,new_j] = val
+    if len(all_edges_layer)>0:
+            logger.info(f"Layer {layer_}: nb={len(all_edges_layer)}, min={np.min(all_edges_layer)}, mean={np.mean(all_edges_layer)}, max={np.max(all_edges_layer)}")
+
+    
+    new_output = list()
+    old_output = list()
+    for layer_ in [5, 6]:
+        all_edges_layer = list()
+        for i in range(new_dim_[layer_]):
+            nto_i = new_to_old_linear(i,
+                old_shape=old_shape_[layer_],
+                new_shape=new_shape_[layer_],
+                previous_cumsum_shape=old_dim_cum_[layer_])
+            new_i = i+new_dim_cum_[layer_]
+            new_i = new_i - new_dim_[2] - new_dim_[4]
+            if layer_ >= 6:
+                new_i = new_i - new_dim_[6]
+            for j in range(new_dim_[layer_+1]):
+                nto_j = new_to_old_linear(j,
+                    old_shape=old_shape_[layer_+1],
+                    new_shape=new_shape_[layer_+1],
+                    previous_cumsum_shape=old_dim_cum_[layer_+1])
+                new_j = j+new_dim_cum_[layer_+1]
+                new_j = new_j - new_dim_[2] - new_dim_[4]
+                if layer_ >= 5:
+                    new_j = new_j - new_dim_[6]
+                val__ = [old_sparse_mat[n,m] for n in nto_i for m in nto_j]
+                val_ = np.array(val__)#[np.nonzero(val__)]
+                val = np.mean(val_)/rescaling_layer[layer_] if len(val_) > 0 else 0
+                if val < lim_sup[layer_] and val > lim_inf[layer_]:
+                    val = 0
+                else:
+                    all_edges_layer.append(val)
+                new_mat[new_i,new_j] = val
+        if len(all_edges_layer)>0:
+            logger.info(f"Layer {layer_}: nb={len(all_edges_layer)}, min={np.min(all_edges_layer)}, mean={np.mean(all_edges_layer)}, max={np.max(all_edges_layer)}")
+
+    new_mat = coo_matrix(new_mat)
+    logger.info(f"Nb elem = {len(new_mat.data)}")
+
+    return new_mat
+
+
+
+
+
+
+
+
+def mnist_viz2(old_sparse_mat, new_dim=[16, 10, 20, 10, 10]):
+    old_sparse_mat = old_sparse_mat.todense()
+    channels = [1, 10, 20, 1, 1]
+    old_shape = [28, 24, 8, 50, 10]
+    old_dim = [28*28, 24*24*10, 8*8*20, 50, 10]
+
+    old_mat_indices = {(0,1):(range(0,784), range(784,6544)),
+                       (1,2):(range(6544,12304), range(12304,13584)),
+                       (2,3):(range(13584,14864), range(14864,14914)),
+                       (3,4):(range(14914,14964), range(14964,14974))}
+
+    new_shape = 5*[0]
+    for layer in range(len(new_dim)):
+        if layer < 3:
+            new_shape[layer] = int(np.sqrt(new_dim[layer]/channels[layer]))
+        else:
+            new_shape[layer] = new_dim[layer]/channels[layer]
+    new_dim_cum = np.cumsum(new_dim)
+    new_mat_indices = {(0,1):(range(0, new_dim_cum[0]), range(new_dim_cum[0], new_dim_cum[1])),
+                       (1,2):(range(new_dim_cum[0], new_dim_cum[1]), range(new_dim_cum[1], new_dim_cum[2])),
+                       (2,3):(range(new_dim_cum[1], new_dim_cum[2]), range(new_dim_cum[2], new_dim_cum[3])),
+                       (3,4):(range(new_dim_cum[2], new_dim_cum[3]), range(new_dim_cum[3], new_dim_cum[4]))}
+    logger.info(f"new_mat_indices = {new_mat_indices}")
+    new_mat = np.zeros((np.sum(new_dim),np.sum(new_dim)))
+
+    lim_sup = [-np.inf, -np.inf, -np.inf, -np.inf]
+    lim_inf = [np.inf, np.inf, np.inf, np.inf]
+    rescaling_layer = [10**2, 10**3/2, 5*10**3, 5*10**4]
+
+
+    for (layer0, layer1), (new_neurons0, new_neurons1) in new_mat_indices.items():
+        logger.info(f"layers = {(layer0, layer1)}")
+        all_edges_layer = list()
+        for i, indx_i in enumerate(new_neurons0):
+            if layer0 < 3:
+                row_i, col_i = from_indx_to_rowcol(i, shape=new_shape[layer0])
+            else:
+                row_i = i
+                col_i = None
+            old_indx_i = new_to_old(row_i, col_i,
+                old_shape=old_shape[layer0], new_shape=new_shape[layer0],
+                previous_cumsum_shape=np.min(old_mat_indices[(layer0, layer1)][0]))
+            #logger.info(f"i={i}, indx_i={indx_i}")
+            for j, indx_j in enumerate(new_neurons1):
+                if layer1 < 3:
+                    row_j, col_j = from_indx_to_rowcol(j, shape=new_shape[layer1])
+                else:
+                    row_j = j
+                    col_j = None
+                old_indx_j = new_to_old(row_j, col_j,
+                    old_shape=old_shape[layer1], new_shape=new_shape[layer1],
+                    previous_cumsum_shape=np.min(old_mat_indices[(layer0, layer1)][1]))
+                #logger.info(f"j={j}, indx_j={indx_j}: old_indx_j = {old_indx_j}")
+
+                list_val = np.array([old_sparse_mat[n,m] for n in old_indx_i for m in old_indx_j ])
+                val = np.mean(list_val)/rescaling_layer[layer0] if len(list_val) > 0 else 0
+                if val < lim_sup[layer0] and val > lim_inf[layer0]:
+                    val = 0
+                else:
+                    all_edges_layer.append(val)
+
+                new_mat[indx_i,indx_j] = val
+        logger.info(f"Layers {(layer0, layer1)}: {len(all_edges_layer)} edges, mean={np.mean(all_edges_layer)}, max={np.max(all_edges_layer)}")
+
+    return coo_matrix(new_mat)
+
+def rescaling_weights(mat, shape=[16, 10, 20, 10, 10], min_=None, max_=None):
+    mat = mat.todense()
+    if min_ == None:
+        min_ = np.min(mat)
+        max_ = np.max(mat)
+        mat2 = (mat-min_)/(max_-min_)
+        return coo_matrix(mat2), min_, max_
+    else:
+        mat2 = (mat-min_)/(max_-min_)
+        return coo_matrix(mat2)
+
+
+def plot_mnist_viz(config, new_mat, status, y, y_pred, shape=[16, 10, 20, 10, 10], eps=0.0):
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.architecture)
+            + str(config.epochs)
+            + "_reduced_dim_viz"
+            + "_" + str(status)
+            + "_eps_" + str(eps)
+            + ".png"
+        )
+
+    G = nx.from_scipy_sparse_matrix(new_mat)
+    #shape = [7*7, 6*6*10, 2*2*20, 50, 10]
+    #shape = [4*4, 2*2*10, 1*1*20, 50, 10]
+    #shape = [4*4, 1*1*10, 1*1*20, 10, 10]
+    cum_shape = np.cumsum(shape)
+    pos = {}
+    for i in range(cum_shape[-1]):
+        if i < cum_shape[0]:
+            pos[i]=(0,10*(shape[0]-i)/shape[0]) #shape[0]-
+        elif i < cum_shape[1]:
+            pos[i]=(1,10*(shape[1]-(i-cum_shape[0]))/shape[1]) # shape[1]-
+        elif i < cum_shape[2]:
+            pos[i]=(2,10*(shape[2]-(i-cum_shape[1]))/shape[2])
+        elif i < cum_shape[3]:
+            pos[i]=(3,10*(shape[3]-(i-cum_shape[2]))/shape[3])
+        elif i < cum_shape[4]:
+            pos[i]=(4,10*((i-cum_shape[3]))/shape[4])
+
+    if eps != 0.0:
+        adv_message = f"eps = {eps} "
+    else:
+        adv_message = f""
+    nx.set_node_attributes(G, pos, 'coord') 
+    widths = nx.get_edge_attributes(G, 'weight')
+    nodelist = G.nodes()
+    nx.draw_networkx_nodes(G, pos,
+                            nodelist=nodelist,
+                            node_size=3,
+                            node_color='black',
+                            alpha=0.7)
+    nx.draw_networkx_edges(G, pos,
+                            edgelist = widths.keys(),
+                            width=[5*val for val in list(widths.values())],
+                            edge_color='darkred',#'lightblue',
+                            alpha=0.6)
+    plt.title(f"{status} {y} ({adv_message}pred. {y_pred})")
+    labels = ['Input', 'Conv. 1', 'Conv. 2', 'Linear', 'Output']
+    x = [0, 1, 2, 3, 4]
+    plt.xticks(x, labels)
+    plt.rcParams["axes.grid"] = False
+    plt.savefig(file_name, dpi=500)
+    plt.close()
+
+def plot_image(config, line, eps=0.0):
+    status = line.y_adv
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.architecture)
+            + str(config.epochs)
+            + "_reduced_dim_viz_image"
+            + "_" + str(status)
+            + "_eps_" + str(eps)
+            + ".png"
+        )
+    if eps != 0.0:
+        adv_message = f"eps = {eps} "
+    else:
+        adv_message = f""
+    x = line.x.view(28,28,1).cpu().detach().numpy()
+    plt.imshow(x, cmap="gray")
+    plt.title(f"y = {line.y} ({adv_message}pred {line.y_pred})")
+    plt.savefig(file_name, dpi=350)
+    plt.close()
+
 
 def run_experiment2(config: Config):
 
@@ -602,32 +1080,74 @@ def run_experiment2(config: Config):
 
 
     #### 11) Nb pts as a function of several eps
-    myeps = [0.01, 0.05, 0.1, 0.25, 0.4]
+    #myeps = [0.1]
+    #architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
+    #lines_c, graphs_c, dgms_c = get_graphs_dgms(config, train_clean+test_clean, architecture,
+    #    target=None, clean=True)
+    #a = 100
+    #i = 0
+    #g_old = graphs_c[i].get_adjacency_matrix().todense()[:6544-1,:6544-1]
+    #g_new = np.zeros((2,3))
+    #m1s = list()
+    #m2s = list()
+    #yerr1s = list()
+    #yerr2s = list()
+    #for eps in myeps:
+    #    nb_c = nb_pts_dgms(dgms_c)
+    #    lines_a, graphs_a, dgms_a = get_graphs_dgms(config,
+    #        train_adv[eps]+test_adv[eps],
+    #        architecture, target=None, clean=False)
+    #    nb_a = nb_pts_dgms(dgms_a)
+    #    m1, yerr1, m2, yerr2 = stat_nb_pts_dgms(config, nb_c, nb2=nb_a)
+    #    m1s.append(m1)
+    #    m2s.append(m2)
+    #    yerr1s.append(yerr1)
+    #    yerr2s.append(yerr2)
+    #yerr1s = np.asarray(yerr1s).reshape(-1,2).T
+    #yerr2s = np.asarray(yerr2s).reshape(-1,2).T
+    #plot_errorbar_pts_dmgs(config, myeps, m1s, yerr1s, m2s, yerr2s)
+
+    ##### Test
+    myeps = [0.1, 0.4]
+    #nb_sample = 3
+    nb_sample = 5
+
     architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
-    lines_c, graphs_c, dgms_c = get_graphs_dgms(config, train_clean+test_clean, architecture,
-        target=None, clean=True)
-    m1s = list()
-    m2s = list()
-    yerr1s = list()
-    yerr2s = list()
-    for eps in myeps:
-        nb_c = nb_pts_dgms(dgms_c)
+
+    lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
+        test_clean, architecture,
+        target=False, clean=True, nb=10)
+    logger.info(f"How many graphs ? {len(graphs_c)} and lines ? {len(lines_c)}")
+
+    shape = [16, 10, 20, 10, 10]
+    plot_image(config, lines_c[nb_sample])
+
+    g_old_c = graphs_c[nb_sample].get_adjacency_matrix()
+    import matplotlib
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    logger.info(f"shapes = {graphs_c[nb_sample]._get_shapes()}")
+    plt.style.use('ggplot') 
+    plt.imshow(g_old_c.todense(), norm=norm)
+    plt.savefig("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/plots/toy_viz/-1/mat_view.png", dpi=350)
+    plt.close()
+    g_new_c = mnist_viz2(g_old_c, shape)
+    g_new_c, min_, max_ = rescaling_weights(g_new_c, shape)
+    plot_mnist_viz(config, g_new_c, status="Clean", y=lines_c[nb_sample].y, y_pred=lines_c[nb_sample].y_pred, shape=shape)
+
+    for i, eps in enumerate(myeps):
+        logger.info(f"eps={eps}, len dataset={len(test_adv[list(test_adv.keys())[i]])}")
         lines_a, graphs_a, dgms_a = get_graphs_dgms(config,
-            train_adv[eps]+test_adv[eps],
-            architecture, target=None, clean=False)
-        nb_a = nb_pts_dgms(dgms_a)
-        m1, yerr1, m2, yerr2 = stat_nb_pts_dgms(config, nb_c, nb2=nb_a)
-        m1s.append(m1)
-        m2s.append(m2)
-        yerr1s.append(yerr1)
-        yerr2s.append(yerr2)
-    yerr1s = np.asarray(yerr1s).reshape(-1,2).T
-    yerr2s = np.asarray(yerr2s).reshape(-1,2).T
-    plot_errorbar_pts_dmgs(config, myeps, m1s, yerr1s, m2s, yerr2s)
+        list(test_adv[list(test_adv.keys())[i]]), architecture,
+        target=False, clean=False, nb=10)
 
+        logger.info(f"len new : {len(lines_a)}")
+        plot_image(config, lines_a[nb_sample], eps=eps)
+        g_old_a = graphs_a[nb_sample].get_adjacency_matrix()
+        g_new_a = mnist_viz2(g_old_a)
+        g_new_a = rescaling_weights(g_new_a, shape, min_, max_)
+        plot_mnist_viz(config, g_new_a, status="Adversarial", y=lines_a[nb_sample].y, y_pred=lines_a[nb_sample].y_pred, shape=shape, eps=eps)
 
-
-
+    
 
 
 if __name__ == "__main__":
