@@ -58,8 +58,8 @@ class MaxPool2dLayer(Layer):
                 idx = self._indx[0, in_c, :, :].reshape(-1).cpu().detach().numpy()[i]
                 cols.append(idx)
 
-                row_in_source = (idx - in_c * dim) // self._activations_shape[3]
-                col_in_source = (idx - in_c * dim) % self._activations_shape[3]
+                row_in_source = idx // self._activations_shape[3]
+                col_in_source = idx % self._activations_shape[3]
                 data.append(
                     self._activations[parentidx].cpu().detach().numpy()[
                         0, in_c, row_in_source, col_in_source
