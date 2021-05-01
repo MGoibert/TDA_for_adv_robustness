@@ -34,14 +34,17 @@ class ConvLayer(Layer):
             groups = 1
 
         super().__init__(
-            func=nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=padding,
-                groups=groups,
-                bias=bias,
+            func=nn.Sequential(
+                nn.Conv2d(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    padding=padding,
+                    groups=groups,
+                    bias=bias,
+                ),
+                nn.Dropout(p=0.1),
             ),
             graph_layer=True,
             name=name,
@@ -151,16 +154,17 @@ class ConvLayer(Layer):
         ##############################################
 
         # logging.info(f"Processing in={in_channel} and out={out_channel}")
-        logger.info(f"In build_matrix_for_channel")
+        # logger.info(f"In build_matrix_for_channel")
 
         kernel = None
         grouped_channels = hasattr(self, "_grouped_channels") and self._grouped_channels
 
         for name, param in self.func.named_parameters():
+            # logger.info(name)
             # logger.info(f"size param {param[1].size()} and name = {param[0]}")
             # logger.info(f"out channel = {out_channel} and in channel = {in_channel}")
             # TODO: why this order out / in ???
-            if name == "weight":
+            if "weight" in name:
                 if not grouped_channels:
                     kernel = param.data[out_channel, in_channel, :, :]
                 else:
@@ -199,7 +203,9 @@ class ConvLayer(Layer):
             return mat
 
     def build_matrix(self) -> coo_matrix:
-        logger.info(f"In build_matrix : inc_c = {self._in_channels} and out_c = {self._out_channels}")
+        logger.info(
+            f"In build_matrix : inc_c = {self._in_channels} and out_c = {self._out_channels}"
+        )
         matrix_grid = [
             [
                 self.build_matrix_for_channel(in_c, out_c)
