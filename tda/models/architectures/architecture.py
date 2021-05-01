@@ -53,7 +53,7 @@ class Architecture(nn.Module):
             layer_params = dict(layer.func.named_parameters())
             layer_name = layer.name or f"layer{i}"
             for name in layer_params:
-                self.register_parameter(f"{layer_name}_{name}", layer_params[name])
+                self.register_parameter(f"{layer_name}_{name.replace('.', '_')}", layer_params[name])
 
         self.is_trained = False
 

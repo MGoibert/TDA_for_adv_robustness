@@ -83,6 +83,7 @@ def test_build_matrix(layer, input_shape):
 
     input = {0: sample}
 
+    layer.func.eval()
     out = layer.process(input, store_for_graph=True)
     print(f"Out shape is {out.shape}")
     out = out.detach().cpu().numpy().reshape(-1)
