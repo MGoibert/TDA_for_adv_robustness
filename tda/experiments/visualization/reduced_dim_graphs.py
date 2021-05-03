@@ -5,6 +5,7 @@ import traceback
 from typing import NamedTuple, List
 import torch
 import networkx as nx
+import seaborn as sns
 
 import numpy as np
 from joblib import delayed, Parallel
@@ -86,16 +87,16 @@ class Config(NamedTuple):
     tot_prune_percentile: float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
-    experiment_id: int = int(time.time())
-    run_id: int = 0
+    experiment_id: int = (int(time.time()) % 1620040000)
+    run_id: int = -1
     # Number of processes to spawn
     n_jobs: int = 1
 
     all_epsilons: List[float] = None
 
-    @property
-    def result_path(self):
-        directory = f"{rootpath}/tda/experiments/visualization/viz_plots/{self.experiment_id}/"
+    #@property
+    def result_path(self, run=0):
+        directory = f"{rootpath}/tda/experiments/visualization/viz_plots/{self.experiment_id}/{run}/"
         pathlib.Path(directory).mkdir(exist_ok=True, parents=True)
         return directory
 
@@ -112,7 +113,7 @@ def get_config() -> Config:
         description="Transform a dataset in pail files to tf records."
     )
 
-    parser.add_argument("--experiment_id", type=int, default=np.round(int(time.time()),4))
+    parser.add_argument("--experiment_id", type=int, default=(int(time.time()) % 1620040000))
     parser.add_argument("--run_id", type=int, default=-1)
     parser.add_argument("--embedding_type", type=str, default=EmbeddingType.PersistentDiagram)
     parser.add_argument("--thresholds", type=str, default="0:0:0.025_2:0:0.025_4:0:0.025_6:0:0.025")
@@ -232,10 +233,6 @@ def get_protocolar_datasets_viz(
                     processed_samples_adv[epsilon][0][valid_attacks],
                     processed_samples_adv[epsilon][1][valid_attacks],
                 )
-                samples = (
-                    samples[0][valid_attacks],
-                    samples[1][valid_attacks],
-                )
 
             for i in range(len(processed_samples_adv[epsilon][1])):
                 x = torch.unsqueeze(processed_samples_adv[epsilon][0][i], 0).double()
@@ -257,6 +254,11 @@ def get_protocolar_datasets_viz(
             processed_samples = None
             samples = None
             continue
+
+        samples = (
+                    samples[0][valid_attacks],
+                    samples[1][valid_attacks],
+                )
 
         processed_samples_clean = process_sample(
                 sample=samples,
@@ -430,11 +432,6 @@ def reduced_graph_viz(
                        (5,6):(range(new_dim_cum[4], new_dim_cum[5]), range(new_dim_cum[5], new_dim_cum[6]))}
     new_mat = np.zeros((np.sum(new_dim),np.sum(new_dim)))
 
-    #lim_sup = [-np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf]
-    #lim_inf = [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf]
-    #escaling_layer = [10**0, 10**10, 10**2/44, 10**10, 10**2/2, 4.3*10**3]
-
-
     for (layer0, layer1), (new_neurons0, new_neurons1) in new_mat_indices.items():
         all_edges_layer = list()
         for i, indx_i in enumerate(new_neurons0):
@@ -464,21 +461,31 @@ def reduced_graph_viz(
                     val = np.min(np.nonzero(list_val)[0]) if len(np.nonzero(list_val)[0]) > 0 else 0
                 elif aggregation_method == "max":
                     val = np.max(list_val) if len(list_val) > 0 else 0
-                val = rescaling[layer0]*val
 
+                val = rescaling[layer0]*val
                 if val < lim_sup[layer0] and val > lim_inf[layer0]:
                     val = 0
                 else:
                     all_edges_layer.append(val)
 
                 new_mat[indx_i,indx_j] = val
-        q10 = np.round(np.quantile(np.nonzero(all_edges_layer), 0.1), 2) if len(np.nonzero(all_edges_layer)) > 0 else 0
-        q90 = np.round(np.quantile(np.nonzero(all_edges_layer), 0.9), 2) if len(np.nonzero(all_edges_layer)) > 0 else 0
-        m = np.round(np.mean(np.nonzero(all_edges_layer)), 2) if len(np.nonzero(all_edges_layer)) > 0 else 0
-        M = np.round(np.max(np.nonzero(all_edges_layer)), 2) if len(np.nonzero(all_edges_layer)) > 0 else 0
-        m_ = np.round(np.min(np.nonzero(all_edges_layer)), 2) if len(np.nonzero(all_edges_layer)) > 0 else 0
-        logger.info(f"Layers {(layer0, layer1)}: {len(all_edges_layer)} edges; min={m_} / q10={q10} / mean={m} / q90={q90} / max={M}")
 
+        all_edges_layer = np.array(all_edges_layer)
+        if len(np.nonzero(all_edges_layer)[0]) > 0:
+            all_edges_layer_ = np.array(all_edges_layer)[np.where(all_edges_layer != 0)]
+            q10 = np.round(np.quantile(all_edges_layer_, 0.1), 2)
+            q90 = np.round(np.quantile(all_edges_layer_, 0.9), 2)
+            m = np.round(np.mean(all_edges_layer_), 2)
+            M = np.round(np.max(all_edges_layer_), 2)
+            m_ = np.round(np.min(all_edges_layer_), 2)
+        else:
+            all_edges_layer_ = [0]
+            q10 = 0
+            q90 = 0
+            m = 0
+            M = 0
+            m_ = 0
+        logger.info(f"Layers {(layer0, layer1)}: {len(all_edges_layer_)} edges; min={m_} / q10={q10} / mean={m} / q90={q90} / max={M}")
 
     new_dim_final = [16, 10, 20, 10, 10]
     new_dim_final_cum = np.cumsum(new_dim_final)
@@ -496,10 +503,10 @@ def reduced_graph_viz(
 
     return coo_matrix(new_mat_final)
 
-def plot_mnist_viz(config, graph, line, shape=[16, 10, 20, 10, 10], eps=0.0):
+def plot_mnist_viz(config, graph, line, shape=[16, 10, 20, 10, 10], eps=0.0, run=0):
     status = "Clean" if line.y_adv < 0.5 else "Adv"
     file_name = (
-            config.result_path
+            config.result_path(run)
             + str(config.dataset)
             + "_"
             + str(config.architecture)
@@ -587,10 +594,10 @@ def distrib(mat, shape=[16, 10, 20, 10, 10]):
                     mydistrib[layer0].append(mat[i,j])
     return mydistrib
 
-def plot_distribs(config, epsilons, *args):
+def plot_distribs(config, epsilons=[0.1], run=0, *args):
     from matplotlib import cm
     file_name = (
-            config.result_path
+            config.result_path(run)
             + str(config.dataset)
             + "_"
             + str(config.architecture)
@@ -616,16 +623,18 @@ def plot_distribs(config, epsilons, *args):
         distrib_for_layer = list()
         for i, mydict in enumerate(args):
             distrib_for_layer.append(mydict[key_layer])
-        plt.hist(distrib_for_layer, bins=8, alpha=1, label=labels_[:len(epsilons)+1], color=colors_[:len(epsilons)+1])
+            sns.distplot(mydict[key_layer], label=labels_[i], hist=False)
+        #plt.hist(distrib_for_layer, bins=12, alpha=1, label=labels_[:len(epsilons)+1], color=colors_[:len(epsilons)+1], density=True)
         plt.legend()
     plt.tight_layout()
     plt.savefig(file_name, dpi=300)
+    plt.close()
 
 
-def plot_image(config, line, eps=0.0):
+def plot_image(config, line, eps=0.0, run=0):
     status = "Clean" if line.y_adv < 0.5 else "Adv"
     file_name = (
-            config.result_path
+            config.result_path(run)
             + str(config.dataset)
             + "_"
             + str(config.architecture)
@@ -656,12 +665,13 @@ def generate_all_viz(config, architecture,
     offset_min=0,
     offset_max=10,
     min_=None,
-    max_=None):
+    max_=None,
+    run=0):
 
     graphs_, inputs_ = generate_graphs(config, inputs, architecture, offset_max=offset_max, offset_min=offset_min)
     adj_mat_ = graphs_[nb_sample].get_adjacency_matrix()
 
-    plot_image(config, inputs_[nb_sample], eps=epsilon)
+    plot_image(config, inputs_[nb_sample], eps=epsilon, run=run)
 
     reduced_graph = reduced_graph_viz(adj_mat_, rescaling=rescaling, aggregation_method=aggregation_method, lim_sup=lim_sup, lim_inf=lim_inf)
     if min_ == None:
@@ -670,35 +680,36 @@ def generate_all_viz(config, architecture,
         rescaled_graph = rescaling_weights(reduced_graph, min_=min_, max_=max_)
     distrib_ = distrib(rescaled_graph)
 
-    plot_mnist_viz(config, rescaled_graph, inputs_[nb_sample])
+    plot_mnist_viz(config, rescaled_graph, inputs_[nb_sample], eps=epsilon, run=run)
 
     return distrib_
 
 
-def run_experiment(config: Config):
+def run_experiment(config: Config, nb_sample=None, run=0):
 
     # Parameters
-    nb_sample = 2
-    logger.info(f"nb sample: {nb_sample == 2}")
+    if nb_sample == None:
+        #nb_sample = 10
+        nb_sample = 19
 
     aggregation_method = "mean"
     offset_min = 20
     offset_max = 40
-    epsilons = [0.1]
+    epsilons = [0.1, 0.25, 0.4]
 
-    if nb_sample == 0:
+    if nb_sample == 10:
+        scale = [0.7*1e-2, 1e-20, 1.9*1e-3, 1e-20, 2.2*1e-4, 1.9*1e-5]
+        lim_sup = [70, np.inf, 85, np.inf, 85, 85]
+        lim_inf = [10, -np.inf, 10, -np.inf, 10, 10]
+    else:
         scale = [1e-2, 1e-20, 8.1*1e-3, 1e-20, 3.6*1e-4, 3*1e-5]
-        lim_sup = [75, -np.inf, 90, -np.inf, 90, 60]
-        lim_inf = [10, np.inf, 8, np.inf, 8, 8]
-    elif nb_sample == 2:
-        logger.info(f"here")
-        scale = [1.25*1e-2, 1e-20, 2.2*1e-3, 1e-20, 1.7*1e-4, 1.4*1e-5]
-        lim_sup = [75, -np.inf, 90, -np.inf, 90, 60]
-        lim_inf = [10, np.inf, 8, np.inf, 8, 8]
+        lim_sup = [-np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf]
+        lim_inf = [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf]
 
 
 
     architecture, clean_inputs, adv_inputs = get_all_inputs(config, epsilons=epsilons)
+    logger.info(f"\nnb sample: {nb_sample}\n")
 
     logger.info(f"Clean viz !")
     distrib_clean = generate_all_viz(
@@ -714,7 +725,8 @@ def run_experiment(config: Config):
                 offset_min=offset_min,
                 offset_max=offset_max,
                 min_=None,
-                max_=None)
+                max_=None,
+                run=run)
 
     distrib_adv = list()
     for epsilon in epsilons:
@@ -732,9 +744,10 @@ def run_experiment(config: Config):
                 offset_min=offset_min,
                 offset_max=offset_max,
                 min_=None,
-                max_=None))
+                max_=None,
+                run=run))
 
-    plot_distribs(config, epsilons, distrib_clean, *distrib_adv)
+    plot_distribs(config, epsilons, run, distrib_clean, *distrib_adv)
 
     
 
@@ -742,7 +755,9 @@ def run_experiment(config: Config):
 if __name__ == "__main__":
     my_config = get_config()
     try:
-        run_experiment(my_config)
+        nb_samples = range(10,20)
+        for run, nb_sample in enumerate(nb_samples):
+            run_experiment(my_config, nb_sample, run)
     except Exception as e:
         my_trace = io.StringIO()
         traceback.print_exc(file=my_trace)
