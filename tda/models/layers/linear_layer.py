@@ -5,12 +5,17 @@ import numpy as np
 
 
 class LinearLayer(Layer):
-    def __init__(self, in_width, out_width, activ=None, name=None, bias=True):
+    def __init__(self, in_width, out_width, activ=None, name=None, bias=True, p=0.0):
+
+        if p > 0.0:
+            func = nn.Sequential(
+                nn.Linear(in_width, out_width, bias=bias), nn.Dropout(p=p)
+            )
+        else:
+            func = nn.Linear(in_width, out_width, bias=bias)
 
         super().__init__(
-            func=nn.Sequential(
-                nn.Linear(in_width, out_width, bias=bias), nn.Dropout(p=0.1)
-            ),
+            func=func,
             graph_layer=True,
             name=name,
         )

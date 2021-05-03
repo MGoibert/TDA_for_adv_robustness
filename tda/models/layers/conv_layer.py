@@ -22,6 +22,7 @@ class ConvLayer(Layer):
         activ=None,
         name=None,
         grouped_channels: bool = False,
+        p=0.0
     ):
 
         if grouped_channels is True:
@@ -33,8 +34,8 @@ class ConvLayer(Layer):
         else:
             groups = 1
 
-        super().__init__(
-            func=nn.Sequential(
+        if p > 0.0:
+            func = nn.Sequential(
                 nn.Conv2d(
                     in_channels=in_channels,
                     out_channels=out_channels,
@@ -44,8 +45,21 @@ class ConvLayer(Layer):
                     groups=groups,
                     bias=bias,
                 ),
-                nn.Dropout(p=0.1),
-            ),
+                nn.Dropout(p=p),
+            )
+        else:
+            func = nn.Conv2d(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    padding=padding,
+                    groups=groups,
+                    bias=bias,
+                )
+
+        super().__init__(
+            func=func,
             graph_layer=True,
             name=name,
         )
