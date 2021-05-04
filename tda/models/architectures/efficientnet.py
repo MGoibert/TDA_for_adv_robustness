@@ -1011,7 +1011,7 @@ efficientnet = Architecture(
         # 155
         BatchNorm2d(channels=320),
 ],
-    layer_links=[(i - 1, i) for i in range(139)]
+    layer_links=[(i - 1, i) for i in range(140)]
     + [(140,141), (141,142)]
     + [(143,144), (144,145)]
     + [(146,147), (147,148)]
