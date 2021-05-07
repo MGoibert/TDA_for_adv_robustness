@@ -277,8 +277,8 @@ def train_network(
         lr = 0.1
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
         def get_scheduler(optimizer, n_iter_per_epoch):
-            cosine_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, eta_min=0.000001,
-                               T_max=(300 - 0 - 20)*n_iter_per_epoch)
+            cosine_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, eta_min=0.02,  # 0.000001,
+                               T_max=(num_epochs - 0 - 20)*n_iter_per_epoch)
             scheduler = GradualWarmupScheduler(optimizer,multiplier=16,total_epoch=20*n_iter_per_epoch,after_scheduler=cosine_scheduler)
             return scheduler
         scheduler = get_scheduler(optimizer, len(train_loader))
