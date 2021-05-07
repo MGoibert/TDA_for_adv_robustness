@@ -449,10 +449,6 @@ def get_deep_model(
             f"Unable to find model in {architecture.get_model_savepath()}... Retraining it..."
         )
 
-        x = dataset.train_dataset[0][0].to(device)
-        architecture.forward(x, store_for_graph=False, output="final")
-        assert architecture.matrices_are_built is True
-
         # Save initial model
         torch.save(architecture, architecture.get_model_savepath(initial=True))
         # Load already pre-trained efficient net model
@@ -488,11 +484,13 @@ def get_deep_model(
     architecture.set_eval_mode()
     architecture.is_trained = True
 
+    # Build matrices
+    x = dataset.train_dataset[0][0].to(device)
+    architecture.forward(x, store_for_graph=False, output="final")
+    assert architecture.matrices_are_built is True
+
     if with_details:
         return architecture, val_accuracy, test_accuracy
-
-    # Build matrices
-    assert architecture.matrices_are_built is True
 
     return architecture
 
