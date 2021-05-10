@@ -175,6 +175,10 @@ def train_network(
     """
     Helper function to train an arbitrary model
     """
+    # Save initial model
+    torch.save(model, model.get_model_savepath(initial=True))
+    mlflow.log_artifact(model.get_model_savepath(initial=True), "models")
+
     # Save model initial values
     model.epochs = num_epochs
     model.to_device(device)
@@ -394,6 +398,10 @@ def train_network(
             f"Percentgage of zero parameters = {pruned_count_} and model pruned param = {model.tot_prune_percentile}"
         )
 
+    # Saving model
+    torch.save(model, model.get_model_savepath())
+    mlflow.log_artifact(model.get_model_savepath(), "models")
+
     return model, loss_history
 
 
@@ -449,8 +457,6 @@ def get_deep_model(
             f"Unable to find model in {architecture.get_model_savepath()}... Retraining it..."
         )
 
-        # Save initial model
-        torch.save(architecture, architecture.get_model_savepath(initial=True))
         # Load already pre-trained efficient net model
         #pretrained_path = "/mnt/nfs/home/m.goibert/TDA_for_adv_robustness/trained_models/efficientnet_e_100.model"
         #architecture = torch.load(pretrained_path, map_location=device)
@@ -470,9 +476,6 @@ def get_deep_model(
                 tot_prune_percentile,
                 first_pruned_iter,
             )
-
-        # Saving model
-        torch.save(architecture, architecture.get_model_savepath())
 
         # Compute accuracies
         val_accuracy = compute_val_acc(architecture, dataset.val_loader)
