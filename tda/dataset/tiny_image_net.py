@@ -2,17 +2,25 @@ import glob
 import os
 import tempfile
 import requests
-import numpy as np
 from PIL import Image
 from tqdm.notebook import tqdm
 import zipfile
+import torchvision.transforms as transforms
 
 from tda.rootpath import rootpath
+from tda.devices import device
 
 _url_source = "http://cs231n.stanford.edu/tiny-imagenet-200.zip"
 _root = f"{rootpath}/tiny_image_net"
 _real_root = f"{_root}/tiny-imagenet-200"
 
+_default_trans = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.to(device)),
+        transforms.Normalize((0.0,), (1.0,)),
+    ]
+)
 
 def load_image(infilename):
     """This function loads an image into memory when you give it
@@ -20,8 +28,7 @@ def load_image(infilename):
     """
     img = Image.open(infilename).convert("RGB")
     img.load()
-    data = np.asarray(img, dtype="float32")
-    return data
+    return img
 
 
 def load_tiny_image_net_classes():
@@ -35,6 +42,8 @@ def load_tiny_image_net_classes():
 
 
 def load_tiny_image_net(transform=None, mode="train"):
+
+    transform = transform or _default_trans
 
     if not os.path.exists(_root):
         print("Dataset not found. Downloading it...")
@@ -59,9 +68,8 @@ def load_tiny_image_net(transform=None, mode="train"):
             images = glob.glob(f"{folder}/images/*.JPEG")
             for image in images:
                 img_data = load_image(image)
-                assert img_data.shape == (64, 64, 3)
-                if transform is not None:
-                    img_data = transform(img_data)
+                img_data = transform(img_data)
+                assert img_data.shape == (3, 64, 64)
                 samples.append(img_data)
                 labels.append(all_labels.index(folder.split("/")[-1]))
 
@@ -75,9 +83,8 @@ def load_tiny_image_net(transform=None, mode="train"):
 
         for image in tqdm(images):
             img_data = load_image(image)
-            assert img_data.shape == (64, 64, 3)
-            if transform is not None:
-                img_data = transform(img_data)
+            img_data = transform(img_data)
+            assert img_data.shape == (3, 64, 64)
             img_label = img_to_label.get(image.split("/")[-1])
             samples.append(img_data)
             labels.append(all_labels.index(img_label))
