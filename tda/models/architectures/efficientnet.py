@@ -1,15 +1,13 @@
-from .architecture import Architecture
-from .svhn_models import svhn_preprocess, svhn_preprocess_resize
+import torch.nn.functional as F
+
 from tda.models.layers import (
     ConvLayer,
     BatchNorm2d,
-    ReluLayer,
     AvgPool2dLayer,
     LinearLayer,
     SoftMaxLayer,
 )
-import torch.nn.functional as F
-
+from .architecture import Architecture
 from ..layers.adaptativeavgpool_layer import AdaptativeAvgPool2dLayer
 
 
@@ -17,8 +15,8 @@ def tiny_imagenet_preprocess(x):
     return x.reshape(-1, 3, 64, 64)
 
 
-dropout_conv = 0.1
-dropout_linear = 0.4
+dropout_conv = 0.01
+dropout_linear = 0.2
 
 efficientnet = Architecture(
     name="efficientnet",
