@@ -1,7 +1,10 @@
 from torch import nn
 from .layer import Layer
 from scipy.sparse import coo_matrix
-import numpy as np
+import torch
+from tda.precision import default_tensor_type
+
+torch.set_default_tensor_type(default_tensor_type)
 
 
 class LinearLayer(Layer):
@@ -15,9 +18,7 @@ class LinearLayer(Layer):
             func = nn.Linear(in_width, out_width, bias=bias)
 
         super().__init__(
-            func=func,
-            graph_layer=True,
-            name=name,
+            func=func, graph_layer=True, name=name,
         )
 
         self._in_width = in_width

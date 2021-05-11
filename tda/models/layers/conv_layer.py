@@ -5,6 +5,10 @@ from numba import njit
 import numpy as np
 from scipy.sparse import coo_matrix, bmat as sparse_bmat
 from tda.tda_logging import get_logger
+import torch
+from tda.precision import default_tensor_type
+
+torch.set_default_tensor_type(default_tensor_type)
 
 logger = get_logger("ConvLayer")
 
@@ -22,7 +26,7 @@ class ConvLayer(Layer):
         activ=None,
         name=None,
         grouped_channels: bool = False,
-        p=0.0
+        p=0.0,
     ):
 
         if grouped_channels is True:
@@ -49,19 +53,17 @@ class ConvLayer(Layer):
             )
         else:
             func = nn.Conv2d(
-                    in_channels=in_channels,
-                    out_channels=out_channels,
-                    kernel_size=kernel_size,
-                    stride=stride,
-                    padding=padding,
-                    groups=groups,
-                    bias=bias,
-                )
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                groups=groups,
+                bias=bias,
+            )
 
         super().__init__(
-            func=func,
-            graph_layer=True,
-            name=name,
+            func=func, graph_layer=True, name=name,
         )
 
         self._in_channels = in_channels

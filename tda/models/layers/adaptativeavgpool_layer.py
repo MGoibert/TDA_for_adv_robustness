@@ -2,6 +2,10 @@ from . import AvgPool2dLayer
 from .layer import Layer
 from torch import nn
 from scipy.sparse import coo_matrix, bmat as sparse_bmat
+import torch
+from tda.precision import default_tensor_type
+
+torch.set_default_tensor_type(default_tensor_type)
 
 
 class AdaptativeAvgPool2dLayer(Layer):
@@ -34,7 +38,7 @@ class AdaptativeAvgPool2dLayer(Layer):
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
-        x_sum = sum(x.values()).double()
+        x_sum = sum(x.values())
         out = self.func(x_sum)
         if store_for_graph:
             self._activations = x

@@ -2,10 +2,13 @@ from scipy.sparse import coo_matrix
 
 from .layer import Layer
 from torch import nn
+import torch
+from tda.precision import default_tensor_type
+
+torch.set_default_tensor_type(default_tensor_type)
 
 
 class SoftMaxLayer(Layer):
-
     def __init__(self):
         super().__init__(func=nn.Softmax(dim=1), graph_layer=False)
 

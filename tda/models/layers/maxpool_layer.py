@@ -4,6 +4,10 @@ from scipy.sparse import coo_matrix, bmat as sparse_bmat
 from torch import nn
 
 from .layer import Layer
+import torch
+from tda.precision import default_tensor_type
+
+torch.set_default_tensor_type(default_tensor_type)
 
 
 class MaxPool2dLayer(Layer):
@@ -61,9 +65,10 @@ class MaxPool2dLayer(Layer):
                 row_in_source = idx // self._activations_shape[3]
                 col_in_source = idx % self._activations_shape[3]
                 data.append(
-                    self._activations[parentidx].cpu().detach().numpy()[
-                        0, in_c, row_in_source, col_in_source
-                    ]
+                    self._activations[parentidx]
+                    .cpu()
+                    .detach()
+                    .numpy()[0, in_c, row_in_source, col_in_source]
                 )
 
             matrices[parentidx] = coo_matrix((data, (rows, cols)), shape=(dim_out, dim))
@@ -96,7 +101,7 @@ class MaxPool2dLayer(Layer):
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
-        x_sum = sum(x.values()).double()
+        x_sum = sum(x.values())
         out, indx = self.func(x_sum)
         if store_for_graph:
             self._activations = x

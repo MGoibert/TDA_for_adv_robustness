@@ -1,5 +1,5 @@
 import torch.nn.functional as F
-
+import torch
 from tda.models.layers import (
     ConvLayer,
     BatchNorm2d,
@@ -7,9 +7,11 @@ from tda.models.layers import (
     LinearLayer,
     SoftMaxLayer,
 )
+from tda.precision import default_tensor_type
 from .architecture import Architecture
 from ..layers.adaptativeavgpool_layer import AdaptativeAvgPool2dLayer
 
+torch.set_default_tensor_type(default_tensor_type)
 
 def tiny_imagenet_preprocess(x):
     return x.reshape(-1, 3, 64, 64)
