@@ -290,10 +290,13 @@ def train_network(
             model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4
         )
 
+        eta_min = 0.001
+        mlflow.log_param("eta_min", eta_min)
+
         def get_scheduler(optimizer, n_iter_per_epoch):
             cosine_scheduler = optim.lr_scheduler.CosineAnnealingLR(
                 optimizer=optimizer,
-                eta_min=0.0001,  #  0.000001,
+                eta_min=eta_min,  #  0.000001,
                 T_max=(num_epochs - 0 - 20) * n_iter_per_epoch,
             )
             scheduler = GradualWarmupScheduler(
@@ -383,7 +386,7 @@ def train_network(
         if (prune_percentile == 0.0) or (epoch > first_pruned_iter * nb_iter_prune):
             step = epoch * len(train_loader) + i_batch
             # step = (epoch % 300) * len(train_loader) + i_batch
-            if scheduler is not None:
+            if scheduler is not None and epoch<=200:
                 scheduler.step(step)
         if epoch % 10 == 9:
             acc = compute_val_acc(model, val_loader)
