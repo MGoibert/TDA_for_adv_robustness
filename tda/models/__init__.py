@@ -80,7 +80,7 @@ def compute_val_acc(model, val_loader):
     model.eval()
     with no_grad():
         for data, target in val_loader:
-            data = data.double()
+            #data = data.double()
             data = data.to(device)
             target = target.to(device)
             output = model(data)
@@ -99,7 +99,7 @@ def compute_test_acc(model, test_loader):
     correct = 0
     with no_grad():
         for data, target in test_loader:
-            data = data.double()
+            #data = data.double()
             data = data.to(device)
             target = target.to(device)
             output = model(data)
@@ -123,7 +123,7 @@ def go_training(
     mask_=None,
 ):
 
-    x = x.double()
+    #x = x.double()
     y = y.to(device)
     optimizer.zero_grad()
 
@@ -140,7 +140,7 @@ def go_training(
         if epoch >= 25:  # Warm start
             x_noisy = torch.clamp(
                 x + train_noise * torch.randn(x.size()), 0, 1
-            ).double()
+            )#.double()
             y_pred = model(x)
             y_pred_noisy = model(x_noisy)
             loss = 0.75 * loss_func(y_pred, y) + 0.25 * loss_func(y_pred_noisy, y)
@@ -346,7 +346,7 @@ def train_network(
         model.set_eval_mode()
         for x_val, y_val in val_loader:
             y_val = y_val.to(device)
-            x_val = x_val.double()
+            #x_val = x_val.double()
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
             mlflow.log_metric("val_loss", np.around(val_loss.item(), decimals=4), step=epoch)
@@ -539,7 +539,7 @@ def prune_model(model, percentile=0.1, init_weight=None, zero_grad=True):
                 )
             mask = (
                 torch.tensor(np.where(abs(param.data.cpu()) < perc, 0, 1))
-                .double()
+                #.double()
                 .to(device)
             )
             mask_dict[i] = mask
