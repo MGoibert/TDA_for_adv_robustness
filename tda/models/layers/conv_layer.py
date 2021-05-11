@@ -219,9 +219,6 @@ class ConvLayer(Layer):
             return mat
 
     def build_matrix(self) -> coo_matrix:
-        logger.info(
-            f"In build_matrix : inc_c = {self._in_channels} and out_c = {self._out_channels}"
-        )
         matrix_grid = [
             [
                 self.build_matrix_for_channel(in_c, out_c)
@@ -230,7 +227,6 @@ class ConvLayer(Layer):
             for out_c in range(self._out_channels)
         ]
         self.matrix = sparse_bmat(matrix_grid)
-        logger.info(f"Conv layer, building matrix {matrix_grid}")
         return self.matrix
 
     def process(self, x, store_for_graph):
