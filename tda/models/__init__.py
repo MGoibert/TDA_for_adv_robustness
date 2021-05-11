@@ -27,7 +27,7 @@ from tda.models.architectures import (
     toy_mlp2,
     toy_mlp3,
     toy_mlp4,
-    efficientnet
+    efficientnet,
 )
 from tda.dataset.datasets import Dataset
 from tda.rootpath import rootpath
@@ -43,6 +43,7 @@ mlflow.set_experiment("tda_adv_detection")
 
 pathlib.Path("/tmp/tda/trained_models").mkdir(parents=True, exist_ok=True)
 
+
 class GradualWarmupScheduler(_LRScheduler):
     """ Gradually warm-up(increasing) learning rate in optimizer.
     Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
@@ -55,22 +56,27 @@ class GradualWarmupScheduler(_LRScheduler):
 
     def __init__(self, optimizer, multiplier, total_epoch, after_scheduler):
         self.multiplier = multiplier
-        if self.multiplier <= 1.:
-            raise ValueError('multiplier should be greater than 1.')
+        if self.multiplier <= 1.0:
+            raise ValueError("multiplier should be greater than 1.")
         self.total_epoch = total_epoch
         self.after_scheduler = after_scheduler
         self.finished = False
         super().__init__(optimizer)
 
     def get_lr(self):
-        return [base_lr / self.multiplier * ((self.multiplier - 1.) * self.last_epoch / self.total_epoch + 1.)
-                for base_lr in self.base_lrs]
+        return [
+            base_lr
+            / self.multiplier
+            * ((self.multiplier - 1.0) * self.last_epoch / self.total_epoch + 1.0)
+            for base_lr in self.base_lrs
+        ]
 
     def step(self, epoch=0):
         if epoch > self.total_epoch:
             self.after_scheduler.step(epoch - self.total_epoch)
         else:
             super(GradualWarmupScheduler, self).step(epoch)
+
 
 def compute_val_acc(model, val_loader):
     """
@@ -138,9 +144,9 @@ def go_training(
     if train_noise > 0:
         logger.info(f"Training with noise...")
         if epoch >= 25:  # Warm start
-            x_noisy = torch.clamp(
-                x + train_noise * torch.randn(x.size()), 0, 1
-            ).type(default_tensor_type)
+            x_noisy = torch.clamp(x + train_noise * torch.randn(x.size()), 0, 1).type(
+                default_tensor_type
+            )
             y_pred = model(x)
             y_pred_noisy = model(x_noisy)
             loss = 0.75 * loss_func(y_pred, y) + 0.25 * loss_func(y_pred_noisy, y)
@@ -280,12 +286,24 @@ def train_network(
         )
     elif model.name in [efficientnet.name]:
         lr = 0.1
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+        optimizer = torch.optim.SGD(
+            model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4
+        )
+
         def get_scheduler(optimizer, n_iter_per_epoch):
-            cosine_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, eta_min=0.0001,  #  0.000001,
-                               T_max=(num_epochs - 0 - 20)*n_iter_per_epoch)
-            scheduler = GradualWarmupScheduler(optimizer,multiplier=16,total_epoch=20*n_iter_per_epoch,after_scheduler=cosine_scheduler)
+            cosine_scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                optimizer=optimizer,
+                eta_min=0.0001,  #  0.000001,
+                T_max=(num_epochs - 0 - 20) * n_iter_per_epoch,
+            )
+            scheduler = GradualWarmupScheduler(
+                optimizer,
+                multiplier=16,
+                total_epoch=20 * n_iter_per_epoch,
+                after_scheduler=cosine_scheduler,
+            )
             return scheduler
+
         scheduler = get_scheduler(optimizer, len(train_loader))
 
     else:
@@ -307,7 +325,9 @@ def train_network(
         )
         t = time()
         model.set_train_mode()
-        mlflow.log_metric("lr", [param['lr'] for param in optimizer.param_groups][0], step=epoch)
+        mlflow.log_metric(
+            "lr", [param["lr"] for param in optimizer.param_groups][0], step=epoch
+        )
 
         if custom_scheduler_step is not None:
             custom_scheduler_step(optimizer, epoch)
@@ -344,15 +364,22 @@ def train_network(
         mlflow.log_metric("train_loss", np.mean(train_loss), step=epoch)
 
         model.set_eval_mode()
+        val_losses = list()
+        num_val_batches = 0
         for x_val, y_val in val_loader:
             y_val = y_val.to(device)
             x_val = x_val.type(default_tensor_type)
             y_val_pred = model(x_val)
             val_loss = loss_func(y_val_pred, y_val)
-            mlflow.log_metric("val_loss", np.around(val_loss.item(), decimals=4), step=epoch)
-            logger.info(f"Validation loss = {np.around(val_loss.item(), decimals=4)}")
-            loss_history.append(val_loss.item())
-            break
+            val_losses.append(val_loss.item())
+            num_val_batches += 1
+            if num_val_batches > 10:
+                break
+        val_loss = np.mean(val_losses)
+        mlflow.log_metric("val_loss", val_loss, step=epoch)
+        logger.info(f"Validation loss = {np.around(val_loss, decimals=4)}")
+        loss_history.append(val_loss)
+
         if (prune_percentile == 0.0) or (epoch > first_pruned_iter * nb_iter_prune):
             step = epoch * len(train_loader) + i_batch
             # step = (epoch % 300) * len(train_loader) + i_batch
@@ -459,10 +486,10 @@ def get_deep_model(
         )
 
         # Load already pre-trained efficient net model
-        #pretrained_path = "/mnt/nfs/home/m.goibert/TDA_for_adv_robustness/trained_models/efficientnet_e_100.model"
-        #architecture = torch.load(pretrained_path, map_location=device)
-        #assert architecture.matrices_are_built is True
-        #logger.info(f"Correctly downloaded pre-trained model")
+        # pretrained_path = "/mnt/nfs/home/m.goibert/TDA_for_adv_robustness/trained_models/efficientnet_e_100.model"
+        # architecture = torch.load(pretrained_path, map_location=device)
+        # assert architecture.matrices_are_built is True
+        # logger.info(f"Correctly downloaded pre-trained model")
 
         # Train the NN
         with mlflow.start_run(run_name=f"Train {architecture.name}"):
