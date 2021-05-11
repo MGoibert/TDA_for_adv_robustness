@@ -127,7 +127,10 @@ def adversarial_generation(
 
         import foolbox as fb
 
-        model.set_default_forward_mode("presoft")
+        if model.name in ["efficientnet"]:
+            model.set_default_forward_mode(None)
+        else:
+            model.set_default_forward_mode("presoft")
 
         if attack_type == AttackType.FGSM:
             attacker = fb.attacks.LinfFastGradientAttack()
