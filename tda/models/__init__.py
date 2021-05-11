@@ -32,13 +32,14 @@ from tda.models.architectures import (
 from tda.dataset.datasets import Dataset
 from tda.rootpath import rootpath
 from tda.tda_logging import get_logger
+from tda.precision import default_tensor_type
+
+torch.set_default_tensor_type(default_tensor_type)
 
 logger = get_logger("Models")
 
 mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
 mlflow.set_experiment("tda_adv_detection")
-
-torch.set_default_tensor_type(torch.DoubleTensor)
 
 pathlib.Path("/tmp/tda/trained_models").mkdir(parents=True, exist_ok=True)
 

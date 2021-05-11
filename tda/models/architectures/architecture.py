@@ -15,8 +15,9 @@ from tda.models.layers import (
 )
 from tda.rootpath import model_dir
 from tda.tda_logging import get_logger
+from tda.precision import default_tensor_type
 
-torch.set_default_tensor_type(torch.DoubleTensor)
+torch.set_default_tensor_type(default_tensor_type)
 logger = get_logger("Architecture")
 
 #################

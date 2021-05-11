@@ -15,8 +15,9 @@ import numpy as np
 from tda.tda_logging import get_logger
 from tda.devices import device
 from tda.dataset.tiny_image_net import load_tiny_image_net
+from tda.precision import default_tensor_type
 
-torch.set_default_tensor_type(torch.DoubleTensor)
+torch.set_default_tensor_type(default_tensor_type)
 
 _root = "./data"
 _trans = transforms.Compose(
