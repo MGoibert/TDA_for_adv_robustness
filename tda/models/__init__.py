@@ -419,7 +419,7 @@ def get_deep_model(
     pretrained_pth: str = None,
 ) -> Architecture:
 
-    loss_func = nn.CrossEntropyLoss()
+    loss_func = nn.CrossEntropyLoss().type(default_tensor_type)
 
     if pretrained_pth is not None:
         # Experimental: to help loading an existing model

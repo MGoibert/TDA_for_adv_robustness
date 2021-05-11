@@ -224,11 +224,10 @@ class Architecture(nn.Module):
         if not torch.is_tensor(x):
             x = torch.Tensor(x)
 
-        x = x.to(device)
         if self.preprocess is not None:
             x = self.preprocess(x)
 
-        outputs = {-1: x.double()}
+        outputs = {-1: x.type(default_tensor_type).to(device)}
 
         # Going through all layers
         for layer_idx in self.layer_visit_order:
@@ -236,7 +235,7 @@ class Architecture(nn.Module):
             if layer_idx != -1:
                 layer = self.layers[layer_idx]
                 input = {
-                    parent_idx: outputs[parent_idx].double()
+                    parent_idx: outputs[parent_idx]
                     for parent_idx in self.parent_dict[layer_idx]
                 }
                 outputs[layer_idx] = layer.process(
