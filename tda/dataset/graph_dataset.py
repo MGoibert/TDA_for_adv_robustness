@@ -164,7 +164,10 @@ def get_sample_dataset(
 
     final_dataset = list()
 
-    per_class_nb_samples = np.repeat(0, 10)
+    if dataset.name in ["tinyimagenet"]:
+        per_class_nb_samples = np.repeat(0, 200)
+    else:
+        per_class_nb_samples = np.repeat(0, 10)
 
     #current_sample_id = offset
 

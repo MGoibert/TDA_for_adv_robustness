@@ -4,7 +4,7 @@ from typing import List, Callable, Tuple, Dict
 
 import torch
 import torch.nn as nn
-from art.classifiers import PyTorchClassifier
+#from art.classifiers import PyTorchClassifier
 import foolbox as fb
 from cached_property import cached_property
 
