@@ -17,8 +17,8 @@ def tiny_imagenet_preprocess(x):
     return x.reshape(-1, 3, 64, 64)
 
 
-dropout_conv = 0.01
-dropout_linear = 0.2
+dropout_conv = 0.05
+dropout_linear = 0.3
 
 efficientnet = Architecture(
     name="efficientnet",
