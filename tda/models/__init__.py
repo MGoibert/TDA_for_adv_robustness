@@ -387,7 +387,7 @@ def train_network(
         if (prune_percentile == 0.0) or (epoch > first_pruned_iter * nb_iter_prune):
             step = epoch * len(train_loader) + i_batch
             # step = (epoch % 300) * len(train_loader) + i_batch
-            if scheduler is not None and epoch<=200:
+            if scheduler is not None and epoch<=300:
                 scheduler.step(step)
         if epoch % 10 == 9:
             acc = compute_val_acc(model, val_loader)
