@@ -65,7 +65,7 @@ class Layer(object):
 
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
-        if store_for_graph:
+        if store_for_graph and self.graph_layer:
             self._activations = x
         return self.func(sum(x.values()))
 

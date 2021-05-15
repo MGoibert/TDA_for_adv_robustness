@@ -32,7 +32,7 @@ class LinearLayer(Layer):
     def process(self, x, store_for_graph):
         assert isinstance(x, dict)
         _x = {key: x[key].reshape(-1, self._in_width) for key in x}
-        if store_for_graph:
+        if store_for_graph and self.graph_layer:
             self._activations = _x
         _x = sum(_x.values())
         if self._activ:

@@ -82,9 +82,9 @@ class Architecture(nn.Module):
                 layer.graph_layer = False
 
     def build_matrices(self):
-        for layer in self.layers:
+        for layer_idx, layer in enumerate(self.layers):
             if layer.graph_layer:
-                logger.info(f"Building matrix for layer {layer}")
+                logger.info(f"Building matrix for layer {layer_idx} ({layer})")
                 layer.build_matrix()
 
     def threshold_layers(self, edges_to_keep):
