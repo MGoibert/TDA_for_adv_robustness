@@ -4,7 +4,8 @@ from typing import List, Callable, Tuple, Dict
 
 import torch
 import torch.nn as nn
-#from art.classifiers import PyTorchClassifier
+
+# from art.classifiers import PyTorchClassifier
 import foolbox as fb
 from cached_property import cached_property
 
@@ -54,7 +55,9 @@ class Architecture(nn.Module):
             layer_params = dict(layer.func.named_parameters())
             layer_name = layer.name or f"layer{i}"
             for name in layer_params:
-                self.register_parameter(f"{layer_name}_{name.replace('.', '_')}", layer_params[name])
+                self.register_parameter(
+                    f"{layer_name}_{name.replace('.', '_')}", layer_params[name]
+                )
 
         self.is_trained = False
 
@@ -73,6 +76,11 @@ class Architecture(nn.Module):
     def set_default_forward_mode(self, mode):
         self.default_forward_mode = mode
 
+    def set_layers_to_consider(self, layers_to_consider: List[int]):
+        for layer_idx, layer in enumerate(self.layers):
+            if layer_idx not in layers_to_consider:
+                layer.graph_layer = False
+
     def build_matrices(self):
         for layer in self.layers:
             if layer.graph_layer:
@@ -82,7 +90,7 @@ class Architecture(nn.Module):
     def threshold_layers(self, edges_to_keep):
         for layeridx, layer in enumerate(self.layers):
             if (layer.graph_layer) and (layeridx in edges_to_keep.keys()):
-                #logger.info(f"Thresholding layer {layeridx} !!")
+                # logger.info(f"Thresholding layer {layeridx} !!")
                 edges_to_keep_layer = edges_to_keep[layeridx]
                 layer.get_matrix_thresholded(edges_to_keep_layer)
         logger.info(f"Done thresholding")

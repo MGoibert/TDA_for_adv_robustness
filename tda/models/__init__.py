@@ -8,6 +8,7 @@ import torch
 import mlflow
 from torch import nn, optim, no_grad
 from torch.optim.lr_scheduler import _LRScheduler
+from typing import List, Optional
 
 from tda.devices import device
 from tda.models.architectures import (
@@ -447,6 +448,7 @@ def get_deep_model(
     with_details: bool = False,
     force_retrain: bool = False,
     pretrained_pth: str = None,
+    layers_to_consider: Optional[List[int]] = None
 ) -> Architecture:
 
     loss_func = nn.CrossEntropyLoss().type(default_tensor_type)
@@ -521,6 +523,8 @@ def get_deep_model(
     # Build matrices
     x = dataset.train_dataset[0][0].to(device)
     architecture.forward(x, store_for_graph=False, output="final")
+    if layers_to_consider is not None:
+        architecture.set_layers_to_consider(layers_to_consider)
     assert architecture.matrices_are_built is True
 
     if with_details:

@@ -144,6 +144,8 @@ def get_all_embeddings(config: Config):
     architecture = get_architecture(config.architecture)
     dataset = Dataset.get_or_create(name=config.dataset)
 
+    layers_to_consider = [int(v.split(":")[0]) for v in config.thresholds.split("_")]
+
     architecture = get_deep_model(
         num_epochs=config.epochs,
         dataset=dataset,
@@ -152,6 +154,7 @@ def get_all_embeddings(config: Config):
         prune_percentile=config.prune_percentile,
         tot_prune_percentile=config.tot_prune_percentile,
         first_pruned_iter=config.first_pruned_iter,
+        layers_to_consider=layers_to_consider
     )
     if config.sigmoidize:
         logger.info(f"Using inter-class regularization (sigmoid)")
