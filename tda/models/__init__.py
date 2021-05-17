@@ -31,6 +31,7 @@ from tda.models.architectures import (
     efficientnet,
 )
 from tda.dataset.datasets import Dataset
+from tda.models.layers import ConvLayer, LinearLayer
 from tda.rootpath import rootpath
 from tda.tda_logging import get_logger
 from tda.precision import default_tensor_type
@@ -190,6 +191,14 @@ def train_network(
     # Save model initial values
     model.epochs = num_epochs
     model.to_device(device)
+
+    def init_weights(mod):
+        if isinstance(mod, torch.nn.Conv2d) or isinstance(mod, torch.nn.Linear):
+            torch.nn.init.xavier_uniform(mod.weight)
+
+    for layer in model.layers:
+        if isinstance(layer, ConvLayer) or isinstance(layer, LinearLayer):
+            layer.func.apply(init_weights)
 
     logger.info(f"Learnig on device {device}")
 
