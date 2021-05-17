@@ -291,7 +291,7 @@ def train_network(
             model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4
         )
 
-        eta_min = 0.001
+        eta_min = 0.0001
         mlflow.log_param("eta_min", eta_min)
 
         def get_scheduler(optimizer, n_iter_per_epoch):
@@ -377,8 +377,8 @@ def train_network(
             val_loss = loss_func(y_val_pred, y_val)
             val_losses.append(val_loss.item())
             num_val_batches += 1
-            if num_val_batches > 10:
-                break
+            #  if num_val_batches > 10:
+            #      break
         val_loss = np.mean(val_losses)
         mlflow.log_metric("val_loss", val_loss, step=epoch)
         logger.info(f"Validation loss = {np.around(val_loss, decimals=4)}")
@@ -387,7 +387,7 @@ def train_network(
         if (prune_percentile == 0.0) or (epoch > first_pruned_iter * nb_iter_prune):
             step = epoch * len(train_loader) + i_batch
             # step = (epoch % 300) * len(train_loader) + i_batch
-            if scheduler is not None and epoch<=300:
+            if scheduler is not None:
                 scheduler.step(step)
         if epoch % 10 == 9:
             acc = compute_val_acc(model, val_loader)
