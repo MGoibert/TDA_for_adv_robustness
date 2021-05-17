@@ -451,7 +451,7 @@ def run_experiment(config: Config):
             for metric in res_eps:
                 res_eps_met = res_eps[metric]
                 for typ in res_eps_met:
-                    mlflow.log_metric(f"{eps}_{metric}_{typ}", res_eps_met[typ])
+                    mlflow.log_metric(f"{method}_{eps}_{metric}_{typ}", res_eps_met[typ])
 
     return metrics
 
