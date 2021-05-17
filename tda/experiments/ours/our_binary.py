@@ -34,6 +34,7 @@ start_time = time.time()
 mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
 mlflow.set_experiment("tda_adv_detection")
 
+
 class Config(NamedTuple):
     # Type of embedding to use
     embedding_type: str
@@ -139,7 +140,8 @@ def get_config() -> Config:
     logger.info(args.__dict__)
 
     for key in args.__dict__:
-        mlflow.log_param(key, args.__dict__[key])
+        if key not in ["thresholds"]:
+            mlflow.log_param(key, args.__dict__[key])
 
     return Config(**args.__dict__)
 

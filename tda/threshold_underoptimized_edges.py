@@ -5,10 +5,12 @@ from functools import reduce
 
 import numpy as np
 import torch
+import mlflow
 from numpy.random import Generator, PCG64
 
 from tda.embeddings import ThresholdStrategy
 from tda.models import Architecture
+from tda.models.layers import ConvLayer
 from tda.tda_logging import get_logger
 
 logger = get_logger("Thresholds Underoptimized")
@@ -23,6 +25,8 @@ def _process_raw_quantiles(raw_quantiles: str) -> Dict[int, Tuple]:
     for raw_quantile in raw_quantiles.split("_"):
         layer_idx, value_low, value_up = raw_quantile.split(":")
         ret[int(layer_idx)] = (float(value_low), float(value_up))
+        mlflow.log_metric(f"edges_quant_low_{int(layer_idx)}", float(value_low))
+        mlflow.log_metric(f"edges_quant_up_{int(layer_idx)}", float(value_up))
     return ret
 
 
@@ -32,9 +36,12 @@ def underopt_edges(
     limit_val: Dict[int, torch.Tensor] = dict()
     underoptimized_edges = dict()
     for layer_idx, layer in enumerate(model.layers):
-        if "weight" in layer.func.state_dict():
-            param = layer.func.state_dict()["weight"]
-            param_init = model_init.layers[layer_idx].func.state_dict()["weight"]
+
+        weight_keys = [key for key in layer.func.state_dict() if "weight" in key]
+
+        if len(weight_keys) > 0:
+            param = layer.func.state_dict()[weight_keys[0]]
+            param_init = model_init.layers[layer_idx].func.state_dict()[weight_keys[0]]
 
             if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
@@ -175,87 +182,81 @@ def process_thresholds_underopt(
         ]
     elif architecture.name in ["efficientnet"]:
         mat_shapes = [
-        (32768, 12288),
-        (32768, 32768),
-        (16384, 32768),
-        (16384, 16384),
-        (16384, 16384),
-        (98304, 16384),
-        (24576, 98304),
-        (6144, 24576),
-        (36864, 6144),
-        (36864, 36864),
-        (6144, 36864),
-        (36864, 6144),
-        (36864, 36864),
-        (6144, 36864),
-        (36864, 6144),
-        (9216, 36864),
-        (2560, 9216),
-        (15360, 2560),
-        (15360, 15360),
-        (2560, 15360),
-        (15360, 2560),
-        (15360, 15360),
-        (15360, 15360),
-        (15360, 15360),
-        (3840, 15360),
-        (1280, 3840),
-        (7680, 1280),
-        (7680, 7680),
-        (1280, 7680),
-        (7680, 1280),
-        (7680, 7680),
-        (1280, 7680),
-        (7680, 1280),
-        (7680, 7680),
-        (1280, 7680),
-        (7680, 1280),
-        (7680, 7680),
-        (1792, 7680),
-        (10752, 1792),
-        (10752, 10752),
-        (1792, 10752),
-        (10752, 1792),
-        (10752, 10752),
-        (1792, 10752),
-        (10752, 1792),
-        (10752, 10752),
-        (1792, 10752),
-        (10752, 1792),
-        (2688, 10752),
-        (768, 2688),
-        (4608, 768),
-        (4608, 4608),
-        (768, 4608),
-        (4608, 768),
-        (4608, 4608),
-        (768, 4608),
-        (4608, 768),
-        (4608, 4608),
-        (768, 4608),
-        (4608, 768),
-        (4608, 4608),
-        (768, 4608),
-        (4608, 768),
-        (4608, 4608),
-        (1280, 4608),
-        (7680, 1280),
-        (7680, 7680),
-        (1280, 7680),
-        (5120, 1280),
-
-        (6144, 16384),
-
-        (2560, 6144),
-
-        (1280, 15360),
-
-        (1792, 1280),
-
-        (768, 1792),
-
-        (1280, 768)
+            (32768, 12288),
+            (32768, 32768),
+            (16384, 32768),
+            (16384, 16384),
+            (16384, 16384),
+            (98304, 16384),
+            (24576, 98304),
+            (6144, 24576),
+            (36864, 6144),
+            (36864, 36864),
+            (6144, 36864),
+            (36864, 6144),
+            (36864, 36864),
+            (6144, 36864),
+            (36864, 6144),
+            (9216, 36864),
+            (2560, 9216),
+            (15360, 2560),
+            (15360, 15360),
+            (2560, 15360),
+            (15360, 2560),
+            (15360, 15360),
+            (15360, 15360),
+            (15360, 15360),
+            (3840, 15360),
+            (1280, 3840),
+            (7680, 1280),
+            (7680, 7680),
+            (1280, 7680),
+            (7680, 1280),
+            (7680, 7680),
+            (1280, 7680),
+            (7680, 1280),
+            (7680, 7680),
+            (1280, 7680),
+            (7680, 1280),
+            (7680, 7680),
+            (1792, 7680),
+            (10752, 1792),
+            (10752, 10752),
+            (1792, 10752),
+            (10752, 1792),
+            (10752, 10752),
+            (1792, 10752),
+            (10752, 1792),
+            (10752, 10752),
+            (1792, 10752),
+            (10752, 1792),
+            (2688, 10752),
+            (768, 2688),
+            (4608, 768),
+            (4608, 4608),
+            (768, 4608),
+            (4608, 768),
+            (4608, 4608),
+            (768, 4608),
+            (4608, 768),
+            (4608, 4608),
+            (768, 4608),
+            (4608, 768),
+            (4608, 4608),
+            (768, 4608),
+            (4608, 768),
+            (4608, 4608),
+            (1280, 4608),
+            (7680, 1280),
+            (7680, 7680),
+            (1280, 7680),
+            (5120, 1280),
+            (6144, 16384),
+            (2560, 6144),
+            (1280, 15360),
+            (1792, 1280),
+            (768, 1792),
+            (1280, 768),
         ]
     else:
         mat_shapes = None
@@ -263,8 +264,17 @@ def process_thresholds_underopt(
     # Post-processing the ConvLayers
     c = 0
     for layer_idx, layer in enumerate(architecture.layers):
-        if isinstance(layer.func, torch.nn.Conv2d):
-            kernel_shape = layer.func.weight.size()
+        if isinstance(layer, ConvLayer):
+            if isinstance(layer.func, torch.nn.Conv2d):
+                kernel_shape = layer.func.weight.size()
+            else:
+                # Sequential case
+                kernel_shape = layer.func[0].weight.size()
+
+            mlflow.log_metric(
+                f"kernel_nb_elems_{layer_idx}",
+                reduce(lambda x, y: x * y, list(kernel_shape), 1),
+            )
 
             underoptimized_edges[layer_idx] = kernel_to_edge_idx(
                 underoptimized_edges[layer_idx], kernel_shape, mat_shapes[c]
@@ -275,6 +285,9 @@ def process_thresholds_underopt(
     logger.info(
         f"Size edges kept = {[len(underoptimized_edges[k]) for k in underoptimized_edges.keys()]}"
     )
+
+    for k in underoptimized_edges:
+        mlflow.log_metric(f"edges_kept_{k}", len(underoptimized_edges[k]))
 
     underoptimized_edges = {
         k: set([tuple(edge) for edge in underoptimized_edges[k]])
