@@ -497,18 +497,18 @@ def get_deep_model(
         # logger.info(f"Correctly downloaded pre-trained model")
 
         # Train the NN
-        with mlflow.start_run(run_name=f"Train {architecture.name}"):
-            train_network(
-                architecture,
-                dataset.train_loader,
-                dataset.val_loader,
-                loss_func,
-                num_epochs,
-                train_noise,
-                prune_percentile,
-                tot_prune_percentile,
-                first_pruned_iter,
-            )
+        #  with mlflow.start_run(run_name=f"Train {architecture.name}"):
+        train_network(
+            architecture,
+            dataset.train_loader,
+            dataset.val_loader,
+            loss_func,
+            num_epochs,
+            train_noise,
+            prune_percentile,
+            tot_prune_percentile,
+            first_pruned_iter,
+        )
 
         # Compute accuracies
         val_accuracy = compute_val_acc(architecture, dataset.val_loader)

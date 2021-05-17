@@ -3,6 +3,7 @@
 
 import argparse
 import io
+import mlflow
 import time
 import traceback
 from typing import NamedTuple, List
@@ -30,6 +31,8 @@ from tda.threshold_underoptimized_edges import process_thresholds_underopt
 logger = get_logger("Detector")
 start_time = time.time()
 
+mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+mlflow.set_experiment("tda_adv_detection")
 
 class Config(NamedTuple):
     # Type of embedding to use
@@ -135,6 +138,9 @@ def get_config() -> Config:
 
     logger.info(args.__dict__)
 
+    for key in args.__dict__:
+        mlflow.log_param(key, args.__dict__[key])
+
     return Config(**args.__dict__)
 
 
@@ -154,7 +160,7 @@ def get_all_embeddings(config: Config):
         prune_percentile=config.prune_percentile,
         tot_prune_percentile=config.tot_prune_percentile,
         first_pruned_iter=config.first_pruned_iter,
-        layers_to_consider=layers_to_consider
+        layers_to_consider=layers_to_consider,
     )
     if config.sigmoidize:
         logger.info(f"Using inter-class regularization (sigmoid)")
@@ -184,8 +190,12 @@ def get_all_embeddings(config: Config):
     if config.attack_type not in ["FGSM", "PGD"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
-        #all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
-        all_epsilons = [0.01, 0.05, 0.1,]
+        # all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        all_epsilons = [
+            0.01,
+            0.05,
+            0.1,
+        ]
     else:
         all_epsilons = config.all_epsilons
 
@@ -352,6 +362,9 @@ def get_all_embeddings(config: Config):
     for key in stats_inside_embeddings:
         detailed_times[key] = stats_inside_embeddings[key]
 
+    for key in detailed_times:
+        mlflow.log_metric(f"detailed_time_{key}", detailed_times[key])
+
     return (
         clean_embeddings_train,
         clean_embeddings_test,
@@ -385,7 +398,9 @@ def run_experiment(config: Config):
     if config.kernel_type == KernelType.RBF:
         param_space = [{"gamma": gamma} for gamma in np.logspace(-6, -3, 10)]
     elif config.kernel_type in [KernelType.SlicedWasserstein]:
-        param_space = [{"M": 20, "sigma": sigma} for sigma in np.logspace(-10, 10, 21)]#np.logspace(-3, 3, 7)]
+        param_space = [
+            {"M": 20, "sigma": sigma} for sigma in np.logspace(-10, 10, 21)
+        ]  # np.logspace(-3, 3, 7)]
     else:
         raise NotImplementedError(f"Unknown kernel {config.kernel_type}")
 
@@ -413,6 +428,8 @@ def run_experiment(config: Config):
         **evaluation_results,
     }
 
+    mlflow.log_metric("running_time", time.time() - start_time)
+
     if thresholds is not None:
         metrics["effective_thresholds"] = (
             {"_".join([str(v) for v in key]): thresholds[key] for key in thresholds},
@@ -425,15 +442,25 @@ def run_experiment(config: Config):
         f"Results --> Unsup = {evaluation_results['unsupervised_metrics']} and sup = {evaluation_results['supervised_metrics']}"
     )
 
+    for method in ["unsupervised", "supervised"]:
+        res = evaluation_results[f"{method}_metrics"]
+        for eps in res:
+            res_eps = res[eps]
+            for metric in res_eps:
+                res_eps_met = res_eps[metric]
+                for typ in res_eps_met:
+                    mlflow.log_metric(f"{eps}_{metric}_{typ}", res_eps_met[typ])
+
     return metrics
 
 
 if __name__ == "__main__":
-    my_config = get_config()
-    try:
-        run_experiment(my_config)
-    except Exception as e:
-        my_trace = io.StringIO()
-        traceback.print_exc(file=my_trace)
+    with mlflow.start_run(run_name="Our binary"):
+        my_config = get_config()
+        try:
+            run_experiment(my_config)
+        except Exception as e:
+            my_trace = io.StringIO()
+            traceback.print_exc(file=my_trace)
 
-        logger.error(my_trace.getvalue())
+            logger.error(my_trace.getvalue())
