@@ -457,7 +457,7 @@ def get_deep_model(
     with_details: bool = False,
     force_retrain: bool = False,
     pretrained_pth: str = None,
-    layers_to_consider: Optional[List[int]] = None
+    layers_to_consider: Optional[List[int]] = list()
 ) -> Architecture:
 
     loss_func = nn.CrossEntropyLoss().type(default_tensor_type)

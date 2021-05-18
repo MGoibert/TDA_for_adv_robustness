@@ -313,7 +313,7 @@ def evaluate_embeddings(
                     f"[nu={nu}] AUC score for param = {param} : {metrics['auc'].value}"
                 )
 
-                all_results_unsup_df.append((nu, param, metrics["auc"].value))
+                all_results_unsup_df.append((key, nu, param, metrics["auc"].value))
 
                 param_curve[
                     "_".join([str(key), str(nu), str(param.get("gamma", 0))])
@@ -370,7 +370,7 @@ def evaluate_embeddings(
                 f"Supervised AUC score for param = {param} : {metrics['auc'].value}"
             )
 
-            all_results_sup_df.append((param, metrics["auc"].value))
+            all_results_sup_df.append((key, param, metrics["auc"].value))
 
             param_curve_supervised[
                 "_".join([str(key), str(param.get("gamma", 0))])
@@ -411,9 +411,9 @@ def evaluate_embeddings(
     }
 
     all_results_unsup_df = pd.DataFrame(
-        all_results_unsup_df, columns=["nu", "param", "auc"]
+        all_results_unsup_df, columns=["key", "nu", "param", "auc"]
     )
-    all_results_sup_df = pd.DataFrame(all_results_sup_df, columns=["param", "auc"])
+    all_results_sup_df = pd.DataFrame(all_results_sup_df, columns=["key", "param", "auc"])
 
     tmpdir = tempfile.mkdtemp()
 
