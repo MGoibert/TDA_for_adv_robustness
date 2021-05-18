@@ -1,8 +1,11 @@
 import typing
 import time
 import random
+import tempfile
 
+import mlflow
 import numpy as np
+import pandas as pd
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.svm import OneClassSVM, SVC
@@ -224,6 +227,9 @@ def evaluate_embeddings(
     param_curve = dict()
     param_curve_supervised = dict()
 
+    all_results_unsup_df = list()
+    all_results_sup_df = list()
+
     for key in all_adv_embeddings_train:
 
         best_metrics = dict()
@@ -306,7 +312,12 @@ def evaluate_embeddings(
                 logger.info(
                     f"[nu={nu}] AUC score for param = {param} : {metrics['auc'].value}"
                 )
-                param_curve["_".join([str(key), str(nu), str(param.get("gamma", 0))])] = metrics['auc'].value
+
+                all_results_unsup_df.append((nu, param, metrics["auc"].value))
+
+                param_curve[
+                    "_".join([str(key), str(nu), str(param.get("gamma", 0))])
+                ] = metrics["auc"].value
 
                 if metrics["auc"].is_better_than(best_metrics.get("auc", worst_metric)):
                     best_metrics = metrics
@@ -358,7 +369,12 @@ def evaluate_embeddings(
             logger.info(
                 f"Supervised AUC score for param = {param} : {metrics['auc'].value}"
             )
-            param_curve_supervised["_".join([str(key), str(param.get("gamma", 0))])] = metrics['auc'].value
+
+            all_results_sup_df.append((param, metrics["auc"].value))
+
+            param_curve_supervised[
+                "_".join([str(key), str(param.get("gamma", 0))])
+            ] = metrics["auc"].value
 
             if metrics["auc"].is_better_than(
                 best_metrics_supervised.get("auc", worst_metric)
@@ -393,5 +409,25 @@ def evaluate_embeddings(
         "param_curve": param_curve,
         "aucs_l2_norm": aucs_l2_norm if len(aucs_l2_norm) > 0 else "None",
     }
+
+    all_results_unsup_df = pd.DataFrame(
+        all_results_unsup_df, columns=["nu", "param", "auc"]
+    )
+    all_results_sup_df = pd.DataFrame(all_results_sup_df, columns=["param", "auc"])
+
+    tmpdir = tempfile.mkdtemp()
+
+    with open(f"{tmpdir}/unsupervised.html", "w") as f:
+        all_results_unsup_df.to_html(f)
+        mlflow.log_artifact(f"{tmpdir}/unsupervised.html", "metrics_solver")
+    with open(f"{tmpdir}/unsupervised.csv", "w") as f:
+        all_results_unsup_df.to_csv(f)
+        mlflow.log_artifact(f"{tmpdir}/unsupervised.csv", "metrics_solver")
+    with open(f"{tmpdir}/supervised.html", "w") as f:
+        all_results_sup_df.to_html(f)
+        mlflow.log_artifact(f"{tmpdir}/supervised.html", "metrics_solver")
+    with open(f"{tmpdir}/supervised.csv", "w") as f:
+        all_results_sup_df.to_csv(f)
+        mlflow.log_artifact(f"{tmpdir}/supervised.csv", "metrics_solver")
 
     return evaluation_results
