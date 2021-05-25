@@ -12,15 +12,19 @@ from typing import NamedTuple, Optional, Set, List
 import numpy as np
 import torch
 from sklearn.metrics.pairwise import euclidean_distances
+import mlflow
 
 from tda.dataset.adversarial_generation import AttackType
 from tda.dataset.graph_dataset import DatasetLine
 from tda.embeddings import KernelType
 from tda.models import Dataset, get_deep_model, mnist_lenet
-from tda.models.architectures import SoftMaxLayer
+from tda.models.layers import SoftMaxLayer
 from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.tda_logging import get_logger
+
+mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+mlflow.set_experiment("tda_adv_detection")
 
 logger = get_logger("LID")
 
@@ -60,7 +64,8 @@ class Config(NamedTuple):
     first_pruned_iter: int = 10
     prune_percentile: float = 0.0
     tot_prune_percentile: float = 0.0
-
+    experiment_id: float = -1
+    run_id: float = -1
     all_epsilons: List[float] = None
 
 
@@ -90,6 +95,8 @@ def get_config() -> Config:
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
     parser.add_argument("--selected_layers", type=str, default="all")
+    parser.add_argument("--experiment_id", type=float, default=-1)
+    parser.add_argument("--run_id", type=float, default=-1)
 
     args, _ = parser.parse_known_args()
 
@@ -346,15 +353,25 @@ def run_experiment(config: Config):
     logger.info(f"Done with experiment {config.experiment_id}_{config.run_id} !")
     logger.info(metrics)
 
+    for method in ["unsupervised", "supervised"]:
+        res = evaluation_results[f"{method}_metrics"]
+        for eps in res:
+            res_eps = res[eps]
+            for metric in res_eps:
+                res_eps_met = res_eps[metric]
+                for typ in res_eps_met:
+                    mlflow.log_metric(f"{method}_{eps}_{metric}_{typ}", res_eps_met[typ])
+
     return metrics
 
 
 if __name__ == "__main__":
-    my_config = get_config()
-    try:
-        run_experiment(my_config)
-    except Exception as e:
-        my_trace = io.StringIO()
-        traceback.print_exc(file=my_trace)
+    with mlflow.start_run(run_name="LID binary"):
+        my_config = get_config()
+        try:
+            run_experiment(my_config)
+        except Exception as e:
+            my_trace = io.StringIO()
+            traceback.print_exc(file=my_trace)
 
-        logger.error(my_trace.getvalue())
+            logger.error(my_trace.getvalue())
