@@ -2,6 +2,7 @@ from tda.models import Architecture
 from torchvision.transforms import transforms
 import torchvision
 import torch
+import pytest
 import tempfile
 import pandas as pd
 
@@ -77,3 +78,11 @@ def test_resnets_cifar100_performance():
 
     df = pd.DataFrame(results)
     print(df)
+
+
+@pytest.mark.parametrize("model_name", ["resnet20", "resnet32", "resnet44", "resnet56"])
+def test_resnets_cifar100_performance(model_name):
+    archi = get_architecture(f"cifar100_{model_name}")
+
+    for i in archi.layer_visit_order:
+        print(f"{i} {archi.layers[i]}")
