@@ -137,6 +137,14 @@ class Dataset(object):
         elif name == "TinyImageNet":
             self.train_dataset = load_tiny_image_net(mode="train", transform=_trans)
             self.test_and_val_dataset = load_tiny_image_net(mode="test", transform=_trans)
+        elif name == "CIFAR100":
+            self.train_dataset = dset.CIFAR100(
+                root=_root, train=True, transform=_trans, download=True
+            )
+
+            self.test_and_val_dataset = dset.CIFAR100(
+                root=_root, train=False, transform=_trans, download=True
+            )
         else:
             raise NotImplementedError(f"Unknown dataset {name}")
 
@@ -152,7 +160,7 @@ class Dataset(object):
             dataset=self.train_dataset, batch_size=128, shuffle=True
         )
         self.test_loader = torch.utils.data.DataLoader(
-            dataset=self.test_dataset, shuffle=True, batch_size=1
+            dataset=self.test_dataset, shuffle=True, batch_size=2048
         )
         self.val_loader = torch.utils.data.DataLoader(
             dataset=self.val_dataset, batch_size=128, shuffle=True

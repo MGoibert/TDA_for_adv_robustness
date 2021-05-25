@@ -166,6 +166,8 @@ def get_sample_dataset(
 
     if dataset.name in ["tinyimagenet"]:
         per_class_nb_samples = np.repeat(0, 200)
+    elif dataset.name in ["cifar100"]:
+        per_class_nb_samples = np.repeat(0,100)
     else:
         per_class_nb_samples = np.repeat(0, 10)
 

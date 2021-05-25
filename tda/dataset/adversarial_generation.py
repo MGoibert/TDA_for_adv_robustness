@@ -127,7 +127,7 @@ def adversarial_generation(
 
         import foolbox as fb
 
-        if model.name in ["efficientnet"]:
+        if model.name in ["efficientnet", "resnet32", "resnet44", "resnet56"]:
             model.set_default_forward_mode(None)
         else:
             model.set_default_forward_mode("presoft")

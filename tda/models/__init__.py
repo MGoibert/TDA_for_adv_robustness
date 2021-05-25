@@ -488,12 +488,27 @@ def get_deep_model(
     try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
-        architecture = torch.load(
-            architecture.get_model_savepath(), map_location=device
-        )
-        logger.info(
-            f"Loaded successfully model from {architecture.get_model_savepath()}"
-        )
+        if dataset.name == "cifar100":
+            logger.info(f"Loaded pretrained model for CIFAR100")
+            architecture.set_train_mode()
+            optimizer = optim.SGD(architecture.parameters(), lr=0.001)
+            for i_batch, (x_batch, y_batch) in enumerate(dataset.train_loader):
+                x_batch = x_batch.type(default_tensor_type)
+                y_batch = y_batch.to(device)
+                optimizer.zero_grad()
+                y_pred = architecture(x_batch)
+                loss = loss_func(y_pred, y_batch)
+                loss.backward()
+                optimizer.step()
+            architecture.set_eval_mode()
+        else:
+            architecture = torch.load(
+                architecture.get_model_savepath(), map_location=device
+            )
+            logger.info(
+                f"Loaded successfully model from {architecture.get_model_savepath()}"
+            )
+        logger.info(f"Test accuracy = {compute_test_acc(architecture, dataset.test_loader)}")
     except FileNotFoundError:
         logger.info(
             f"Unable to find model in {architecture.get_model_savepath()}... Retraining it..."
@@ -527,6 +542,7 @@ def get_deep_model(
 
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
+    logger.info(f"set archi in eval mode")
     architecture.is_trained = True
 
     # Build matrices

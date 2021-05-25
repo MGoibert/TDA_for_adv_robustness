@@ -121,8 +121,9 @@ def compute_adv_accuracy(
 def get_all_accuracies(config: Config, with_image=True):
 
     if config.attack_type in ["FGSM", "PGD"]:
-        all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
+        #all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
         # all_epsilons = [0, 0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1]
+        all_epsilons = [0, 0.001, 0.01, 0.1]    
     else:
         all_epsilons = [0.0, 1]
 
