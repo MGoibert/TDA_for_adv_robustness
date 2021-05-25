@@ -1,4 +1,4 @@
-from tda.models import Architecture
+from .architecture import Architecture
 from tda.models.layers import ConvLayer, LinearLayer, Layer
 import torch.nn.functional as F
 import tempfile
