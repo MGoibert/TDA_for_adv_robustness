@@ -123,6 +123,10 @@ def _cifar_resnet(layer_sizes):
     return layers, edges
 
 
+def cifar100_preprocess(x):
+    return x.reshape(-1, 3, 32, 32)
+
+
 def _architecture(model_name: str) -> Architecture:
 
     layer_sizes = dict(
@@ -133,7 +137,12 @@ def _architecture(model_name: str) -> Architecture:
     )[model_name]
 
     layers, edges = _cifar_resnet(layer_sizes=layer_sizes)
-    archi = Architecture(layers=layers, layer_links=edges, name="resnet32")
+    archi = Architecture(
+        layers=layers,
+        layer_links=edges,
+        name="resnet32",
+        preprocess=cifar100_preprocess,
+    )
     archi.epochs = 42
     return archi
 
@@ -164,12 +173,13 @@ def _update_archi_with_weights(archi: Architecture, model_name: str):
     archi.load_state_dict(mapped_sd)
 
 
-def architecture_with_weights(model_name: str):
+def cifar100_architecture_with_weights(model_name: str) -> Architecture:
     archi = _architecture(model_name)
     _update_archi_with_weights(archi, model_name)
+    return archi
 
 
 if __name__ == "__main__":
     for model_name in ["resnet20", "resnet32", "resnet44", "resnet56"]:
         print(f"Trying {model_name}...")
-        model = architecture_with_weights(model_name)
+        model = cifar100_architecture_with_weights(model_name)
