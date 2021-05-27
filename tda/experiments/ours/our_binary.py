@@ -457,7 +457,7 @@ def run_experiment(config: Config):
 
 
 if __name__ == "__main__":
-    with mlflow.start_run(run_name="Our binary"):
+    with mlflow.start_run(run_name="Our binary", nested=True):
         my_config = get_config()
         try:
             run_experiment(my_config)

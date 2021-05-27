@@ -457,10 +457,32 @@ def get_deep_model(
     with_details: bool = False,
     force_retrain: bool = False,
     pretrained_pth: str = None,
-    layers_to_consider: Optional[List[int]] = list()
+    layers_to_consider: Optional[List[int]] = list(),
 ) -> Architecture:
 
     loss_func = nn.CrossEntropyLoss().type(default_tensor_type)
+
+    if dataset.name == "CIFAR100":
+        architecture.set_train_mode()
+        optimizer = optim.SGD(architecture.parameters(), lr=0.001)
+        for i_batch, (x_batch, y_batch) in enumerate(dataset.train_loader):
+            x_batch = x_batch.type(default_tensor_type)
+            y_batch = y_batch.to(device)
+            optimizer.zero_grad()
+            y_pred = architecture(x_batch)
+            loss = loss_func(y_pred, y_batch)
+            loss.backward()
+            optimizer.step()
+        architecture.set_eval_mode()
+        architecture.is_trained = True
+
+        # Build matrices
+        x = dataset.train_dataset[0][0].to(device)
+        architecture.forward(x, store_for_graph=False, output="final")
+        if layers_to_consider is not None:
+            architecture.set_layers_to_consider(layers_to_consider)
+        assert architecture.matrices_are_built is True
+        return architecture
 
     if pretrained_pth is not None:
         # Experimental: to help loading an existing model
@@ -508,7 +530,9 @@ def get_deep_model(
             logger.info(
                 f"Loaded successfully model from {architecture.get_model_savepath()}"
             )
-        logger.info(f"Test accuracy = {compute_test_acc(architecture, dataset.test_loader)}")
+        logger.info(
+            f"Test accuracy = {compute_test_acc(architecture, dataset.test_loader)}"
+        )
     except FileNotFoundError:
         logger.info(
             f"Unable to find model in {architecture.get_model_savepath()}... Retraining it..."

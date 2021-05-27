@@ -38,9 +38,8 @@ def underopt_edges(
 
         if len(weight_keys) > 0:
             param = layer.func.state_dict()[weight_keys[0]]
-            param_init = model_init.layers[layer_idx].func.state_dict()[weight_keys[0]]
-
             if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
+                param_init = model_init.layers[layer_idx].func.state_dict()[weight_keys[0]]
                 limit_val[layer_idx] = torch.abs(param) - torch.abs(param_init)
             elif method == ThresholdStrategy.UnderoptimizedLargeFinal:
                 limit_val[layer_idx] = torch.abs(param)
@@ -134,7 +133,10 @@ def process_thresholds_underopt(
     :return:
     """
 
-    architecture_init = architecture.get_initial_model()
+    if method == ThresholdStrategy.UnderoptimizedMagnitudeIncrease:
+        architecture_init = architecture.get_initial_model()
+    else:
+        architecture_init = None
 
     quantiles_per_layer = _process_raw_quantiles(raw_thresholds)
     underoptimized_edges = underopt_edges(
