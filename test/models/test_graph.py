@@ -8,7 +8,7 @@ from tda.models.architectures import (
     Architecture,
     svhn_cnn_simple,
     svhn_lenet,
-    cifar_toy_resnet,
+    cifar_toy_resnet, get_architecture,
 )
 from tda.models.architectures import mnist_mlp
 from tda.models.layers import LinearLayer, ConvLayer, SoftMaxLayer
@@ -179,14 +179,15 @@ def test_svhn_graph():
 
 
 @pytest.mark.parametrize("architecture,shape", [
-    (mnist_mlp, (28, 28)),
+    #(mnist_mlp, (28, 28)),
     (mnist_lenet, (28, 28)),
     (svhn_lenet, (3, 32, 32)),
-    (cifar_lenet, (3, 32, 32)),
-    (cifar_toy_resnet, (3, 32, 32)),
-    (cifar_resnet_1, (3, 32, 32))
+    #(cifar_lenet, (3, 32, 32)),
+    #(cifar_toy_resnet, (3, 32, 32)),
+    #(cifar_resnet_1, (3, 32, 32)),
+    #(get_architecture("cifar100_resnet32"), (3, 32, 32))
 ])
-def test_graph_cifar_svhn(architecture, shape):
+def test_matshapes(architecture, shape):
 
     simple_example = torch.randn(shape)
 
@@ -195,6 +196,23 @@ def test_graph_cifar_svhn(architecture, shape):
 
     graph = Graph.from_architecture_and_data_point(architecture, simple_example)
 
-    edge_list = graph.get_edge_list()
+    conv_layers = list()
+    for layer_idx, layer in enumerate(architecture.layers):
+        if isinstance(layer, ConvLayer):
+            conv_layers.append(layer_idx)
 
-    print(len(edge_list))
+    source_conv_layers = list()
+    for layer_idx in conv_layers:
+        source_conv_layers.append([u for u, v in architecture.layer_links if v == layer_idx][0])
+
+    shapes = graph._get_shapes()
+    ret = "["
+    for u, v in zip(source_conv_layers, conv_layers):
+        shape0 = shapes[u]
+        shape1 = shapes[v]
+        ret += f"[{shape1}, {shape0}],"
+
+    ret += "]"
+    print(ret)
+    #  edge_list = graph.get_edge_list()
+    #  print(len(edge_list))
