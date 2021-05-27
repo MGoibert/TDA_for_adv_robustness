@@ -18,9 +18,6 @@ logger = get_logger("Thresholds Underoptimized")
 
 def _process_raw_quantiles(raw_quantiles: str) -> Dict[int, Tuple]:
 
-    if not "_" in raw_quantiles or not ":" in raw_quantiles:
-        raise RuntimeError(f"Incorrect format for quantiles {raw_quantiles}")
-
     ret = dict()
     for raw_quantile in raw_quantiles.split("_"):
         layer_idx, value_low, value_up = raw_quantile.split(":")
