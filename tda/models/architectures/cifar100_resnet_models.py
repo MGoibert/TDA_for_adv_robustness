@@ -140,7 +140,7 @@ def _architecture(model_name: str) -> Architecture:
     archi = Architecture(
         layers=layers,
         layer_links=edges,
-        name="resnet32",
+        name=model_name,
         preprocess=cifar100_preprocess,
     )
     archi.epochs = 42
