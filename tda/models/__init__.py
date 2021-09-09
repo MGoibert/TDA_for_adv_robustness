@@ -29,6 +29,7 @@ from tda.models.architectures import (
     toy_mlp3,
     toy_mlp4,
     toy_viz,
+    toy_viz2,
     efficientnet,
 )
 from tda.dataset.datasets import Dataset
@@ -167,7 +168,7 @@ def go_training(
             if len(param.data.size()) > 1:
                 param.data = param.data * mask_[i]
                 param.grad.data = param.grad.data * mask_[i]
-
+    
     return loss.item()
 
 
@@ -234,7 +235,7 @@ def train_network(
     else:
         init_weight_dict = None
 
-    if model.name in [mnist_lenet.name, fashion_mnist_lenet.name]:
+    if model.name in [mnist_lenet.name, fashion_mnist_lenet.name, toy_viz.name]:
         lr = 0.001
         patience = 20
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
@@ -288,8 +289,8 @@ def train_network(
         optimizer = optim.SGD(
             model.parameters(), lr=lr(0), weight_decay=0.0005, momentum=0.9
         )
-    elif model.name in [toy_mlp.name, toy_mlp2.name, toy_mlp3, toy_mlp4, toy_viz]:
-        lr = 5
+    elif model.name in [toy_mlp.name, toy_mlp2.name, toy_mlp3, toy_mlp4, toy_viz2.name]:
+        lr = 1
         patience = 5
         optimizer = optim.SGD(model.parameters(), lr=lr)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
