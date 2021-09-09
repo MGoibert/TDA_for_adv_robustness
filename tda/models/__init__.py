@@ -8,6 +8,7 @@ import torch
 import mlflow
 from torch import nn, optim, no_grad
 from torch.optim.lr_scheduler import _LRScheduler
+from typing import List, Optional
 
 from tda.devices import device
 from tda.models.architectures import (
@@ -31,6 +32,7 @@ from tda.models.architectures import (
     efficientnet,
 )
 from tda.dataset.datasets import Dataset
+from tda.models.layers import ConvLayer, LinearLayer
 from tda.rootpath import rootpath
 from tda.tda_logging import get_logger
 from tda.precision import default_tensor_type
@@ -191,6 +193,14 @@ def train_network(
     model.epochs = num_epochs
     model.to_device(device)
 
+    def init_weights(mod):
+        if isinstance(mod, torch.nn.Conv2d) or isinstance(mod, torch.nn.Linear):
+            torch.nn.init.xavier_uniform(mod.weight)
+
+    for layer in model.layers:
+        if isinstance(layer, ConvLayer) or isinstance(layer, LinearLayer):
+            layer.func.apply(init_weights)
+
     logger.info(f"Learnig on device {device}")
 
     custom_scheduler_step = None
@@ -291,7 +301,7 @@ def train_network(
             model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4
         )
 
-        eta_min = 0.001
+        eta_min = 0.0001
         mlflow.log_param("eta_min", eta_min)
 
         def get_scheduler(optimizer, n_iter_per_epoch):
@@ -377,8 +387,8 @@ def train_network(
             val_loss = loss_func(y_val_pred, y_val)
             val_losses.append(val_loss.item())
             num_val_batches += 1
-            if num_val_batches > 10:
-                break
+            #  if num_val_batches > 10:
+            #      break
         val_loss = np.mean(val_losses)
         mlflow.log_metric("val_loss", val_loss, step=epoch)
         logger.info(f"Validation loss = {np.around(val_loss, decimals=4)}")
@@ -387,7 +397,7 @@ def train_network(
         if (prune_percentile == 0.0) or (epoch > first_pruned_iter * nb_iter_prune):
             step = epoch * len(train_loader) + i_batch
             # step = (epoch % 300) * len(train_loader) + i_batch
-            if scheduler is not None and epoch<=200:
+            if scheduler is not None:
                 scheduler.step(step)
         if epoch % 10 == 9:
             acc = compute_val_acc(model, val_loader)
@@ -448,9 +458,32 @@ def get_deep_model(
     with_details: bool = False,
     force_retrain: bool = False,
     pretrained_pth: str = None,
+    layers_to_consider: Optional[List[int]] = list(),
 ) -> Architecture:
 
     loss_func = nn.CrossEntropyLoss().type(default_tensor_type)
+
+    if dataset.name == "CIFAR100":
+        architecture.set_train_mode()
+        optimizer = optim.SGD(architecture.parameters(), lr=0.001)
+        for i_batch, (x_batch, y_batch) in enumerate(dataset.train_loader):
+            x_batch = x_batch.type(default_tensor_type)
+            y_batch = y_batch.to(device)
+            optimizer.zero_grad()
+            y_pred = architecture(x_batch)
+            loss = loss_func(y_pred, y_batch)
+            loss.backward()
+            optimizer.step()
+        architecture.set_eval_mode()
+        architecture.is_trained = True
+
+        # Build matrices
+        x = dataset.train_dataset[0][0].to(device)
+        architecture.forward(x, store_for_graph=False, output="final")
+        if layers_to_consider is not None:
+            architecture.set_layers_to_consider(layers_to_consider)
+        assert architecture.matrices_are_built is True
+        return architecture
 
     if pretrained_pth is not None:
         # Experimental: to help loading an existing model
@@ -478,11 +511,28 @@ def get_deep_model(
     try:
         if force_retrain:
             raise FileNotFoundError("Force retrain")
-        architecture = torch.load(
-            architecture.get_model_savepath(), map_location=device
-        )
+        if dataset.name == "cifar100":
+            logger.info(f"Loaded pretrained model for CIFAR100")
+            architecture.set_train_mode()
+            optimizer = optim.SGD(architecture.parameters(), lr=0.001)
+            for i_batch, (x_batch, y_batch) in enumerate(dataset.train_loader):
+                x_batch = x_batch.type(default_tensor_type)
+                y_batch = y_batch.to(device)
+                optimizer.zero_grad()
+                y_pred = architecture(x_batch)
+                loss = loss_func(y_pred, y_batch)
+                loss.backward()
+                optimizer.step()
+            architecture.set_eval_mode()
+        else:
+            architecture = torch.load(
+                architecture.get_model_savepath(), map_location=device
+            )
+            logger.info(
+                f"Loaded successfully model from {architecture.get_model_savepath()}"
+            )
         logger.info(
-            f"Loaded successfully model from {architecture.get_model_savepath()}"
+            f"Test accuracy = {compute_test_acc(architecture, dataset.test_loader)}"
         )
     except FileNotFoundError:
         logger.info(
@@ -496,18 +546,18 @@ def get_deep_model(
         # logger.info(f"Correctly downloaded pre-trained model")
 
         # Train the NN
-        with mlflow.start_run(run_name=f"Train {architecture.name}"):
-            train_network(
-                architecture,
-                dataset.train_loader,
-                dataset.val_loader,
-                loss_func,
-                num_epochs,
-                train_noise,
-                prune_percentile,
-                tot_prune_percentile,
-                first_pruned_iter,
-            )
+        #  with mlflow.start_run(run_name=f"Train {architecture.name}"):
+        train_network(
+            architecture,
+            dataset.train_loader,
+            dataset.val_loader,
+            loss_func,
+            num_epochs,
+            train_noise,
+            prune_percentile,
+            tot_prune_percentile,
+            first_pruned_iter,
+        )
 
         # Compute accuracies
         val_accuracy = compute_val_acc(architecture, dataset.val_loader)
@@ -517,11 +567,14 @@ def get_deep_model(
 
     # Forcing eval mode just in case it was not done before
     architecture.set_eval_mode()
+    logger.info(f"set archi in eval mode")
     architecture.is_trained = True
 
     # Build matrices
     x = dataset.train_dataset[0][0].to(device)
     architecture.forward(x, store_for_graph=False, output="final")
+    if layers_to_consider is not None:
+        architecture.set_layers_to_consider(layers_to_consider)
     assert architecture.matrices_are_built is True
 
     if with_details:

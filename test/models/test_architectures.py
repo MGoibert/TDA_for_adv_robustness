@@ -1,4 +1,12 @@
 from tda.models import Architecture
+from torchvision.transforms import transforms
+import torchvision
+import torch
+import pytest
+import tempfile
+import pandas as pd
+
+from tda.models.architectures import get_architecture
 
 
 def test_walk_through_dag_list():
@@ -27,3 +35,54 @@ def test_walk_through_dag_simple():
         assert my_order.index(edge[0]) < my_order.index(edge[1])
 
     print(Architecture.get_parent_dict(my_edges))
+
+
+def test_resnets_cifar100_performance():
+    _trans = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.507, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761]
+            ),
+        ]
+    )
+    with tempfile.TemporaryDirectory() as tempdir:
+        ds_train = torchvision.datasets.CIFAR100(
+            train=True, transform=_trans, download=True, root=f"{tempdir}/cifar100"
+        )
+        ds_test = torchvision.datasets.CIFAR100(
+            train=False, transform=_trans, download=True, root=f"{tempdir}/cifar100"
+        )
+    loaders = {
+        "train": torch.utils.data.DataLoader(ds_train, batch_size=256),
+        "test": torch.utils.data.DataLoader(ds_test, batch_size=256),
+    }
+
+    results = dict()
+
+    for model_name in ["resnet20", "resnet32", "resnet44", "resnet56"]:
+        archi = get_architecture(f"cifar100_{model_name}")
+        res = dict()
+        for mode in loaders:
+            corrects = 0
+            total = 0
+            for images, real_classes in loaders[mode]:
+                predictions = archi(images)
+                predicted_classes = torch.argmax(predictions, dim=1).cpu().numpy()
+                match = predicted_classes == real_classes.cpu().numpy()
+                corrects += sum(match)
+                total += len(real_classes.cpu().numpy())
+
+            res[mode] = corrects / total
+        results[model_name] = res
+
+    df = pd.DataFrame(results)
+    print(df)
+
+
+@pytest.mark.parametrize("model_name", ["resnet20", "resnet32", "resnet44", "resnet56"])
+def test_resnets_cifar100_performance(model_name):
+    archi = get_architecture(f"cifar100_{model_name}")
+
+    for i in archi.layer_visit_order:
+        print(f"{i} {archi.layers[i]}")

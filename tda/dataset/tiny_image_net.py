@@ -3,7 +3,7 @@ import os
 import tempfile
 import requests
 from PIL import Image
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import zipfile
 import torchvision.transforms as transforms
 

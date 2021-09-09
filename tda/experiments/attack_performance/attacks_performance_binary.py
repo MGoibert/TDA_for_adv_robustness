@@ -6,6 +6,8 @@ import time
 import typing
 import pathlib
 import pickle
+import mlflow
+import torch
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,9 +21,10 @@ from tda.rootpath import rootpath
 
 start_time = time.time()
 
-
 logger = get_logger("GraphStats")
 
+mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+mlflow.set_experiment("tda_adv_detection")
 
 class Config(typing.NamedTuple):
     # Noise to consider for the noisy samples
@@ -121,8 +124,9 @@ def compute_adv_accuracy(
 def get_all_accuracies(config: Config, with_image=True):
 
     if config.attack_type in ["FGSM", "PGD"]:
-        all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
+        #all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
         # all_epsilons = [0, 0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1]
+        all_epsilons = [0, 0.001, 0.01, 0.1]    
     else:
         all_epsilons = [0.0, 1]
 
@@ -158,10 +162,10 @@ def get_all_accuracies(config: Config, with_image=True):
             attack_type=config.attack_type,
             num_iter=config.num_iter,
         )
-
+        logger.info(f"Img min pixel = {torch.min(some_images[0])}, and max pixel = {torch.max(some_images[0])}")
         logger.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
         accuracies[epsilon] = adversarial_acc
-
+        mlflow.log_metric(f"accuracy_{epsilon}", accuracies[epsilon])
         if with_image:
             with open(config.result_path + f"/images_eps_{epsilon}.pickle", "wb") as fw:
                 pickle.dump(some_images, fw)
@@ -204,5 +208,6 @@ def plot_and_save(config, accuracies):
 
 if __name__ == "__main__":
     config = get_config()
-    accuracies = get_all_accuracies(config, with_image=True)
-    plot_and_save(config, accuracies)
+    with mlflow.start_run(run_name=f"Attack perf"):
+        accuracies = get_all_accuracies(config, with_image=False)
+        plot_and_save(config, accuracies)
