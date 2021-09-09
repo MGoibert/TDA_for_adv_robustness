@@ -9,9 +9,12 @@ from tda.models.layers import (
 )
 from .architecture import Architecture
 
+def viz_preprocess(x):
+    return x.view(-1, 1, 3, 3)
+
 toy_viz = Architecture(
     name="toy_viz",
-    #preprocess=mnist_preprocess,
+    preprocess=viz_preprocess,
     layers=[
         ConvLayer(1, 1, 3, stride=1, padding=1, activ=F.relu, bias=True, name="conv1"),
         ConvLayer(1, 1, 2, stride=1, padding=0, activ=F.relu, bias=True, name="conv1"),
