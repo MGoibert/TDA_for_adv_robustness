@@ -9,6 +9,17 @@ from tda.models.layers import (
 )
 from .architecture import Architecture
 
+toy_viz = Architecture(
+    name="toy_viz",
+    #preprocess=mnist_preprocess,
+    layers=[
+        ConvLayer(1, 1, 3, stride=1, padding=1, activ=F.relu, bias=True, name="conv1"),
+        ConvLayer(1, 1, 2, stride=1, padding=0, activ=F.relu, bias=True, name="conv1"),
+        LinearLayer(4, 3, activ=F.relu, bias=True, name="fc1"),
+        SoftMaxLayer(),
+    ],
+)
+
 
 toy_mlp = Architecture(
     name="toy_mlp",

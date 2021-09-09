@@ -62,6 +62,32 @@ class dsetsCircleToy(torch.utils.data.Dataset):
         y = self.Y[idx]
         return [x, y]
 
+class dsetsViz(torch.utils.data.Dataset):
+    def __init__(self, n_samples=5000):
+        r = np.random.permutation(3*n_samples)
+        x0 = [1]*3 + [0]*3 + [0]*3
+        x1 = [0]*3 + [1]*3 + [0]*3
+        x2 = [0]*3 + [0]*3 + [1]*3
+        x_ = [[x0]*n_samples + [x1]*n_samples + [x2]*n_samples]
+        x_ = np.asarray(x_)
+        y_ = np.asarray([0]*n_samples+[1]*n_samples+[2]*n_samples)
+        np.take(x_, r, axis=1,out=x_)
+        np.take(y_, r, axis=0,out=y_)
+        self.X = torch.tensor(x_, dtype=torch.float).squeeze(0)
+        self.Y = torch.tensor(y_, dtype=torch.long)
+        self.n_samples = n_samples
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        x = self.X[idx,:]
+        y = self.Y[idx]
+        return [x, y]
+
 
 class Dataset(object):
 
@@ -95,6 +121,7 @@ class Dataset(object):
             self.train_dataset = dset.MNIST(
                 root=_root, train=True, transform=_trans, download=True
             )
+            logger.info(f"MNIST {self.train_dataset}")
 
             self.test_and_val_dataset = dset.MNIST(
                 root=_root, train=False, transform=_trans, download=True
@@ -134,9 +161,15 @@ class Dataset(object):
         elif name == "CircleToy":
             self.train_dataset = dsetsCircleToy(2000)
             self.test_and_val_dataset = dsetsCircleToy(2000)
+
         elif name == "TinyImageNet":
             self.train_dataset = load_tiny_image_net(mode="train", transform=_trans)
             self.test_and_val_dataset = load_tiny_image_net(mode="test", transform=_trans)
+
+        elif name == "ToyViz":
+            self.train_dataset = dsetsViz(1000)
+            self.test_and_val_dataset = dsetsViz(1000)
+
         else:
             raise NotImplementedError(f"Unknown dataset {name}")
 

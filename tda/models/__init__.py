@@ -27,6 +27,7 @@ from tda.models.architectures import (
     toy_mlp2,
     toy_mlp3,
     toy_mlp4,
+    toy_viz,
     efficientnet,
 )
 from tda.dataset.datasets import Dataset
@@ -277,7 +278,7 @@ def train_network(
         optimizer = optim.SGD(
             model.parameters(), lr=lr(0), weight_decay=0.0005, momentum=0.9
         )
-    elif model.name in [toy_mlp.name, toy_mlp2.name, toy_mlp3, toy_mlp4]:
+    elif model.name in [toy_mlp.name, toy_mlp2.name, toy_mlp3, toy_mlp4, toy_viz]:
         lr = 5
         patience = 5
         optimizer = optim.SGD(model.parameters(), lr=lr)
