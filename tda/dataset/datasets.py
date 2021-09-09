@@ -64,16 +64,31 @@ class dsetsCircleToy(torch.utils.data.Dataset):
 
 class dsetsViz(torch.utils.data.Dataset):
     def __init__(self, n_samples=5000):
-        r = np.random.permutation(3*n_samples)
-        x0 = [1]*3 + [0]*3 + [0]*3
-        x1 = [0]*3 + [1]*3 + [0]*3
-        x2 = [0]*3 + [0]*3 + [1]*3
-        x_ = [[x0]*n_samples + [x1]*n_samples + [x2]*n_samples]
-        x_ = np.asarray(x_)
-        y_ = np.asarray([0]*n_samples+[1]*n_samples+[2]*n_samples)
-        np.take(x_, r, axis=1,out=x_)
+        r = np.random.permutation(2*n_samples)
+        std_dev = 0.1
+
+        # Class 0
+        xtop = np.clip(np.random.normal(0.9, std_dev, n_samples), 0, 1)
+        xupper = np.clip(np.random.normal(0.7, std_dev, 2*n_samples), 0, 1)
+        xmiddle = np.clip(np.random.normal(0.5, std_dev, 3*n_samples), 0, 1)
+        xlower = np.clip(np.random.normal(0.3, std_dev, 2*n_samples), 0, 1)
+        xbottom = np.clip(np.random.normal(0.1, std_dev, n_samples), 0, 1)
+        x0 = [ np.reshape(np.asarray([xtop[i], xupper[i], xmiddle[i], xupper[i+n_samples], xmiddle[i+n_samples], xlower[i], xmiddle[i+2*n_samples], xlower[i+n_samples], xbottom[i]]), (3,3)) for i in range(n_samples)]
+        
+        # Class 1
+        xtop = np.clip(np.random.normal(0.1, std_dev, n_samples), 0, 1)
+        xupper = np.clip(np.random.normal(0.3, std_dev, 2*n_samples), 0, 1)
+        xmiddle = np.clip(np.random.normal(0.5, std_dev, 3*n_samples), 0, 1)
+        xlower = np.clip(np.random.normal(0.7, std_dev, 2*n_samples), 0, 1)
+        xbottom = np.clip(np.random.normal(0.9, std_dev, n_samples), 0, 1)
+        x1 = [ np.reshape(np.asarray([xtop[i], xupper[i], xmiddle[i], xupper[i+n_samples], xmiddle[i+n_samples], xlower[i], xmiddle[i+2*n_samples], xlower[i+n_samples], xbottom[i]]), (3,3)) for i in range(n_samples)]
+        
+        x_ = np.asarray(x0 + x1)
+        y_ = np.asarray([0]*n_samples+[1]*n_samples)
+        
+        np.take(x_, r, axis=0,out=x_)
         np.take(y_, r, axis=0,out=y_)
-        self.X = torch.tensor(x_, dtype=torch.float).squeeze(0)
+        self.X = torch.tensor(x_, dtype=torch.float)
         self.Y = torch.tensor(y_, dtype=torch.long)
         self.n_samples = n_samples
 

@@ -11,6 +11,8 @@ from .architecture import Architecture
 
 def viz_preprocess(x):
     return x.view(-1, 1, 3, 3)
+def viz_preprocess2(x):
+    return x.view(-1, 9)
 
 toy_viz = Architecture(
     name="toy_viz",
@@ -25,7 +27,7 @@ toy_viz = Architecture(
 
 toy_viz2 = Architecture(
     name="toy_viz2",
-    #preprocess=mnist_preprocess,
+    preprocess=viz_preprocess2,
     layers=[
         LinearLayer(9, 25, activ=F.relu, name="fc1"),
         LinearLayer(25, 3, name="fc2"),
