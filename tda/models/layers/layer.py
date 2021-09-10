@@ -34,6 +34,7 @@ class Layer(object):
         #  key = list(ret.keys())[0]
         #  a = {(r, c): d for r,c,d in zip(ret[key].row,ret[key].col,ret[key].data)}
         #  logger.info(f"{a}")
+
         return ret
 
     def get_matrix_thresholded(self, edges_to_keep_layer):

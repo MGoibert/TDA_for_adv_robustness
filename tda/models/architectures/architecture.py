@@ -83,7 +83,7 @@ class Architecture(nn.Module):
 
     def build_matrices(self):
         for layer_idx, layer in enumerate(self.layers):
-            if layer.graph_layer:
+            if True: #layer.graph_layer:
                 logger.info(f"Building matrix for layer {layer_idx} ({layer})")
                 layer.build_matrix()
 
@@ -267,9 +267,11 @@ class Architecture(nn.Module):
         # Getting matrix for each layer
         ret = dict()
         for layer_idx, layer in enumerate(self.layers):
-            # (f"Processing layer {layer_idx}")
-            if layer.graph_layer:
+            logger.info(f"Processing layer {layer_idx}")
+            if layer_idx>0: #layer.graph_layer:
+                logger.info(f"layer = {type(layer)}")
                 m = layer.get_matrix()
+                logger.info(f"m={m}")
                 for parentidx in m:
                     ret[(parentidx, layer_idx)] = m[parentidx]
         return ret
