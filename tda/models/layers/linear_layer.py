@@ -23,6 +23,7 @@ class LinearLayer(Layer):
 
         self._in_width = in_width
         self._activ = activ
+        self.graph_layer = True
 
     def build_matrix(self) -> coo_matrix:
         matrix = list(self.func.parameters())[0]

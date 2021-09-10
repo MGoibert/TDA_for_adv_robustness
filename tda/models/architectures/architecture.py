@@ -83,7 +83,7 @@ class Architecture(nn.Module):
 
     def build_matrices(self):
         for layer_idx, layer in enumerate(self.layers):
-            if True: #layer.graph_layer:
+            if layer.graph_layer:
                 logger.info(f"Building matrix for layer {layer_idx} ({layer})")
                 layer.build_matrix()
 
