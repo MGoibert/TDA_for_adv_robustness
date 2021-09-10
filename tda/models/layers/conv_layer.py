@@ -232,7 +232,7 @@ class ConvLayer(Layer):
     def process(self, x, store_for_graph):
         # logger.info(f"In process")
         assert isinstance(x, dict)
-        if store_for_graph and self.graph_layer:
+        if True: #store_for_graph and self.graph_layer:
             self._activations = x
         x = sum(x.values())
 

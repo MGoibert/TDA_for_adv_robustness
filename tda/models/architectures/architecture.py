@@ -268,7 +268,7 @@ class Architecture(nn.Module):
         ret = dict()
         for layer_idx, layer in enumerate(self.layers):
             logger.info(f"Processing layer {layer_idx}")
-            if layer_idx>0: #layer.graph_layer:
+            if layer_idx < 4: #layer.graph_layer:
                 logger.info(f"layer = {type(layer)}")
                 m = layer.get_matrix()
                 logger.info(f"m={m}")
