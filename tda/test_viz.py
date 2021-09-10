@@ -403,14 +403,32 @@ def plot_graph_from_adj_mat(config, adj_mat, message_file="", message_title=""):
     plt.savefig(file_name, dpi=250)
     plt.close()
 
+def plot_image(config, line, message_file="", message_title=""):
+    status = line.y_adv
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.epochs)
+            + "_viz_image"
+            + message_file
+            + ".png"
+        )
+
+    x = line.x.view(3,3,1).cpu().detach().numpy()
+    plt.imshow(x, cmap="gray")
+    plt.title(f"y = {line.y} ({message_title} pred {line.y_pred})")
+    plt.savefig(file_name, dpi=350)
+    plt.close()
+
 
 
 def run_experiment(config: Config):
 
     ##### Test
     myeps = [0.1]
-    #nb_sample = 3
-    nb_sample = 1
+    ns = 0
+
 
     architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
     logger.info(f"Shape test clean = {test_clean[0]}")
@@ -418,16 +436,20 @@ def run_experiment(config: Config):
     lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
         test_clean, architecture,
         target=False, clean=True, nb=10)
+    lines_a, graphs_a, dgms_a = get_graphs_dgms(config,
+        list(test_adv[list(test_adv.keys())[0]]), architecture,
+        target=False, clean=False, nb=10)
+
     logger.info(f"How many graphs ? {len(graphs_c)} and lines ? {len(lines_c)}")
 
-    logger.info(f"graph = {graphs_c[0]}")
-    logger.info(f"line = {lines_c[0]}")
+    adj_mat_clean = graphs_c[ns].get_adjacency_matrix()
+    adj_mat_adv = graphs_a[ns].get_adjacency_matrix()
 
-    adj_mat = graphs_c[1].get_adjacency_matrix()
-    logger.info(f"adj mat = {adj_mat.todense()}")
-    logger.info(f"shape = {graphs_c[1]._get_shapes()}")
+    plot_graph_from_adj_mat(config, adj_mat_clean.todense(), message_file=f"_clean_{ns}")
+    plot_graph_from_adj_mat(config, adj_mat_adv.todense(), message_file=f"_adv_e_{myeps[0]}_{ns}")
 
-    plot_graph_from_adj_mat(config, adj_mat.todense(), message_file="_clean_1")
+    plot_image(config, lines_c[ns], message_file=f"_clean_{ns}", message_title="clean")
+    plot_image(config, lines_a[ns], message_file=f"_adv_{ns}", message_title=f"adv {myeps[0]}")
 
 
     
