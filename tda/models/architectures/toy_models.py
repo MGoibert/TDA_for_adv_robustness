@@ -18,9 +18,12 @@ toy_viz = Architecture(
     name="toy_viz",
     preprocess=viz_preprocess,
     layers=[
-        ConvLayer(1, 3, 3, stride=1, padding=1, activ=F.relu, bias=True, name="conv1"),
-        ConvLayer(3, 3, 2, stride=1, padding=0, activ=F.relu, bias=True, name="conv2"),
-        LinearLayer(12, 3, name="fc1"),
+        #ConvLayer(1, 1, 3, stride=1, padding=1, activ=F.relu, bias=True, name="conv1"),
+        ConvLayer(1, 2, 2, stride=1, padding=0, activ=F.relu, bias=True, name="conv2"),
+        #ConvLayer(1, 1, 2, stride=1, padding=1, activ=F.relu, bias=True, name="conv3"),
+        LinearLayer(8, 4, activ=F.relu, bias=True, name="fc0"),
+        LinearLayer(4, 3, activ=F.relu, bias=True, name="fc0bis"),
+        LinearLayer(3, 2, name="fc1"),
         SoftMaxLayer(),
     ],
 )
