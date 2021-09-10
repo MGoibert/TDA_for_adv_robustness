@@ -366,6 +366,44 @@ def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=T
     return line_list, graph_list, dgm_list
 
 
+def plot_graph_from_adj_mat(config, adj_mat, message_file="", message_title=""):
+    file_name = (
+            config.result_path
+            + str(config.architecture)
+            + str(config.epochs)
+            + "_graph"
+            + message_file
+            + ".png"
+        )
+    
+    G = nx.from_numpy_matrix(adj_mat, create_using=nx.Graph())
+    pos = {}
+    for i in range(26):
+        if i < 9:
+            pos[i] = (0, i)
+        elif i < 9+8:
+            pos[i] = (2, 0.5+(i-9))
+        elif i < 9+8+4:
+            pos[i] = (4, 2.5+(i-9-8))
+        elif i < 9+8+4+3:
+            pos[i] = (4, 3+(i-9-8-4))
+        elif i < 9+8+4+3+2:
+            pos[i] = (6, 3.5+(i-9-8-4-3))
+
+    edge_list = [(u, v) for (u, v, d) in G.edges(data=True) if d["weight"] != 0]
+    edge_labels = nx.get_edge_attributes(G,'weight')
+    edge_labels = {x:np.round(y,0) for x,y in edge_labels.items() if y!=0}
+    
+    plt.figure(figsize=(8,8))
+    plt.title(f"{message_title}")
+    nx.draw_networkx_nodes(G, pos, label=list(G.nodes()))
+    nx.draw_networkx_labels(G,pos, {a:a for a in list(G.nodes())},font_size=12,color="red")
+    nx.draw_networkx_edges(G, pos, edgelist=edge_list)
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    plt.savefig(file_name, dpi=250)
+    plt.close()
+
+
 
 def run_experiment(config: Config):
 
@@ -388,6 +426,8 @@ def run_experiment(config: Config):
     adj_mat = graphs_c[1].get_adjacency_matrix()
     logger.info(f"adj mat = {adj_mat.todense()}")
     logger.info(f"shape = {graphs_c[1]._get_shapes()}")
+
+    plot_graph_from_adj_mat(config, adj_mat.todense(), message_file="_clean_1")
 
 
     
