@@ -491,6 +491,9 @@ def run_experiment(config: Config):
     status = True
 
     architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
+    logger.info(f"Shape test clean = {test_clean[0]}")
+    for name, param in architecture.named_parameters():
+        logger.info(f"name={name}, {param.data}")
 
     lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
             test_clean, architecture,
@@ -517,12 +520,6 @@ def run_experiment(config: Config):
     param_dict = {"ns": ns, "dataset_size":config.dataset_size, "y":lines_c[ns].y, "clean_pred":lines_c[ns].y_pred, "adv_pred":lines_a[ns].y_pred}
     for key in param_dict:
         mlflow.log_param(key, param_dict[key])
-    #for i in range(26):
-    #    for j in range(26):
-    #        logger.info(f"i={i} and j={j}")
-    #        mlflow.log_metric(f"clean {i}-{j}", adj_mat_clean_[i,j])
-    #        mlflow.log_metric(f"adv {i}-{j}", adj_mat_adv_[i,j])
-
         
 
     plot_graph_from_adj_mat(config, adj_mat_clean.todense(), message_file=f"_clean_{ns}")
