@@ -421,6 +421,51 @@ def plot_image(config, line, message_file="", message_title=""):
     plt.savefig(file_name, dpi=350)
     plt.close()
 
+def plot_adj_mat(config, adj_mat, message_file=""):
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.epochs)
+            + "_adj_mat"
+            + message_file
+            + ".png"
+        )
+
+    fig, ax = plt.subplots()
+    ax.imshow(adj_mat, cmap=plt.cm.Blues)
+    for i in xrange(26):
+        for j in xrange(26):
+            c = adj_mat[i,j]
+            ax.text(i, j, str(c), va='center', ha='center')
+    plt.savefig(file_name, dpi=350)
+    plt.close()
+
+def plot_dgms(config, dgm_clean, dgm_adv):
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.epochs)
+            + "_dgms"
+            + ".png"
+        )
+
+    dgmc_ = [(elem0/10**5, elem1/10**5) for (elem0, elem1) in dgm_clean]
+    dgmc_ = [(elem0, 0) if elem1 == inf else (elem0, elem1) for (elem0, elem1) in dgmc_]
+    dgma_ = [(elem0/10**5, elem1/10**5) for (elem0, elem1) in dgm_adv]
+    dgma_ = [(elem0, 0) if elem1 == inf else (elem0, elem1) for (elem0, elem1) in dgma_]
+    list_dgms = [dgmc_, dgma_]
+
+    fig, ax = plt.subplots(figsize=(8,8))
+
+    legend = ["Clean", "Adv"]
+    for i, col_ in enumerate(legend):
+        ax.scatter(list(map(itemgetter(0), list_dgms[i])), list(map(itemgetter(1), list_dgms[i])), s=10, alpha=0.5, label=col_)
+
+    ax.legend()
+    plt.savefig(file_name, dpi=350)
+    plt.close()
 
 
 def run_experiment(config: Config):
@@ -432,6 +477,8 @@ def run_experiment(config: Config):
 
     architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
     logger.info(f"Shape test clean = {test_clean[0]}")
+    for name, param in architecture.named_parameters():
+        logger.info(f"name={name}, {param.data}")
 
     lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
         test_clean, architecture,
