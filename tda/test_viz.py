@@ -37,13 +37,18 @@ from tda.devices import device
 import pathlib
 from itertools import cycle, islice
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
 from operator import itemgetter
 from numpy import inf
 from scipy.sparse import coo_matrix
+import mlflow
 
 logger = get_logger("Viz test")
 start_time = time.time()
 
+mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+mlflow.set_experiment("tda_adv_detection")
 
 class Config(NamedTuple):
     # Type of embedding to use
@@ -90,6 +95,7 @@ class Config(NamedTuple):
     run_id: int = 0
     # Number of processes to spawn
     n_jobs: int = 1
+    ns : int = -1
 
     all_epsilons: List[float] = None
 
@@ -140,6 +146,7 @@ def get_config() -> Config:
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
+    parser.add_argument("--ns", type=int, default=-1)
 
     args, _ = parser.parse_known_args()
 
@@ -355,13 +362,13 @@ def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=T
                 break
 
     graph_list = list()
-    dgm_list = None #list()
+    dgm_list = list()
     for line in line_list:
         graph = Graph.from_architecture_and_data_point(
                 architecture=architecture, x=line.x.double()
             )
         graph_list.append(graph)
-        #dgm_list.append(compute_dgm_from_graph(graph))
+        dgm_list.append(compute_dgm_from_graph(graph))
 
     return line_list, graph_list, dgm_list
 
@@ -386,20 +393,20 @@ def plot_graph_from_adj_mat(config, adj_mat, message_file="", message_title=""):
         elif i < 9+8+4:
             pos[i] = (4, 2.5+(i-9-8))
         elif i < 9+8+4+3:
-            pos[i] = (4, 3+(i-9-8-4))
+            pos[i] = (6, 3+(i-9-8-4))
         elif i < 9+8+4+3+2:
-            pos[i] = (6, 3.5+(i-9-8-4-3))
+            pos[i] = (8, 3.5+(i-9-8-4-3))
 
     edge_list = [(u, v) for (u, v, d) in G.edges(data=True) if d["weight"] != 0]
     edge_labels = nx.get_edge_attributes(G,'weight')
-    edge_labels = {x:np.round(y,0) for x,y in edge_labels.items() if y!=0}
+    edge_labels = {x:np.round(y/(5*1e5),0) for x,y in edge_labels.items() if y!=0}
     
     plt.figure(figsize=(8,8))
     plt.title(f"{message_title}")
     nx.draw_networkx_nodes(G, pos, label=list(G.nodes()))
-    nx.draw_networkx_labels(G,pos, {a:a for a in list(G.nodes())},font_size=12,color="red")
-    nx.draw_networkx_edges(G, pos, edgelist=edge_list)
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    nx.draw_networkx_labels(G,pos, {a:a for a in list(G.nodes())},font_size=11,color="grey")
+    nx.draw_networkx_edges(G, pos, edgelist=edge_list, width=list(edge_labels.values()), alpha=0.7)
+    #nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
     plt.savefig(file_name, dpi=250)
     plt.close()
 
@@ -415,44 +422,119 @@ def plot_image(config, line, message_file="", message_title=""):
             + ".png"
         )
 
-    x = line.x.view(3,3,1).cpu().detach().numpy()
-    plt.imshow(x, cmap="gray")
+    x = line.x.view(3,3).cpu().detach().numpy()
+    logger.info(f"{message_title} and pred = {line.y_pred}")
+    plt.imshow(x, cmap="viridis", vmin=0, vmax=1)
     plt.title(f"y = {line.y} ({message_title} pred {line.y_pred})")
     plt.savefig(file_name, dpi=350)
     plt.close()
 
+def plot_adj_mat(config, adj_mat, message_file=""):
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.epochs)
+            + "_adj_mat"
+            + message_file
+            + ".png"
+        )
+    adj_mat = np.round(adj_mat/(1*1e5),2)
+    fig, ax = plt.subplots()
+    ax.imshow(adj_mat, cmap=plt.cm.Blues)
+    for i in range(26):
+        for j in range(26):
+            c = adj_mat[i,j]
+            ax.text(i, j, str(c), va='center', ha='center', fontsize=2)
+    plt.savefig(file_name, dpi=350)
+    plt.close()
 
+def plot_dgms(config, dgm_clean, dgm_adv, ns):
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.epochs)
+            + "_dgms" + "_" + str(ns)
+            + ".png"
+        )
+ 
+    dgmc_ = [(elem0/10**5, elem1/10**5) for (elem0, elem1) in dgm_clean]
+    dgmc_ = [(elem0, 0) if elem1 == inf else (elem0, elem1) for (elem0, elem1) in dgmc_]
+    dgma_ = [(elem0/10**5, elem1/10**5) for (elem0, elem1) in dgm_adv]
+    dgma_ = [(elem0, 0) if elem1 == inf else (elem0, elem1) for (elem0, elem1) in dgma_]
+    list_dgms = [dgmc_, dgma_]
+    logger.info(f"dgm clean = {dgmc_} and adv = {dgma_}")
+
+    fig, ax = plt.subplots(figsize=(8,8))
+
+    legend = ["Clean", "Adv"]
+    for i, col_ in enumerate(legend):
+        ax.scatter(list(map(itemgetter(0), list_dgms[i])), list(map(itemgetter(1), list_dgms[i])), s=10, alpha=0.5, label=col_)
+    
+    ax.plot([-60,0],[-60,0], "-", color="black")
+    ax.set_xlim([-60,1])
+    ax.set_ylim([-60,1])
+    ax.legend()
+    plt.savefig(file_name, dpi=350)
+    plt.close()
 
 def run_experiment(config: Config):
 
     ##### Test
     myeps = [0.1]
-    ns = 0
 
+    if config.ns >= 0:
+        ns = config.ns
+    else:
+        ns = -1
+    status = True
 
     architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
-    logger.info(f"Shape test clean = {test_clean[0]}")
 
     lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
-        test_clean, architecture,
-        target=False, clean=True, nb=10)
+            test_clean, architecture,
+            target=False, clean=True, nb=500)
     lines_a, graphs_a, dgms_a = get_graphs_dgms(config,
-        list(test_adv[list(test_adv.keys())[0]]), architecture,
-        target=False, clean=False, nb=10)
+            list(test_adv[list(test_adv.keys())[0]]), architecture,
+            target=False, clean=False, nb=500)
 
-    logger.info(f"How many graphs ? {len(graphs_c)} and lines ? {len(lines_c)}")
+    if config.ns < 0:
+        while status:
+            ns += 1
+            y_clean = lines_c[ns].y
+            y_pred_clean = lines_c[ns].y_pred
+            y_pred_adv = lines_a[ns].y_pred
+            logger.info(f"ns = {ns} --> clean {y_clean} (pred {y_pred_clean}) and adv {y_pred_adv}")
+            if (y_clean == y_pred_clean) and (y_clean != y_pred_adv):
+                status = False
 
     adj_mat_clean = graphs_c[ns].get_adjacency_matrix()
     adj_mat_adv = graphs_a[ns].get_adjacency_matrix()
+    adj_mat_clean_ = adj_mat_clean.todense()
+    adj_mat_adv_ = adj_mat_adv.todense()
+    
+    param_dict = {"ns": ns, "dataset_size":config.dataset_size, "y":lines_c[ns].y, "clean_pred":lines_c[ns].y_pred, "adv_pred":lines_a[ns].y_pred}
+    for key in param_dict:
+        mlflow.log_param(key, param_dict[key])
+    #for i in range(26):
+    #    for j in range(26):
+    #        logger.info(f"i={i} and j={j}")
+    #        mlflow.log_metric(f"clean {i}-{j}", adj_mat_clean_[i,j])
+    #        mlflow.log_metric(f"adv {i}-{j}", adj_mat_adv_[i,j])
+
+        
 
     plot_graph_from_adj_mat(config, adj_mat_clean.todense(), message_file=f"_clean_{ns}")
     plot_graph_from_adj_mat(config, adj_mat_adv.todense(), message_file=f"_adv_e_{myeps[0]}_{ns}")
 
     plot_image(config, lines_c[ns], message_file=f"_clean_{ns}", message_title="clean")
     plot_image(config, lines_a[ns], message_file=f"_adv_{ns}", message_title=f"adv {myeps[0]}")
-
-
     
+    plot_adj_mat(config, adj_mat_clean_, message_file=f"_clean_{ns}")
+    plot_adj_mat(config, adj_mat_adv_, message_file=f"_adv_{ns}")
+
+    plot_dgms(config, dgms_c[ns], dgms_a[ns], ns)
 
 
 if __name__ == "__main__":
