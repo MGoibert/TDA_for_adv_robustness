@@ -36,9 +36,9 @@ from tda.embeddings.persistent_diagrams import (
 from tda.devices import device
 import pathlib
 from itertools import cycle, islice
-import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 from operator import itemgetter
 from numpy import inf
 from scipy.sparse import coo_matrix
@@ -342,7 +342,7 @@ def get_all_inputs(config: Config, myeps=None):
     return architecture, train_clean, test_clean, train_adv, test_adv
 
 
-def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=True):
+def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=True, specific_input=False, myeps=0.1):
     line_list = list()
     for elem in dataset:
         line_list.append(elem)
@@ -360,12 +360,41 @@ def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=T
             line_list.append(elem)
             if len(line_list) >= nb:
                 break
-
+    if specific_input:
+        if clean:
+            x = torch.tensor([[0.3, 0.6, 0.6],[0.6, 0.6, 0.6],[0.6, 0.6, 0.3]]).double()
+            y = torch.tensor(1).double()
+        else:
+            clean_sample = [torch.tensor([[[0.3,0.6,0.6],[0.6,0.6,0.6],[0.6,0.6,0.3]]]).double(), np.asarray([1])]
+            x, y = process_sample(
+                sample=clean_sample,
+                adversarial=True,
+                noise=0.0,
+                epsilon=myeps,
+                model=architecture,
+                attack_type=config.attack_type,
+                num_iter=config.num_iter,
+                attack_backend=config.attack_backend,
+            )
+        y_pred = architecture(x).argmax(dim=-1).cpu().numpy()
+        line_list = [DatasetLine(
+                    graph=None,
+                    x=x,
+                    y=y,
+                    y_pred=y_pred,
+                    y_adv=False,
+                    l2_norm=None,
+                    linf_norm=None,
+                    sample_id=0,
+                )]
+        x_ = x.double()
     graph_list = list()
     dgm_list = list()
     for line in line_list:
+        if not specific_input:
+            x_ = line.x.double()
         graph = Graph.from_architecture_and_data_point(
-                architecture=architecture, x=line.x.double()
+                architecture=architecture, x=x_ #line.x.double()
             )
         graph_list.append(graph)
         dgm_list.append(compute_dgm_from_graph(graph))
@@ -385,21 +414,33 @@ def plot_graph_from_adj_mat(config, adj_mat, message_file="", message_title=""):
     
     G = nx.from_numpy_matrix(adj_mat, create_using=nx.Graph())
     pos = {}
-    for i in range(26):
-        if i < 9:
-            pos[i] = (0, i)
-        elif i < 9+8:
-            pos[i] = (2, 0.5+(i-9))
-        elif i < 9+8+4:
-            pos[i] = (4, 2.5+(i-9-8))
-        elif i < 9+8+4+3:
-            pos[i] = (6, 3+(i-9-8-4))
-        elif i < 9+8+4+3+2:
-            pos[i] = (8, 3.5+(i-9-8-4-3))
+    logger.info(f"name archi = {config.architecture}")
+    if config.architecture == "toy_viz":
+        for i in range(26):
+            if i < 9:
+                pos[i] = (0, i)
+            elif i < 9+8:
+                pos[i] = (2, 0.5+(i-9))
+            elif i < 9+8+4:
+                pos[i] = (4, 2.5+(i-9-8))
+            elif i < 9+8+4+3:
+                pos[i] = (6, 3+(i-9-8-4))
+            elif i < 9+8+4+3+2:
+                pos[i] = (8, 3.5+(i-9-8-4-3))
+    elif config.architecture in ["toy_viz2", "toy_viz3"]:
+        for i in range(18):
+            if i < 9:
+                pos[i] = (0, 9-i)
+            elif i < 9+4:
+                pos[i] = (2, 7.5-(i-9))
+            elif i < 9+4+3:
+                pos[i] = (4, 7-(i-9-4))
+            elif i < 9+4+3+2:
+                pos[i] = (6, 6.5-(i-9-4-3))
 
     edge_list = [(u, v) for (u, v, d) in G.edges(data=True) if d["weight"] != 0]
     edge_labels = nx.get_edge_attributes(G,'weight')
-    edge_labels = {x:np.round(y/(5*1e5),0) for x,y in edge_labels.items() if y!=0}
+    edge_labels = {x:np.round(y/(1*1e5),0) for x,y in edge_labels.items() if y!=0}
     
     plt.figure(figsize=(8,8))
     plt.title(f"{message_title}")
@@ -442,10 +483,16 @@ def plot_adj_mat(config, adj_mat, message_file=""):
     adj_mat = np.round(adj_mat/(1*1e5),2)
     fig, ax = plt.subplots()
     ax.imshow(adj_mat, cmap=plt.cm.Blues)
-    for i in range(26):
-        for j in range(26):
-            c = adj_mat[i,j]
-            ax.text(i, j, str(c), va='center', ha='center', fontsize=2)
+    if config.architecture == "toy_viz":
+        for i in range(26):
+            for j in range(26):
+                c = adj_mat[i,j]
+                ax.text(i, j, str(c), va='center', ha='center', fontsize=2)
+    elif config.architecture in ["toy_viz2", "toy_viz3"]:
+        for i in range(18):
+            for j in range(18):
+                c = adj_mat[i,j]
+                ax.text(i, j, str(c), va='center', ha='center', fontsize=2)
     plt.savefig(file_name, dpi=350)
     plt.close()
 
@@ -472,9 +519,9 @@ def plot_dgms(config, dgm_clean, dgm_adv, ns):
     for i, col_ in enumerate(legend):
         ax.scatter(list(map(itemgetter(0), list_dgms[i])), list(map(itemgetter(1), list_dgms[i])), s=10, alpha=0.5, label=col_)
     
-    ax.plot([-60,0],[-60,0], "-", color="black")
-    ax.set_xlim([-60,1])
-    ax.set_ylim([-60,1])
+    ax.plot([-6,0],[-6,0], "-", color="black")
+    ax.set_xlim([-6,0.5])
+    ax.set_ylim([-6,0.5])
     ax.legend()
     plt.savefig(file_name, dpi=350)
     plt.close()
@@ -497,10 +544,10 @@ def run_experiment(config: Config):
 
     lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
             test_clean, architecture,
-            target=False, clean=True, nb=500)
+            target=False, clean=True, nb=500, specific_input=False, myeps=myeps[0])
     lines_a, graphs_a, dgms_a = get_graphs_dgms(config,
             list(test_adv[list(test_adv.keys())[0]]), architecture,
-            target=False, clean=False, nb=500)
+            target=False, clean=False, nb=500, specific_input=False, myeps=myeps[0])
 
     if config.ns < 0:
         while status:
@@ -509,9 +556,10 @@ def run_experiment(config: Config):
             y_pred_clean = lines_c[ns].y_pred
             y_pred_adv = lines_a[ns].y_pred
             logger.info(f"ns = {ns} --> clean {y_clean} (pred {y_pred_clean}) and adv {y_pred_adv}")
-            if (y_clean == y_pred_clean) and (y_clean != y_pred_adv):
+            if (y_clean == y_pred_clean) and (y_clean != y_pred_adv) and (y_clean == 0):
                 status = False
 
+    logger.info(f"x clean = {lines_c[ns].x} and x adv = {lines_a[ns].x}")
     adj_mat_clean = graphs_c[ns].get_adjacency_matrix()
     adj_mat_adv = graphs_a[ns].get_adjacency_matrix()
     adj_mat_clean_ = adj_mat_clean.todense()
