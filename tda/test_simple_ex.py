@@ -1179,16 +1179,16 @@ def run_experiment3(config: Config):
     architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
 
     lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
-        test_clean, architecture, target=7, target_adv=6, clean=True, nb=100)
+        test_clean, architecture, target=7, target_adv=6, clean=True, nb=5)
     lines_a, graphs_a, dgms_a = get_graphs_dgms(config,
-        list(test_adv[list(test_adv.keys())[0]]), architecture, target=7, target_adv=6, clean=False, nb=100)
+        list(test_adv[list(test_adv.keys())[0]]), architecture, target=7, target_adv=6, clean=False, nb=5)
 
     plot_kde_dgms(config, lines_c, lines_a, dgms_c, dgms_a)
 
 if __name__ == "__main__":
     my_config = get_config()
     try:
-        run_experiment2(my_config)
+        run_experiment3(my_config)
     except Exception as e:
         my_trace = io.StringIO()
         traceback.print_exc(file=my_trace)
