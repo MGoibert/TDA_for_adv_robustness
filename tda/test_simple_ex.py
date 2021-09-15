@@ -454,7 +454,7 @@ def get_graphs_dgms(config, dataset, architecture, target=None, target_adv=None,
                 break
 
     graph_list = list()
-    dgm_list = None #list()
+    dgm_list = list()
     for line in line_list:
         graph = Graph.from_architecture_and_data_point(
                 architecture=architecture, x=line.x.double()
