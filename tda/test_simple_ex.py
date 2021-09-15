@@ -435,11 +435,10 @@ def plot_decision_boundary(config, model, our_data, color_variable):
     plt.savefig(file_name, dpi=150)
     plt.close()
 
-def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=True):
+def get_graphs_dgms(config, dataset, architecture, target=None, target_adv=None, nb=2000, clean=True):
     line_list = list()
     for elem in dataset:
-        line_list.append(elem)
-        if (target != None) and (target != False) and (elem.y == target) and (clean*(elem.y_pred == target) or (not clean)*(elem.y_pred != target)):
+        if (target != None) and (target != False) and (elem.y == target) and (clean*(elem.y_pred == target) or (not clean)*(elem.y_pred == target_adv)):
             line_list.append(elem)
             if len(line_list) >= nb:
                 break
@@ -461,7 +460,7 @@ def get_graphs_dgms(config, dataset, architecture, target=None, nb=2000, clean=T
                 architecture=architecture, x=line.x.double()
             )
         graph_list.append(graph)
-        #dgm_list.append(compute_dgm_from_graph(graph))
+        dgm_list.append(compute_dgm_from_graph(graph))
 
     return line_list, graph_list, dgm_list
 
@@ -586,6 +585,31 @@ def plot_dgms(config, lines_clean, lines_adv, dgms_clean, dgms_adv):
     plt.ylim(-30,0.1)
     plt.title("Comparision of dgms")
     plt.savefig(file_name, dpi=200)
+    plt.close()
+
+def plot_kde_dgms(config, lines_clean, lines_adv, dgms_clean, dgms_adv):
+    plt.style.use('seaborn')
+    file_name = (
+            config.result_path
+            + str(config.dataset)
+            + "_"
+            + str(config.architecture)
+            + str(config.epochs)
+            + "_kde_dgm"
+            + ".png"
+        )
+
+    birth_date = [dgm[0]/10**5 for dgm in dgms_clean]+[dgm[0]/10**5 for dgm in dgms_adv]
+    death_date = [dgm[1]/10**5 for dgm in dgms_clean]+[dgm[1]/10**5 for dgm in dgms_adv]
+    min_ = np.min(birth_date) - 1
+    status = ["Clean"]*len(dgms_clean)+["Adv"]*len(dgms_adv)
+    df = pd.DataFrame({"bd":birth_date, "dd":death_date, "Status":status})
+
+    sns.displot(df, x="bd", y="dd", hue="Status", kind="kde", thresh=0.2, levels=10, alpha=0.7)
+    plt.plot([min_,0],[min_,0],"-", color="black")
+    plt.xlim(min_,1)
+    plt.ylim(min_,1)
+    plt.savefig(file_name, dpi=350)
     plt.close()
 
 
@@ -1147,8 +1171,19 @@ def run_experiment2(config: Config):
         g_new_a = rescaling_weights(g_new_a, shape, min_, max_)
         plot_mnist_viz(config, g_new_a, status="Adversarial", y=lines_a[nb_sample].y, y_pred=lines_a[nb_sample].y_pred, shape=shape, eps=eps)
 
-    
 
+def run_experiment3(config: Config):   
+    myeps = [0.1]
+    nb_sample = 5
+
+    architecture, train_clean, test_clean, train_adv, test_adv = get_all_inputs(config, myeps)
+
+    lines_c, graphs_c, dgms_c = get_graphs_dgms(config,
+        test_clean, architecture, target=7, target_adv=6, clean=True, nb=100)
+    lines_a, graphs_a, dgms_a = get_graphs_dgms(config,
+        list(test_adv[list(test_adv.keys())[0]]), architecture, target=7, target_adv=6, clean=False, nb=100)
+
+    plot_kde_dgms(config, lines_c, lines_a, dgms_c, dgms_a)
 
 if __name__ == "__main__":
     my_config = get_config()
