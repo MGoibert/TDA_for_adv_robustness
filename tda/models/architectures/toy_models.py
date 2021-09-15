@@ -28,10 +28,22 @@ toy_viz = Architecture(
 
 toy_viz2 = Architecture(
     name="toy_viz2",
-    preprocess=viz_preprocess2,
+    preprocess=viz_preprocess,
     layers=[
-        LinearLayer(9, 25, activ=F.relu, name="fc1"),
-        LinearLayer(25, 3, name="fc2"),
+        ConvLayer(1, 1, 2, stride=1, padding=0, activ=F.relu, bias=True, name="conv1"),
+        LinearLayer(4, 3, activ=F.relu, name="fc1"),
+        LinearLayer(3, 2, name="fc2"),
+        SoftMaxLayer(),
+    ],
+)
+
+toy_viz3 = Architecture(
+    name="toy_viz3",
+    preprocess=viz_preprocess,
+    layers=[
+        ConvLayer(1, 1, 2, stride=1, padding=0, activ=F.relu, bias=False, name="conv1"),
+        LinearLayer(4, 3, activ=F.relu, name="fc1"),
+        LinearLayer(3, 2, name="fc2"),
         SoftMaxLayer(),
     ],
 )

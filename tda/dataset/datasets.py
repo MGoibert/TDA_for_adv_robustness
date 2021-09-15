@@ -65,20 +65,20 @@ class dsetsCircleToy(torch.utils.data.Dataset):
 class dsetsViz(torch.utils.data.Dataset):
     def __init__(self, n_samples=5000):
         r = np.random.permutation(2*n_samples)
-        std_dev = 0.05
+        std_dev = 0.05 # 0.05
 
         # Class 0
-        xtop = np.clip(np.random.normal(0.6, std_dev, n_samples), 0, 1)
-        xupper = np.clip(np.random.normal(0.55, std_dev, 2*n_samples), 0, 1)
-        xmiddle = np.clip(np.random.normal(0.4, std_dev, 3*n_samples), 0, 1)
-        xlower = np.clip(np.random.normal(0.35, std_dev, 2*n_samples), 0, 1)
+        xtop = np.clip(np.random.normal(0.3, std_dev, n_samples), 0, 1)
+        xupper = np.clip(np.random.normal(0.6, std_dev, 2*n_samples), 0, 1)
+        xmiddle = np.clip(np.random.normal(0.6, std_dev, 3*n_samples), 0, 1)
+        xlower = np.clip(np.random.normal(0.6, std_dev, 2*n_samples), 0, 1)
         xbottom = np.clip(np.random.normal(0.3, std_dev, n_samples), 0, 1)
         x0 = [ np.reshape(np.asarray([xtop[i], xupper[i], xmiddle[i], xupper[i+n_samples], xmiddle[i+n_samples], xlower[i], xmiddle[i+2*n_samples], xlower[i+n_samples], xbottom[i]]), (3,3)) for i in range(n_samples)]
         
         # Class 1
-        xtop = np.clip(np.random.normal(0.3, std_dev, n_samples), 0, 1)
+        xtop = np.clip(np.random.normal(0.6, std_dev, n_samples), 0, 1)
         xupper = np.clip(np.random.normal(0.6, std_dev, 2*n_samples), 0, 1)
-        xmiddle = np.clip(np.random.normal(0.6, std_dev, 3*n_samples), 0, 1)
+        xmiddle = np.clip(np.random.normal(0.3, std_dev, 3*n_samples), 0, 1)
         xlower = np.clip(np.random.normal(0.6, std_dev, 2*n_samples), 0, 1)
         xbottom = np.clip(np.random.normal(0.6, std_dev, n_samples), 0, 1)
         x1 = [ np.reshape(np.asarray([xtop[i], xupper[i], xmiddle[i], xupper[i+n_samples], xmiddle[i+n_samples], xlower[i], xmiddle[i+2*n_samples], xlower[i+n_samples], xbottom[i]]), (3,3)) for i in range(n_samples)]

@@ -30,7 +30,7 @@ from .svhn_models import (
 )
 from .svhn_resnet_model_1 import svhn_resnet_1
 
-from .toy_models import toy_mlp, toy_mlp2, toy_mlp3, toy_mlp4, toy_viz, toy_viz2
+from .toy_models import toy_mlp, toy_mlp2, toy_mlp3, toy_mlp4, toy_viz, toy_viz2, toy_viz3
 
 known_architectures: List[Architecture] = [
     mnist_mlp,
@@ -56,6 +56,7 @@ known_architectures: List[Architecture] = [
     toy_mlp4,
     toy_viz,
     toy_viz2,
+    toy_viz3,
     efficientnet
 ]
 
