@@ -9,6 +9,7 @@ import mlflow
 from torch import nn, optim, no_grad
 from torch.optim.lr_scheduler import _LRScheduler
 from typing import List, Optional
+from tda.dataset.adversarial_generation import AttackType, AttackBackend, adversarial_generation
 
 from tda.devices import device
 from tda.models.architectures import (
@@ -132,6 +133,7 @@ def go_training(
     prune_percentile=0,
     first_pruned_iter=10,
     mask_=None,
+    adv_train=0,
 ):
 
     x = x.type(default_tensor_type)
@@ -163,6 +165,32 @@ def go_training(
             loss.backward()
             optimizer.step()
 
+    if adv_train > 0:
+        logger.info(f"Adversarial Training...")
+        epoch_adv = 0
+        eps_adv = 0.2
+        theta_adv = 0.1
+        if epoch >= epoch_adv:  # Warm start
+            x_adv = adversarial_generation(
+            model=model,
+            x=x,
+            y=y,
+            epsilon=eps_adv,
+            attack_type=AttackType.PGD,
+            num_iter=10,
+            attack_backend=AttackBackend.FOOLBOX,
+        )
+            y_pred = model(x)
+            y_pred_adv = model(x_adv)
+            loss = (1-theta_adv) * loss_func(y_pred, y) + theta_adv * loss_func(y_pred_adv, y)
+            loss.backward()
+            optimizer.step()
+        else:
+            y_pred = model(x)
+            loss = loss_func(y_pred, y)
+            loss.backward()
+            optimizer.step()
+
     # Training with prune percentile
     if prune_percentile > 0 and mask_ != None:
         for i, (name, param) in enumerate(model.named_parameters()):
@@ -183,6 +211,7 @@ def train_network(
     prune_percentile: float = 0.0,
     tot_prune_percentile: float = 0.0,
     first_pruned_iter: int = 10,
+    adv_train: int = 0,
 ) -> Architecture:
     """
     Helper function to train an arbitrary model
@@ -465,6 +494,9 @@ def get_deep_model(
 
     loss_func = nn.CrossEntropyLoss().type(default_tensor_type)
 
+    #### New param for adversarial training
+    adv_train = 1
+
     if dataset.name == "CIFAR100":
         architecture.set_train_mode()
         optimizer = optim.SGD(architecture.parameters(), lr=0.001)
@@ -559,6 +591,7 @@ def get_deep_model(
             prune_percentile,
             tot_prune_percentile,
             first_pruned_iter,
+            adv_train,
         )
 
         # Compute accuracies
