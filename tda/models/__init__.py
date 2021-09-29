@@ -237,8 +237,8 @@ def train_network(
         init_weight_dict = None
 
     if model.name in [mnist_lenet.name, fashion_mnist_lenet.name, toy_viz.name, toy_viz2.name, toy_viz3.name]:
-        lr = 0.0001 #0.001
-        patience = 60 #20
+        lr = 0.001 #0.001
+        patience = 30 #20
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5
