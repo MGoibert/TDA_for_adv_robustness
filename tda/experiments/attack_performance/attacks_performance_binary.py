@@ -23,7 +23,8 @@ start_time = time.time()
 
 logger = get_logger("GraphStats")
 
-mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+from tda.mlflow_config import tracking_uri
+mlflow.set_tracking_uri(tracking_uri)
 mlflow.set_experiment("tda_adv_detection")
 
 class Config(typing.NamedTuple):

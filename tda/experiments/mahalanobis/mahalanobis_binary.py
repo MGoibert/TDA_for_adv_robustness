@@ -8,10 +8,13 @@ import traceback
 import io
 import gc
 import re
+import mlflow
 from typing import Dict, List, NamedTuple, Set, Optional
 
 import numpy as np
 import torch
+
+from tda.mlflow_config import tracking_uri
 
 from tda.devices import device
 from tda.embeddings import KernelType
@@ -28,6 +31,9 @@ from tda.covariance import (
     NaiveSVDCovarianceStreamComputer,
     GraphicalLassoComputer,
 )
+
+mlflow.set_tracking_uri(tracking_uri)
+mlflow.set_experiment("aistats_maha")
 
 logger = get_logger("Mahalanobis")
 
@@ -121,6 +127,9 @@ def get_config() -> Config:
         args.selected_layers = set([int(s) for s in args.selected_layers.split(";")])
     else:
         args.selected_layers = None
+
+    for key in args.__dict__:
+        mlflow.log_param(key, args.__dict__[key])
 
     return Config(**args.__dict__)
 
@@ -521,15 +530,19 @@ def run_experiment(config: Config):
 
     logger.info(metrics)
 
+    for key in metrics:
+        mlflow.log_metric(key, str(metrics[key]))
+
     return metrics
 
 
 if __name__ == "__main__":
-    my_config = get_config()
-    try:
-        run_experiment(my_config)
-    except Exception as e:
-        my_trace = io.StringIO()
-        traceback.print_exc(file=my_trace)
+    with mlflow.start_run(run_name="Mahalanobis"):
+        my_config = get_config()
+        try:
+            run_experiment(my_config)
+        except Exception as e:
+            my_trace = io.StringIO()
+            traceback.print_exc(file=my_trace)
 
-        logger.error(my_trace.getvalue())
+            logger.error(my_trace.getvalue())

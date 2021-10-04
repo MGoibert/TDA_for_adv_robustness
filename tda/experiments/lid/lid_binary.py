@@ -23,7 +23,8 @@ from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 from tda.tda_logging import get_logger
 
-mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+from tda.mlflow_config import tracking_uri
+mlflow.set_tracking_uri(tracking_uri)
 mlflow.set_experiment("tda_adv_detection")
 
 logger = get_logger("LID")
