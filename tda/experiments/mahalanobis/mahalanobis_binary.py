@@ -531,7 +531,10 @@ def run_experiment(config: Config):
     logger.info(metrics)
 
     for key in metrics:
-        mlflow.log_metric(key, str(metrics[key]))
+        try:
+            mlflow.log_metric(key, float(metrics[key]))
+        except:
+            pass
 
     return metrics
 
