@@ -536,6 +536,15 @@ def run_experiment(config: Config):
         except:
             pass
 
+    for method in ["unsupervised", "supervised"]:
+        res = evaluation_results[f"{method}_metrics"]
+        for eps in res:
+            res_eps = res[eps]
+            for metric in res_eps:
+                res_eps_met = res_eps[metric]
+                for typ in res_eps_met:
+                    mlflow.log_metric(f"{method}_{eps}_{metric}_{typ}", res_eps_met[typ])
+
     return metrics
 
 
