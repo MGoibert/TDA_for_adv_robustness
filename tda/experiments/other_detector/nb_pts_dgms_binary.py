@@ -356,15 +356,18 @@ def run_experiment(config: Config):
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id} !!")
 
     (
-        embedding_train,
-        embedding_test,
-        adv_embeddings_train,
-        adv_embeddings_test,
+        embedding_train_,
+        embedding_test_,
+        adv_embeddings_train_,
+        adv_embeddings_test_,
         thresholds,
         stats,
         stats_inf,
         detailed_times,
     ) = get_all_embeddings(config)
+
+    embedding_train = get_nb_pts_dgms(embedding_train_)
+
 
     if config.kernel_type == KernelType.RBF:
         param_space = [{"gamma": gamma} for gamma in np.logspace(-6, -3, 10)]
@@ -426,7 +429,7 @@ def run_experiment(config: Config):
 
 
 if __name__ == "__main__":
-    with mlflow.start_run(run_name="Our binary", nested=True):
+    with mlflow.start_run(run_name="Nb pts dgms exp", nested=True):
         my_config = get_config()
         try:
             run_experiment(my_config)
