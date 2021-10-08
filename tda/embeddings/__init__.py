@@ -1,5 +1,6 @@
 import time
 from typing import List, Optional, Dict, NamedTuple
+import networkx as nx
 
 import fwg
 import numpy as np
@@ -26,6 +27,7 @@ class Embedding(NamedTuple):
 class EmbeddingType(object):
     PersistentDiagram = "PersistentDiagram"
     RawGraph = "RawGraph"
+    GlobalReachingCentrality = "GlobalReachingCentrality"
 
 
 class KernelType(object):
@@ -76,6 +78,15 @@ def get_embedding(
         del graph
         time_taken[f"E_{embedding_type}"] = time.time() - start
         return Embedding(value=mat, time_taken=time_taken)
+    elif embedding_type == EmbeddingType.GlobalReachingCentrality:
+        start = time.time()
+        mat = graph.get_adjacency_matrix()
+        del graph
+        G = nx.from_numpy_matrix(m.todense())
+        val = nx.global_reaching_centrality(G, weight='weight', normalized=True)
+        del G
+        time_taken[f"E_{embedding_type}"] = time.time() - start
+        return Embedding(value=val, time_taken=time_taken)
     else:
         raise NotImplementedError(embedding_type)
 

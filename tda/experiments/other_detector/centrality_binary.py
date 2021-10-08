@@ -101,7 +101,7 @@ def get_config() -> Config:
     parser.add_argument("--experiment_id", type=int, default=-1)
     parser.add_argument("--run_id", type=int, default=-1)
     parser.add_argument(
-        "--embedding_type", type=str, default=EmbeddingType.PersistentDiagram
+        "--embedding_type", type=str, default=EmbeddingType.GlobalReachingCentrality
     )
     parser.add_argument("--thresholds", type=str, default="0")
     parser.add_argument(
@@ -342,31 +342,6 @@ def get_all_embeddings(config: Config):
         detailed_times,
     )
 
-def get_nb_pts_dgms(embedding, type_pts="all"):
-    if isinstance(embedding, list):
-        nb_pts = list()
-        for elem in embedding:
-            if type_pts == "all":
-                val = len(elem)
-            elif type_pts == "infinite":
-                elem_ = [(e[0], e[1]) for e in elem if e[1]==np.inf]
-                val = len(elem_)
-            nb_pts.append(val)
-
-    if isinstance(embedding, dict):
-        nb_pts = dict()
-        for key in embedding.keys():
-            nb_pts[key] = list()
-            for elem in embedding[key]:
-                if type_pts == "all":
-                    val = len(elem)
-                elif type_pts == "infinite":
-                    elem_ = [(e[0], e[1]) for e in elem if e[1]==np.inf]
-                    val = len(elem_)
-                nb_pts[key].append(val)
-
-    return nb_pts
-
 
 def run_experiment(config: Config):
     """
@@ -376,20 +351,16 @@ def run_experiment(config: Config):
     logger.info(f"Starting experiment {config.experiment_id}_{config.run_id} !!")
 
     (
-        embedding_train_,
-        embedding_test_,
-        adv_embeddings_train_,
-        adv_embeddings_test_,
+        embedding_train,
+        embedding_test,
+        adv_embeddings_train,
+        adv_embeddings_test,
         thresholds,
         stats,
         stats_inf,
         detailed_times,
     ) = get_all_embeddings(config)
 
-    embedding_train = get_nb_pts_dgms(embedding_train_, type_pts=config.type_nb_pts)
-    embedding_test = get_nb_pts_dgms(embedding_test_, type_pts=config.type_nb_pts)
-    adv_embeddings_train = get_nb_pts_dgms(adv_embeddings_train_, type_pts=config.type_nb_pts)
-    adv_embeddings_test = get_nb_pts_dgms(adv_embeddings_test_, type_pts=config.type_nb_pts)
     logger.info(f"embedding_train = {embedding_train}, test = {embedding_test}, adv train = {adv_embeddings_train} and test = {adv_embeddings_test}")
 
 
