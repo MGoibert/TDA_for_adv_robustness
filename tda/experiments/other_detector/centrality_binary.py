@@ -424,7 +424,7 @@ def run_experiment(config: Config):
 
 
 if __name__ == "__main__":
-    with mlflow.start_run(run_name="Nb pts dgms exp", nested=True):
+    with mlflow.start_run(run_name="Centrality exp", nested=True):
         my_config = get_config()
         try:
             run_experiment(my_config)
