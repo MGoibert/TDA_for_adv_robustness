@@ -134,12 +134,8 @@ def get_config() -> Config:
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
 
-    if args.embedding_type == EmbeddingType.PersistentDiagram:
-        args.kernel_type = KernelType.SlicedWasserstein
-        args.sigmoidize = False
-    elif args.embedding_type == EmbeddingType.RawGraph:
-        args.kernel_type = KernelType.RBF
-        args.sigmoidize = True
+    args.kernel_type = KernelType.RBF
+    args.sigmoidize = False
 
     logger.info(args.__dict__)
 
@@ -390,10 +386,10 @@ def run_experiment(config: Config):
         detailed_times,
     ) = get_all_embeddings(config)
 
-    embedding_train = get_nb_pts_dgms(embedding_train_)
-    embedding_test = get_nb_pts_dgms(embedding_test_)
-    adv_embeddings_train = get_nb_pts_dgms(adv_embeddings_train_)
-    adv_embeddings_test = get_nb_pts_dgms(adv_embeddings_test_)
+    embedding_train = get_nb_pts_dgms(embedding_train_, type_pts=config.type_nb_pts)
+    embedding_test = get_nb_pts_dgms(embedding_test_, type_pts=config.type_nb_pts)
+    adv_embeddings_train = get_nb_pts_dgms(adv_embeddings_train_, type_pts=config.type_nb_pts)
+    adv_embeddings_test = get_nb_pts_dgms(adv_embeddings_test_, type_pts=config.type_nb_pts)
     logger.info(f"embedding_train = {embedding_train}, test = {embedding_test}, adv train = {adv_embeddings_train} and test = {adv_embeddings_test}")
 
 
@@ -417,7 +413,7 @@ def run_experiment(config: Config):
         all_adv_embeddings_train=adv_embeddings_train,
         all_adv_embeddings_test=adv_embeddings_test,
         param_space=param_space,
-        kernel_type=KernelType.RBF,
+        kernel_type=config.kernel_type,
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
 
