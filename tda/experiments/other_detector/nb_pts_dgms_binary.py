@@ -81,6 +81,9 @@ class Config(NamedTuple):
     # Number of processes to spawn
     n_jobs: int = 1
 
+    # Type pts dgms --> all or infinite
+    type_nb_pts: str = 1
+
     all_epsilons: List[float] = None
 
 
@@ -124,6 +127,7 @@ def get_config() -> Config:
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
+    parser.add_argument("--type_nb_pts", type=str, default="all")
 
     args, _ = parser.parse_known_args()
 
@@ -342,10 +346,30 @@ def get_all_embeddings(config: Config):
         detailed_times,
     )
 
-def get_nb_pts_dgms(embedding):
-    nb_pts = list()
-    for elem in embedding:
-        logger.info(f"elem is {elem}")
+def get_nb_pts_dgms(embedding, type_pts="all"):
+    if isinstance(embedding, list):
+        nb_pts = list()
+        for elem in embedding:
+            if type_pts == "all":
+                val = len(elem)
+            elif type_pts == "infinite":
+                elem_ = [(e[0], e[1]) for e in elem if e[1]==np.inf]
+                val = len(elem_)
+            nb_pts.append(val)
+
+    if isinstance(embedding, dict):
+        nb_pts = dict()
+        for key in embedding.keys():
+            nb_pts[key] = list()
+            for elem in embedding[key]:
+                if type_pts == "all":
+                    val = len(elem)
+                elif type_pts == "infinite":
+                    elem_ = [(e[0], e[1]) for e in elem if e[1]==np.inf]
+                    val = len(elem_)
+                nb_pts[key].append(val)
+
+    return nb_pts
 
 
 def run_experiment(config: Config):
@@ -367,6 +391,7 @@ def run_experiment(config: Config):
     ) = get_all_embeddings(config)
 
     embedding_train = get_nb_pts_dgms(embedding_train_)
+    logger.info(f"embedding_train = {embedding_train}")
 
 
     if config.kernel_type == KernelType.RBF:
