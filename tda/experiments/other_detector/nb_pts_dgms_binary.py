@@ -391,7 +391,10 @@ def run_experiment(config: Config):
     ) = get_all_embeddings(config)
 
     embedding_train = get_nb_pts_dgms(embedding_train_)
-    logger.info(f"embedding_train = {embedding_train}")
+    embedding_test = get_nb_pts_dgms(embedding_test_)
+    adv_embeddings_train = get_nb_pts_dgms(adv_embeddings_train_)
+    adv_embeddings_test = get_nb_pts_dgms(adv_embeddings_test_)
+    logger.info(f"embedding_train = {embedding_train}, test = {embedding_test}, adv train = {adv_embeddings_train} and test = {adv_embeddings_test}")
 
 
     if config.kernel_type == KernelType.RBF:
@@ -414,7 +417,7 @@ def run_experiment(config: Config):
         all_adv_embeddings_train=adv_embeddings_train,
         all_adv_embeddings_test=adv_embeddings_test,
         param_space=param_space,
-        kernel_type=config.kernel_type,
+        kernel_type=KernelType.RBF,
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
 
