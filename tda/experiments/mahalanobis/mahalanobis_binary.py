@@ -29,6 +29,7 @@ from tda.covariance import (
     NaiveCovarianceStreamComputer,
     LedoitWolfComputer,
     NaiveSVDCovarianceStreamComputer,
+    EmpiricalSklearnComputer,
     GraphicalLassoComputer,
 )
 
@@ -139,6 +140,7 @@ class CovarianceMethod(object):
     NAIVE_SVD = "NAIVE_SVD"
     LEDOIT_WOLF = "LEDOIT_WOLF"
     GRAPHICAL_LASSO = "GRAPHICAL_LASSO"
+    EMPIRICAL_COVARIANCE = "EMPIRICAL_COVARIANCE"
 
 
 def get_covariance_estimator(layer_idx: int, config: Config):
@@ -149,6 +151,8 @@ def get_covariance_estimator(layer_idx: int, config: Config):
         )
     elif config.covariance_method == CovarianceMethod.LEDOIT_WOLF:
         return LedoitWolfComputer()
+    elif config.covariance_method == CovarianceMethod.EMPIRICAL_COVARIANCE:
+        return EmpiricalSklearnComputer()
     elif config.covariance_method == CovarianceMethod.NAIVE_SVD:
         return NaiveSVDCovarianceStreamComputer()
     elif config.covariance_method == CovarianceMethod.GRAPHICAL_LASSO:

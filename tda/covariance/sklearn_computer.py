@@ -32,8 +32,8 @@ class SklearnComputer(CovarianceStreamComputer):
 
     def precision_root(self) -> np.ndarray:
         self.fit()
-        U, S, V = np.linalg.svd(self.estimator.covariance_, full_matrices=False, hermitian=True)
-        return np.diag(v_pinv_sqrt(S)) @ V
+        U, S, V = np.linalg.svd(self.estimator.precision_, full_matrices=False, hermitian=True)
+        return np.diag(S) @ V
 
 
 class LedoitWolfComputer(SklearnComputer):
