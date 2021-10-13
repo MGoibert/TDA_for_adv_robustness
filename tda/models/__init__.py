@@ -42,7 +42,8 @@ torch.set_default_tensor_type(default_tensor_type)
 
 logger = get_logger("Models")
 
-mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+from tda.mlflow_config import tracking_uri
+mlflow.set_tracking_uri(tracking_uri)
 mlflow.set_experiment("tda_adv_detection")
 
 pathlib.Path("/tmp/tda/trained_models").mkdir(parents=True, exist_ok=True)

@@ -3,7 +3,8 @@ import sys
 import numpy as np
 import mlflow
 
-mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+from tda.mlflow_config import tracking_uri
+mlflow.set_tracking_uri(tracking_uri)
 mlflow.set_experiment("tda_adv_detection")
 
 def get_threshold(list_edges, myt=0.01):

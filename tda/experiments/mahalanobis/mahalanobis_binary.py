@@ -8,16 +8,19 @@ import traceback
 import io
 import gc
 import re
+import mlflow
 from typing import Dict, List, NamedTuple, Set, Optional
 
 import numpy as np
 import torch
 
+from tda.mlflow_config import tracking_uri
+
 from tda.devices import device
 from tda.embeddings import KernelType
 from tda.dataset.graph_dataset import DatasetLine
 from tda.tda_logging import get_logger
-from tda.models import mnist_mlp, Dataset, get_deep_model
+from tda.models import mnist_lenet, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 
@@ -26,8 +29,12 @@ from tda.covariance import (
     NaiveCovarianceStreamComputer,
     LedoitWolfComputer,
     NaiveSVDCovarianceStreamComputer,
+    EmpiricalSklearnComputer,
     GraphicalLassoComputer,
 )
+
+mlflow.set_tracking_uri(tracking_uri)
+mlflow.set_experiment("aistats_maha")
 
 logger = get_logger("Mahalanobis")
 
@@ -93,15 +100,15 @@ def get_config() -> Config:
     parser.add_argument("--experiment_id", type=int)
     parser.add_argument("--run_id", type=int)
 
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--dataset", type=str, default="MNIST")
-    parser.add_argument("--architecture", type=str, default=mnist_mlp.name)
-    parser.add_argument("--dataset_size", type=int, default=500)
+    parser.add_argument("--architecture", type=str, default=mnist_lenet.name)
+    parser.add_argument("--dataset_size", type=int, default=100)
     parser.add_argument("--number_of_samples_for_mu_sigma", type=int, default=100)
     parser.add_argument("--attack_type", type=str, default="FGSM")
-    parser.add_argument("--preproc_epsilon", type=float, default=0.0)
+    parser.add_argument("--preproc_epsilon", type=float, default=0.1)
     parser.add_argument("--noise", type=float, default=0.0)
-    parser.add_argument("--successful_adv", type=int, default=0)
+    parser.add_argument("--successful_adv", type=int, default=1)
     parser.add_argument("--transfered_attacks", type=str2bool, default=False)
     parser.add_argument("--all_epsilons", type=str)
     parser.add_argument("--first_pruned_iter", type=int, default=10)
@@ -122,6 +129,9 @@ def get_config() -> Config:
     else:
         args.selected_layers = None
 
+    for key in args.__dict__:
+        mlflow.log_param(key, args.__dict__[key])
+
     return Config(**args.__dict__)
 
 
@@ -130,6 +140,7 @@ class CovarianceMethod(object):
     NAIVE_SVD = "NAIVE_SVD"
     LEDOIT_WOLF = "LEDOIT_WOLF"
     GRAPHICAL_LASSO = "GRAPHICAL_LASSO"
+    EMPIRICAL_COVARIANCE = "EMPIRICAL_COVARIANCE"
 
 
 def get_covariance_estimator(layer_idx: int, config: Config):
@@ -140,6 +151,8 @@ def get_covariance_estimator(layer_idx: int, config: Config):
         )
     elif config.covariance_method == CovarianceMethod.LEDOIT_WOLF:
         return LedoitWolfComputer()
+    elif config.covariance_method == CovarianceMethod.EMPIRICAL_COVARIANCE:
+        return EmpiricalSklearnComputer()
     elif config.covariance_method == CovarianceMethod.NAIVE_SVD:
         return NaiveSVDCovarianceStreamComputer()
     elif config.covariance_method == CovarianceMethod.GRAPHICAL_LASSO:
@@ -204,18 +217,18 @@ def compute_means_and_sigmas_inv(
             )
         nb_sample_for_classes += 1
 
-    mean_per_class: Dict[LayerIndex, Dict[ClassIndex, np.ndarray]] = dict()
-    precision_root_per_layer: Dict[LayerIndex, np.ndarray] = dict()
+    mean_per_class: Dict[LayerIndex, Dict[ClassIndex, torch.Tensor]] = dict()
+    precision_root_per_layer: Dict[LayerIndex, torch.Tensor] = dict()
 
     layer_indices = list(stream_computers.keys())
 
     for layer_idx in layer_indices:
-        precision_root_per_layer[layer_idx] = stream_computers[
+        precision_root_per_layer[layer_idx] = torch.from_numpy(stream_computers[
             layer_idx
-        ].precision_root()
+        ].precision_root())
 
         mean_per_class[layer_idx] = {
-            clazz: stream_computers[layer_idx].mean_per_class(clazz)
+            clazz: torch.from_numpy(stream_computers[layer_idx].mean_per_class(clazz))
             for clazz in all_classes
         }
 
@@ -244,7 +257,6 @@ def compute_means_and_sigmas_inv(
             .reshape(1, -1)
             .cpu()
             .detach()
-            .numpy()
         )
 
         best_score = np.inf
@@ -256,9 +268,9 @@ def compute_means_and_sigmas_inv(
 
             score_clazz = (
                 (m_features - mu_clazz)
-                @ np.transpose(precision_root)
+                @ precision_root.T
                 @ precision_root
-                @ np.transpose(m_features - mu_clazz)
+                @ (m_features - mu_clazz).T
             )
 
             if score_clazz < best_score:
@@ -309,7 +321,8 @@ def get_feature_datasets(
         for i, dataset_line in enumerate(input_dataset):
             logger.debug(f"Processing {i}/{len(input_dataset)}")
 
-            x = dataset_line.x
+            x = dataset_line.x.detach()
+            x.requires_grad = True
 
             m_features = architecture.forward(
                 x=x, store_for_graph=False, output="all_inner"
@@ -326,17 +339,17 @@ def get_feature_datasets(
                 for clazz in all_classes:
                     mu_clazz = mean_per_class[layer_idx][clazz]
                     gap = (
-                        m_features[layer_idx].reshape(1, -1).cpu().detach().numpy()
+                        m_features[layer_idx].reshape(1, -1).cpu()
                         - mu_clazz
                     )
                     score_clazz = (
                         gap
-                        @ np.transpose(precision_root)
+                        @ precision_root.T
                         @ precision_root
-                        @ np.transpose(gap)
+                        @ gap.T
                     )
 
-                    if score_clazz < best_score:
+                    if score_clazz[0, 0] < best_score:
                         best_score = score_clazz[0, 0]
                         mu_l = mu_clazz
 
@@ -352,40 +365,9 @@ def get_feature_datasets(
                 # OPT: Add perturbation on x to reduce its score
                 # (mainly useful for out-of-distribution ?)
                 if config.preproc_epsilon > 0:
-                    # Let's forget about the past (attack, clamping)
-                    # and make x a leaf with require grad
-                    x = x.detach()
-                    x.requires_grad = True
-
-                    precision_root_tensor = torch.from_numpy(precision_root).to(device)
-                    mu_tensor = torch.from_numpy(mu_l).to(device)
-
-                    # Adding perturbation on x
-                    f = architecture.forward(
-                        x=x, store_for_graph=False, output="all_inner"
-                    )[layer_idx].reshape(1, -1)
-
-                    live_score = ((f - mu_tensor) @ precision_root_tensor.T) @ (
-                        precision_root_tensor @ (f - mu_tensor).T
-                    )
-
-                    if not np.isclose(
-                        live_score.cpu().detach().numpy(), best_score, atol=1e-3
-                    ):
-                        debug_messages = list()
-
-                        distance = np.linalg.norm(
-                            live_score.cpu().detach().numpy() - best_score, 2
-                        )
-
-                        logger.warn(
-                            f"Live score {live_score.cpu().detach().numpy()}"
-                            f" and best_score {best_score} are different (dist={distance})\n\n"
-                            + "\n".join(debug_messages)
-                        )
 
                     architecture.zero_grad()
-                    live_score.backward()
+                    best_score.backward(retain_graph=True)
                     assert x.grad is not None
                     xhat = x - config.preproc_epsilon * x.grad.data.sign()
                     xhat = torch.clamp(xhat, -0.5, 0.5)
@@ -394,30 +376,27 @@ def get_feature_datasets(
                     fhat = architecture.forward(
                         x=xhat, store_for_graph=False, output="all_inner"
                     )[layer_idx].reshape(1, -1)
-                    new_score = ((fhat - mu_tensor) @ precision_root_tensor.T) @ (
-                        precision_root_tensor @ (fhat - mu_tensor).T
+                    new_score = ((fhat - mu_l) @ precision_root.T) @ (
+                        precision_root @ (fhat - mu_l).T
                     )
 
                     logger.debug(
-                        f"Added perturbation to x {live_score.cpu().detach().numpy()[0, 0]} "
-                        f"-> {new_score.cpu().detach().numpy()[0, 0]}"
+                        f"Added perturbation to x {best_score} "
+                        f"-> {new_score[0, 0]}"
                     )
 
                     # Now we have to do a second pass of optimization
                     best_score = np.inf
-                    fhat = fhat.cpu().detach().numpy()
 
                     for clazz in all_classes:
                         mu_clazz = mean_per_class[layer_idx][clazz]
                         gap = fhat - mu_clazz
-                        score_clazz = (gap @ np.transpose(precision_root)) @ (
-                            precision_root @ np.transpose(gap)
-                        )
+                        score_clazz = (gap @ precision_root.T) @ (precision_root @ gap.T)
 
                         if score_clazz < best_score:
                             best_score = score_clazz[0, 0]
 
-                scores.append(best_score)
+                scores.append(best_score.detach().cpu().numpy())
 
             ret.append(scores)
             i += 1
@@ -505,7 +484,7 @@ def run_experiment(config: Config):
         embeddings_test=list(embeddings_test),
         all_adv_embeddings_train=adv_embedding_train,
         all_adv_embeddings_test=adv_embedding_test,
-        param_space=[{"gamma": gamma} for gamma in np.logspace(-6, 3, 50)],
+        param_space=[{"gamma": gamma} for gamma in np.logspace(-9, -3, 20)],
         kernel_type=KernelType.RBF,
         stats_for_l2_norm_buckets=stats_for_l2_norm_buckets,
     )
@@ -521,15 +500,31 @@ def run_experiment(config: Config):
 
     logger.info(metrics)
 
+    for key in metrics:
+        try:
+            mlflow.log_metric(key, float(metrics[key]))
+        except:
+            pass
+
+    for method in ["unsupervised", "supervised"]:
+        res = evaluation_results[f"{method}_metrics"]
+        for eps in res:
+            res_eps = res[eps]
+            for metric in res_eps:
+                res_eps_met = res_eps[metric]
+                for typ in res_eps_met:
+                    mlflow.log_metric(f"{method}_{eps}_{metric}_{typ}", res_eps_met[typ])
+
     return metrics
 
 
 if __name__ == "__main__":
-    my_config = get_config()
-    try:
-        run_experiment(my_config)
-    except Exception as e:
-        my_trace = io.StringIO()
-        traceback.print_exc(file=my_trace)
+    with mlflow.start_run(run_name="Mahalanobis"):
+        my_config = get_config()
+        try:
+            run_experiment(my_config)
+        except Exception as e:
+            my_trace = io.StringIO()
+            traceback.print_exc(file=my_trace)
 
-        logger.error(my_trace.getvalue())
+            logger.error(my_trace.getvalue())
