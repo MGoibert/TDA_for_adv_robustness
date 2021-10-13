@@ -20,7 +20,7 @@ from tda.devices import device
 from tda.embeddings import KernelType
 from tda.dataset.graph_dataset import DatasetLine
 from tda.tda_logging import get_logger
-from tda.models import mnist_mlp, Dataset, get_deep_model
+from tda.models import mnist_lenet, Dataset, get_deep_model
 from tda.models.architectures import get_architecture, Architecture
 from tda.protocol import get_protocolar_datasets, evaluate_embeddings
 
@@ -100,15 +100,15 @@ def get_config() -> Config:
     parser.add_argument("--experiment_id", type=int)
     parser.add_argument("--run_id", type=int)
 
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--dataset", type=str, default="MNIST")
-    parser.add_argument("--architecture", type=str, default=mnist_mlp.name)
-    parser.add_argument("--dataset_size", type=int, default=500)
+    parser.add_argument("--architecture", type=str, default=mnist_lenet.name)
+    parser.add_argument("--dataset_size", type=int, default=100)
     parser.add_argument("--number_of_samples_for_mu_sigma", type=int, default=100)
     parser.add_argument("--attack_type", type=str, default="FGSM")
-    parser.add_argument("--preproc_epsilon", type=float, default=0.0)
+    parser.add_argument("--preproc_epsilon", type=float, default=0.1)
     parser.add_argument("--noise", type=float, default=0.0)
-    parser.add_argument("--successful_adv", type=int, default=0)
+    parser.add_argument("--successful_adv", type=int, default=1)
     parser.add_argument("--transfered_attacks", type=str2bool, default=False)
     parser.add_argument("--all_epsilons", type=str)
     parser.add_argument("--first_pruned_iter", type=int, default=10)
@@ -217,18 +217,18 @@ def compute_means_and_sigmas_inv(
             )
         nb_sample_for_classes += 1
 
-    mean_per_class: Dict[LayerIndex, Dict[ClassIndex, np.ndarray]] = dict()
-    precision_root_per_layer: Dict[LayerIndex, np.ndarray] = dict()
+    mean_per_class: Dict[LayerIndex, Dict[ClassIndex, torch.Tensor]] = dict()
+    precision_root_per_layer: Dict[LayerIndex, torch.Tensor] = dict()
 
     layer_indices = list(stream_computers.keys())
 
     for layer_idx in layer_indices:
-        precision_root_per_layer[layer_idx] = stream_computers[
+        precision_root_per_layer[layer_idx] = torch.from_numpy(stream_computers[
             layer_idx
-        ].precision_root()
+        ].precision_root())
 
         mean_per_class[layer_idx] = {
-            clazz: stream_computers[layer_idx].mean_per_class(clazz)
+            clazz: torch.from_numpy(stream_computers[layer_idx].mean_per_class(clazz))
             for clazz in all_classes
         }
 
@@ -257,7 +257,6 @@ def compute_means_and_sigmas_inv(
             .reshape(1, -1)
             .cpu()
             .detach()
-            .numpy()
         )
 
         best_score = np.inf
@@ -269,9 +268,9 @@ def compute_means_and_sigmas_inv(
 
             score_clazz = (
                 (m_features - mu_clazz)
-                @ np.transpose(precision_root)
+                @ precision_root.T
                 @ precision_root
-                @ np.transpose(m_features - mu_clazz)
+                @ (m_features - mu_clazz).T
             )
 
             if score_clazz < best_score:
@@ -322,7 +321,8 @@ def get_feature_datasets(
         for i, dataset_line in enumerate(input_dataset):
             logger.debug(f"Processing {i}/{len(input_dataset)}")
 
-            x = dataset_line.x
+            x = dataset_line.x.detach()
+            x.requires_grad = True
 
             m_features = architecture.forward(
                 x=x, store_for_graph=False, output="all_inner"
@@ -339,17 +339,17 @@ def get_feature_datasets(
                 for clazz in all_classes:
                     mu_clazz = mean_per_class[layer_idx][clazz]
                     gap = (
-                        m_features[layer_idx].reshape(1, -1).cpu().detach().numpy()
+                        m_features[layer_idx].reshape(1, -1).cpu()
                         - mu_clazz
                     )
                     score_clazz = (
                         gap
-                        @ np.transpose(precision_root)
+                        @ precision_root.T
                         @ precision_root
-                        @ np.transpose(gap)
+                        @ gap.T
                     )
 
-                    if score_clazz < best_score:
+                    if score_clazz[0, 0] < best_score:
                         best_score = score_clazz[0, 0]
                         mu_l = mu_clazz
 
@@ -365,40 +365,9 @@ def get_feature_datasets(
                 # OPT: Add perturbation on x to reduce its score
                 # (mainly useful for out-of-distribution ?)
                 if config.preproc_epsilon > 0:
-                    # Let's forget about the past (attack, clamping)
-                    # and make x a leaf with require grad
-                    x = x.detach()
-                    x.requires_grad = True
-
-                    precision_root_tensor = torch.from_numpy(precision_root).to(device)
-                    mu_tensor = torch.from_numpy(mu_l).to(device)
-
-                    # Adding perturbation on x
-                    f = architecture.forward(
-                        x=x, store_for_graph=False, output="all_inner"
-                    )[layer_idx].reshape(1, -1)
-
-                    live_score = ((f - mu_tensor) @ precision_root_tensor.T) @ (
-                        precision_root_tensor @ (f - mu_tensor).T
-                    )
-
-                    if not np.isclose(
-                        live_score.cpu().detach().numpy(), best_score, atol=1e-3
-                    ):
-                        debug_messages = list()
-
-                        distance = np.linalg.norm(
-                            live_score.cpu().detach().numpy() - best_score, 2
-                        )
-
-                        logger.warn(
-                            f"Live score {live_score.cpu().detach().numpy()}"
-                            f" and best_score {best_score} are different (dist={distance})\n\n"
-                            + "\n".join(debug_messages)
-                        )
 
                     architecture.zero_grad()
-                    live_score.backward()
+                    best_score.backward(retain_graph=True)
                     assert x.grad is not None
                     xhat = x - config.preproc_epsilon * x.grad.data.sign()
                     xhat = torch.clamp(xhat, -0.5, 0.5)
@@ -407,30 +376,27 @@ def get_feature_datasets(
                     fhat = architecture.forward(
                         x=xhat, store_for_graph=False, output="all_inner"
                     )[layer_idx].reshape(1, -1)
-                    new_score = ((fhat - mu_tensor) @ precision_root_tensor.T) @ (
-                        precision_root_tensor @ (fhat - mu_tensor).T
+                    new_score = ((fhat - mu_l) @ precision_root.T) @ (
+                        precision_root @ (fhat - mu_l).T
                     )
 
                     logger.debug(
-                        f"Added perturbation to x {live_score.cpu().detach().numpy()[0, 0]} "
-                        f"-> {new_score.cpu().detach().numpy()[0, 0]}"
+                        f"Added perturbation to x {best_score} "
+                        f"-> {new_score[0, 0]}"
                     )
 
                     # Now we have to do a second pass of optimization
                     best_score = np.inf
-                    fhat = fhat.cpu().detach().numpy()
 
                     for clazz in all_classes:
                         mu_clazz = mean_per_class[layer_idx][clazz]
                         gap = fhat - mu_clazz
-                        score_clazz = (gap @ np.transpose(precision_root)) @ (
-                            precision_root @ np.transpose(gap)
-                        )
+                        score_clazz = (gap @ precision_root.T) @ (precision_root @ gap.T)
 
                         if score_clazz < best_score:
                             best_score = score_clazz[0, 0]
 
-                scores.append(best_score)
+                scores.append(best_score.detach().cpu().numpy())
 
             ret.append(scores)
             i += 1
