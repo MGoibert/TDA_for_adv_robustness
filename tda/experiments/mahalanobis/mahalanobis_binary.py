@@ -12,6 +12,7 @@ from typing import Dict, List, NamedTuple, Set, Optional
 
 import numpy as np
 import torch
+import mlflow
 
 from tda.devices import device
 from tda.embeddings import KernelType
@@ -28,6 +29,13 @@ from tda.covariance import (
     NaiveSVDCovarianceStreamComputer,
     GraphicalLassoComputer,
 )
+
+from tda.precision import default_tensor_type
+
+torch.set_default_tensor_type(default_tensor_type)
+
+mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+mlflow.set_experiment("tda_adv_detection")
 
 logger = get_logger("Mahalanobis")
 
@@ -54,6 +62,7 @@ class Config(NamedTuple):
     dataset_size: int
     # Type of attack (FGSM, PGD, CW)
     attack_type: str
+    attack_backend: str
     # Epsilon for the preprocessing step (see the paper)
     preproc_epsilon: float
     # Selected layers
@@ -93,15 +102,16 @@ def get_config() -> Config:
     parser.add_argument("--experiment_id", type=int)
     parser.add_argument("--run_id", type=int)
 
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--dataset", type=str, default="MNIST")
     parser.add_argument("--architecture", type=str, default=mnist_mlp.name)
     parser.add_argument("--dataset_size", type=int, default=500)
     parser.add_argument("--number_of_samples_for_mu_sigma", type=int, default=100)
     parser.add_argument("--attack_type", type=str, default="FGSM")
+    parser.add_argument("--attack_backend", type=str, default="FOOLBOX")
     parser.add_argument("--preproc_epsilon", type=float, default=0.0)
     parser.add_argument("--noise", type=float, default=0.0)
-    parser.add_argument("--successful_adv", type=int, default=0)
+    parser.add_argument("--successful_adv", type=int, default=1)
     parser.add_argument("--transfered_attacks", type=str2bool, default=False)
     parser.add_argument("--all_epsilons", type=str)
     parser.add_argument("--first_pruned_iter", type=int, default=10)
@@ -114,6 +124,10 @@ def get_config() -> Config:
 
     args, _ = parser.parse_known_args()
 
+    for key in args.__dict__:
+        if key not in ["thresholds"]:
+            mlflow.log_param(key, args.__dict__[key])
+
     if args.all_epsilons is not None:
         args.all_epsilons = list(map(float, str(args.all_epsilons).split(";")))
 
@@ -121,7 +135,7 @@ def get_config() -> Config:
         args.selected_layers = set([int(s) for s in args.selected_layers.split(";")])
     else:
         args.selected_layers = None
-
+    
     return Config(**args.__dict__)
 
 
@@ -299,6 +313,7 @@ def get_feature_datasets(
         archi=architecture,
         dataset_size=config.dataset_size,
         attack_type=config.attack_type,
+        attack_backend=config.attack_backend,
         all_epsilons=epsilons,
         transfered_attacks=config.transfered_attacks,
     )
@@ -357,8 +372,8 @@ def get_feature_datasets(
                     x = x.detach()
                     x.requires_grad = True
 
-                    precision_root_tensor = torch.from_numpy(precision_root).to(device)
-                    mu_tensor = torch.from_numpy(mu_l).to(device)
+                    precision_root_tensor = torch.from_numpy(precision_root).type(default_tensor_type).to(device)
+                    mu_tensor = torch.from_numpy(mu_l).type(default_tensor_type).to(device)
 
                     # Adding perturbation on x
                     f = architecture.forward(
@@ -472,10 +487,10 @@ def run_experiment(config: Config):
         config=config, dataset=dataset, architecture=architecture
     )
 
-    if config.attack_type not in ["FGSM", "PGD"]:
+    if config.attack_type not in ["FGSM", "PGD", "FEATUREADVERSARIES"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
-        all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        all_epsilons = [0.01, 0.05, 0.1]
         # all_epsilons = [0.01]
     else:
         all_epsilons = config.all_epsilons
@@ -519,17 +534,28 @@ def run_experiment(config: Config):
         **evaluation_results,
     }
 
-    logger.info(metrics)
+    logger.info(metrics["unsupervised_metrics"])
+    logger.info(metrics["supervised_metrics"])
+    
+    for method in ["unsupervised", "supervised"]:
+        res = evaluation_results[f"{method}_metrics"]
+        for eps in res:
+            res_eps = res[eps]
+            for metric in res_eps:
+                res_eps_met = res_eps[metric]
+                for typ in res_eps_met:
+                    mlflow.log_metric(f"{method}_{eps}_{metric}_{typ}", res_eps_met[typ])
 
     return metrics
 
 
 if __name__ == "__main__":
-    my_config = get_config()
-    try:
-        run_experiment(my_config)
-    except Exception as e:
-        my_trace = io.StringIO()
-        traceback.print_exc(file=my_trace)
+    with mlflow.start_run(run_name="Mahalanobis binary"):
+        my_config = get_config()
+        try:
+            run_experiment(my_config)
+        except Exception as e:
+            my_trace = io.StringIO()
+            traceback.print_exc(file=my_trace)
 
-        logger.error(my_trace.getvalue())
+            logger.error(my_trace.getvalue())

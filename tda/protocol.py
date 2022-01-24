@@ -37,7 +37,7 @@ def get_protocolar_datasets(
     train_clean = get_sample_dataset(
         adv=False,
         epsilon=0.0,
-        noise=0.0,
+        noise=noise,#0.0,
         dataset=dataset,
         train=False,
         succ_adv=succ_adv,
@@ -70,7 +70,7 @@ def get_protocolar_datasets(
     test_clean = get_sample_dataset(
         adv=False,
         epsilon=0.0,
-        noise=0.0,
+        noise=noise,
         dataset=dataset,
         train=False,
         succ_adv=succ_adv,
@@ -102,7 +102,27 @@ def get_protocolar_datasets(
 
     train_adv = dict()
     test_adv = dict()
+    #if False: #noise > 0.0:
+     #   adv = get_sample_dataset(
+     #           adv=False,
+     #           epsilon=0.0,
+     #           noise=noise,
+     #           dataset=dataset,
+     #           train=False,
+     #           succ_adv=succ_adv,
+     #           archi=archi,
+     #           attack_type=attack_type,
+     #           attack_backend=attack_backend,
+     #           dataset_size=dataset_size,
+     #           offset=dataset_size,
+     #           compute_graph=compute_graph,
+     #           transfered_attacks=transfered_attacks,
+     #           )
 
+    #    train_adv[noise], test_adv[noise] = train_test_split(
+    #        adv, test_size=0.5, random_state=37
+    #        )
+    #else:
     for epsilon in all_epsilons:
         adv = get_sample_dataset(
             adv=True,
@@ -123,7 +143,7 @@ def get_protocolar_datasets(
 
         train_adv[epsilon], test_adv[epsilon] = train_test_split(
             adv, test_size=0.5, random_state=37
-        )
+            )
 
     return train_clean, test_clean, train_adv, test_adv
 

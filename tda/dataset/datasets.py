@@ -104,6 +104,37 @@ class dsetsViz(torch.utils.data.Dataset):
         return [x, y]
 
 
+class dsetsRobustFeatures(torch.utils.data.Dataset):
+    def __init__(self, n_samples=5000):
+        r = np.random.permutation(2*n_samples)
+        a0 = np.random.uniform(-0.1, 0.1, (n_samples, 28,28))
+        a1 = np.random.uniform(-0.1, 0.1, (n_samples, 28,28))
+        b = np.random.binomial(1, 0.95, 2*n_samples)
+        b = 2*b.reshape((2*n_samples,1,1))-1
+        #b = np.concatenate((b,b,b)).reshape((2*n_samples,3,1,1))
+
+        x0 = ((a0 + 1)*b[:n_samples]+1.1)/2.2
+        x1 = ((a1 - 1)*b[n_samples:]+1.1)/2.2
+        y_ = np.asarray([0]*n_samples + [1]*n_samples)
+        x_ = np.concatenate((x0, x1))
+        
+        np.take(x_, r, axis=0, out=x_)
+        np.take(y_, r, axis=0, out=y_)
+        self.X = torch.tensor(x_, dtype=torch.float)
+        self.Y = torch.tensor(y_, dtype=torch.long)
+        self.n_samples = n_samples
+        
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        x = self.X[idx,:]
+        y = self.Y[idx]
+        return [x, y]
+
 class Dataset(object):
 
     _datasets = dict()
@@ -193,7 +224,9 @@ class Dataset(object):
             self.test_and_val_dataset = dset.CIFAR100(
                 root=_root, train=False, transform=_trans, download=True
             )
-            
+        elif name == "RobustFeatures":
+            self.train_dataset = dsetsRobustFeatures(100)
+            self.test_and_val_dataset = dsetsRobustFeatures(2000)            
         else:
             raise NotImplementedError(f"Unknown dataset {name}")
 
@@ -209,7 +242,7 @@ class Dataset(object):
             dataset=self.train_dataset, batch_size=128, shuffle=True
         )
         self.test_loader = torch.utils.data.DataLoader(
-            dataset=self.test_dataset, shuffle=True, batch_size=2048
+            dataset=self.test_dataset, shuffle=True, batch_size=128
         )
         self.val_loader = torch.utils.data.DataLoader(
             dataset=self.val_dataset, batch_size=128, shuffle=True

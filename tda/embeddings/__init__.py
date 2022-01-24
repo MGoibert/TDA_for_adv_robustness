@@ -82,7 +82,7 @@ def get_embedding(
         start = time.time()
         mat = graph.get_adjacency_matrix()
         del graph
-        G = nx.from_scipy_sparse_matrix(mat)
+        G = nx.from_numpy_matrix(mat.todense())
         val = nx.global_reaching_centrality(G, weight='weight', normalized=True)
         del G
         time_taken[f"E_{embedding_type}"] = time.time() - start

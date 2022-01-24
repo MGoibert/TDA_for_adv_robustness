@@ -71,6 +71,7 @@ class DatasetLine(typing.NamedTuple):
     linf_norm: float
     sample_id: int
     x: torch.tensor
+    x0: torch.tensor
 
 def get_my_path(list_locals):
     if os.path.exists("/var/opt/data/user_data"):
@@ -88,6 +89,8 @@ def get_my_path(list_locals):
         remove_keys = ['list_arg', 'architecture', 'per_class']
     else:
         remove_keys = ['list_arg', 'architecture', 'num_iter', 'per_class']
+    if 'transfered_attacks' in list_locals.keys():
+        list_locals['transfered_attacks'] = "False"
     cache_path = (
         base_path
         + "_".join(sorted([f"{key}={str(list_locals[key])}" for key in list_locals.keys() if key not in remove_keys]))
@@ -184,26 +187,38 @@ def get_sample_dataset(
 
         while processed_samples is None and current_sample_id < source_dataset_size:
 
-            if False: #transfered_attacks:
-                samples = (
-                    source_dataset["x"][
-                        current_sample_id : current_sample_id + batch_size
-                    ],
-                    source_dataset["y"][
-                        current_sample_id : current_sample_id + batch_size
-                    ],
-                )
-                if adv:
-                    processed_samples = (
-                        source_dataset["x_adv"][
-                            current_sample_id : current_sample_id + batch_size
-                        ],
-                        source_dataset["y"][
-                            current_sample_id : current_sample_id + batch_size
-                        ],
-                    )
-                else:
-                    processed_samples = samples
+            if transfered_attacks:
+                #logger.info(f"source dataset keys = {source_dataset[0]}")
+                batch = source_dataset[
+                    current_sample_id : current_sample_id + batch_size
+                ]
+                if isinstance(batch[0], DatasetLine):
+                    #logger.info(f"line = {batch[0]}")
+                    x = torch.cat([torch.unsqueeze(s.x, 0) for s in batch], 0).to(device)
+                    y = np.array([s.y for s in batch])
+                    logger.info(f"shape of x = {x.shape}")
+                    if adv:
+                        x_adv = torch.cat([torch.unsqueeze(s.x, 0) for s in batch], 0).to(device)
+                        y_adv = np.array([s.y for s in batch])
+                    else:
+                        x_adv = x
+                        y_adv = y
+                #else:
+                #    x = torch.cat([torch.unsqueeze(s[0], 0) for s in batch], 0).to(device)
+                #    y = np.array([s[1] for s in batch])
+                #    if adv:
+                #        x_adv = 
+                #        y_adv = 
+                samples = (x, y)
+                processed_samples = (x_adv, y_adv)
+
+                #if adv:
+                #    processed_samples = (
+                #        source_dataset[current_sample_id].x_adv,#["x_adv"],
+                #        source_dataset[current_sample_id].y#["y"],
+                #    )
+                #else:
+                #    processed_samples = samples
             else:
                 # Fetching a batch of samples and concatenating them
                 batch = source_dataset[
@@ -292,6 +307,7 @@ def get_sample_dataset(
         for i in range(len(processed_samples[1])):
 
             x = torch.unsqueeze(processed_samples[0][i], 0).double()
+            x_origin = torch.unsqueeze(samples[0][i], 0).double()
 
             # (OPT) Compute the graph
             graph = (
@@ -305,6 +321,7 @@ def get_sample_dataset(
                 DatasetLine(
                     graph=graph,
                     x=x,
+                    x0=x_origin,
                     y=processed_samples[1][i],
                     y_pred=y_pred[i],
                     y_adv=adv,

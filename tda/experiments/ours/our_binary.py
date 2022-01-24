@@ -189,7 +189,7 @@ def get_all_embeddings(config: Config):
         )
         architecture.threshold_layers(edges_to_keep)
 
-    if config.attack_type not in ["FGSM", "PGD"]:
+    if config.attack_type not in ["FGSM", "PGD", "FEATUREADVERSARIES"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         # all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
@@ -237,6 +237,7 @@ def get_all_embeddings(config: Config):
         transfered_attacks=config.transfered_attacks,
     )
     detailed_times["protocolar_datasets"] = time.time() - start_time
+    logger.info(f"Train adv = {train_adv.keys()}")
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""

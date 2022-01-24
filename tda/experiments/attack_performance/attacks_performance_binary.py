@@ -8,8 +8,9 @@ import pathlib
 import pickle
 import mlflow
 import torch
+#from tkinter import *
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 
 from tda.dataset.graph_dataset import get_sample_dataset, AttackBackend
@@ -82,6 +83,22 @@ def get_config() -> Config:
 
     return Config(**args.__dict__)
 
+def run_some_test(config: Config):
+    dataset = Dataset(name=config.dataset)
+
+    architecture = get_deep_model(
+        num_epochs=config.epochs,
+        dataset=dataset,
+        architecture=get_architecture(config.architecture),
+        train_noise=config.train_noise,
+        prune_percentile=config.prune_percentile,
+        tot_prune_percentile=config.tot_prune_percentile,
+        first_pruned_iter=config.first_pruned_iter,
+    )
+   
+    art_model = architecture.art_classifier
+    nb_layers = art_model.layer_names
+    logger.info(f"layers = {nb_layers}")
 
 def compute_adv_accuracy(
     config: Config,
@@ -117,18 +134,25 @@ def compute_adv_accuracy(
     corr = sum([1 for line in dataset if line.y == line.y_pred])
 
     some_images = [line.x for line in dataset if line.y != line.y_pred][:8]
-
+    
+    x_same = list()
+    for line in dataset:
+        if (torch.abs(line.x0-line.x) <= 1e-10).all():
+            x_same.append([line.x0, line.x])
+            logger.info(f"Same adv and clean !")
+    
     return corr / dataset_size, some_images
 
 
 def get_all_accuracies(config: Config, with_image=True):
 
-    if config.attack_type in ["FGSM", "PGD"]:
-        #all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
+    if config.attack_type in ["FGSM", "PGD", "FEATUREADVERSARIES"]:
+        all_epsilons = list(sorted(np.linspace(0.0, 0.5, num=21)))
         # all_epsilons = [0, 0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1]
-        all_epsilons = [0, 0.001, 0.01, 0.1]    
+        #all_epsilons = [0, 0.001, 0.01, 0.1]    
     else:
         all_epsilons = [0.0, 1]
+    logger.info(f"all esp = {all_epsilons}")
 
     dataset = Dataset(name=config.dataset)
 
@@ -162,13 +186,13 @@ def get_all_accuracies(config: Config, with_image=True):
             attack_type=config.attack_type,
             num_iter=config.num_iter,
         )
-        logger.info(f"Img min pixel = {torch.min(some_images[0])}, and max pixel = {torch.max(some_images[0])}")
+        #logger.info(f"Img min pixel = {torch.min(some_images[0])}, and max pixel = {torch.max(some_images[0])}")
         logger.info(f"Epsilon={epsilon}: acc={adversarial_acc}")
         accuracies[epsilon] = adversarial_acc
         mlflow.log_metric(f"accuracy_{epsilon}", accuracies[epsilon])
-        if with_image:
-            with open(config.result_path + f"/images_eps_{epsilon}.pickle", "wb") as fw:
-                pickle.dump(some_images, fw)
+        #if with_image:
+        #    with open(config.result_path + f"/images_eps_{epsilon}.pickle", "wb") as fw:
+        #        pickle.dump(some_images, fw)
 
     return accuracies
 
@@ -210,4 +234,5 @@ if __name__ == "__main__":
     config = get_config()
     with mlflow.start_run(run_name=f"Attack perf"):
         accuracies = get_all_accuracies(config, with_image=False)
-        plot_and_save(config, accuracies)
+        #run_some_test(config)
+        #plot_and_save(config, accuracies)

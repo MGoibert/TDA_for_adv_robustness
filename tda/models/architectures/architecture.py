@@ -5,7 +5,7 @@ from typing import List, Callable, Tuple, Dict
 import torch
 import torch.nn as nn
 
-# from art.classifiers import PyTorchClassifier
+from art.estimators.classification import PyTorchClassifier
 import foolbox as fb
 from cached_property import cached_property
 
@@ -83,7 +83,8 @@ class Architecture(nn.Module):
 
     def build_matrices(self):
         for layer_idx, layer in enumerate(self.layers):
-            if layer_idx < 4: #layer.graph_layer:
+            #if layer_idx < 3: #layer.graph_layer:
+            if layer.graph_layer:
                 logger.info(f"Building matrix for layer {layer_idx} ({layer})")
                 layer.build_matrix()
 
@@ -174,6 +175,7 @@ class Architecture(nn.Module):
             optimizer=None,
             input_shape=input_shape,
             nb_classes=10,
+            device_type=str(device),
         )
 
     @cached_property
@@ -267,11 +269,12 @@ class Architecture(nn.Module):
         # Getting matrix for each layer
         ret = dict()
         for layer_idx, layer in enumerate(self.layers):
-            logger.info(f"Processing layer {layer_idx}")
-            if layer_idx < 4: #layer.graph_layer:
-                logger.info(f"layer = {type(layer)}")
+            #logger.info(f"Processing layer {layer_idx}")
+            #if layer_idx < 3: #layer.graph_layer:
+            if layer.graph_layer:
+                #logger.info(f"layer = {type(layer)}")
                 m = layer.get_matrix()
-                logger.info(f"m={m}")
+                #logger.info(f"m={m}")
                 for parentidx in m:
                     ret[(parentidx, layer_idx)] = m[parentidx]
         return ret

@@ -139,7 +139,8 @@ def go_training(
     x = x.type(default_tensor_type)
     y = y.to(device)
     optimizer.zero_grad()
-
+    
+    #logger.info(f"Go training: adv_train factor = {adv_train}")
     # Normal training
     if train_noise == 0:
         y_pred = model(x)
@@ -166,24 +167,27 @@ def go_training(
             optimizer.step()
 
     if adv_train > 0:
-        logger.info(f"Adversarial Training...")
+        #logger.info(f"Adversarial Training...")
         epoch_adv = 0
-        eps_adv = 0.2
+        eps_adv = 0.25
+        num_iter_ = 7
         theta_adv = 0.1
         if epoch >= epoch_adv:  # Warm start
             x_adv = adversarial_generation(
             model=model,
             x=x,
-            y=y,
+            y=y.detach().cpu().numpy(),
             epsilon=eps_adv,
             attack_type=AttackType.PGD,
-            num_iter=10,
+            num_iter=num_iter_,
             attack_backend=AttackBackend.FOOLBOX,
         )
             y_pred = model(x)
             y_pred_adv = model(x_adv)
             loss = (1-theta_adv) * loss_func(y_pred, y) + theta_adv * loss_func(y_pred_adv, y)
+            #logger.info(f"loss = {loss}")
             loss.backward()
+            #logger.info(f"and after backward, grad = {loss.grad}")
             optimizer.step()
         else:
             y_pred = model(x)
@@ -267,7 +271,7 @@ def train_network(
 
     if model.name in [mnist_lenet.name, fashion_mnist_lenet.name, toy_viz.name, toy_viz2.name, toy_viz3.name]:
         lr = 0.001 #0.001
-        patience = 30 #20
+        patience = 20 #20
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5
@@ -295,29 +299,46 @@ def train_network(
         )
     elif model.name in [cifar_resnet_1.name, svhn_resnet_1.name]:
 
-        def lr(epoch):
+        def lr_fct(epoch):
             if epoch > 50:
-                return lr(epoch % 50)
+                return lr_fct(epoch % 50)
             elif epoch < 20:
-                a = (0.12 - 0.008) / 20
-                b = 0.008
+                a = (0.012 - 0.0008) / 20
+                b = 0.0008
             elif epoch < 40:
-                a = (0.008 - 0.12) / (40 - 20)
-                b = 0.12 - a * 20
+                a = (0.0008 - 0.012) / (40 - 20)
+                b = 0.012 - a * 20
             else:
-                a = (0.0008 - 0.008) / (50 - 40)
-                b = 0.008 - a * 40
+                a = (0.00008 - 0.0008) / (50 - 40)
+                b = 0.0008 - a * 40
             return a * epoch + b
 
-        scheduler = None
+        #def lr_fct(epoch):
+        #    if epoch < 35:
+        #        lr_ = 0.001
+        #    elif epoch < 70:
+        #        lr_ = 0.0001
+        #    elif epoch < 105:
+        #        lr_ = 0.00001
+        #    else:
+        #        lr_ = 0.000005
+        #    return lr_
 
-        def custom_scheduler_step(optimizer, epoch):
-            new_lr = lr(epoch)
-            for param_group in optimizer.param_groups:
-                param_group["lr"] = new_lr
+        #scheduler = None
 
-        optimizer = optim.SGD(
-            model.parameters(), lr=lr(0), weight_decay=0.0005, momentum=0.9
+        #def custom_scheduler_step(optimizer, epoch):
+        #    new_lr = lr_fct(epoch)
+        #    for param_group in optimizer.param_groups:
+        #        param_group["lr"] = new_lr
+        
+        #optimizer = optim.SGD(
+        #    model.parameters(), lr=lr_fct(0), weight_decay=0.0002, momentum=0.9
+        #)
+        #lr = 0.0001
+        patience = 5
+        optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.99))
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", patience=patience, verbose=True, factor=0.5
         )
     elif model.name in [toy_mlp.name, toy_mlp2.name, toy_mlp3, toy_mlp4, toy_viz2.name]:
         lr = 1
@@ -404,6 +425,7 @@ def train_network(
                 prune_percentile=prune_percentile,
                 first_pruned_iter=first_pruned_iter,
                 mask_=mask_,
+                adv_train=adv_train,
             )
             train_loss.append(loss)
         mlflow.log_metric("train_loss", np.mean(train_loss), step=epoch)
@@ -426,10 +448,11 @@ def train_network(
         loss_history.append(val_loss)
 
         if (prune_percentile == 0.0) or (epoch > first_pruned_iter * nb_iter_prune):
-            step = epoch * len(train_loader) + i_batch
-            # step = (epoch % 300) * len(train_loader) + i_batch
+            #step = epoch * len(train_loader) + i_batch
+            step = (epoch % 300) * len(train_loader) + i_batch
             if scheduler is not None:
-                scheduler.step(step)
+                scheduler.step(val_loss)
+                #scheduler.step(step)
         if epoch % 10 == 9:
             acc = compute_val_acc(model, val_loader)
             logger.info(f"Val acc = {acc}")
@@ -472,7 +495,8 @@ def train_network(
         )
 
     # Saving model
-    torch.save(model, model.get_model_savepath())
+    import dill
+    torch.save(model, model.get_model_savepath(), pickle_module=dill)
     mlflow.log_artifact(model.get_model_savepath(), "models")
 
     return model, loss_history
@@ -495,7 +519,7 @@ def get_deep_model(
     loss_func = nn.CrossEntropyLoss().type(default_tensor_type)
 
     #### New param for adversarial training
-    adv_train = 1
+    adv_train = 0
 
     if dataset.name == "CIFAR100":
         architecture.set_train_mode()

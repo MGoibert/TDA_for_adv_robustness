@@ -56,6 +56,7 @@ class Config(NamedTuple):
     selected_layers: Optional[Set[int]]
     # Type of attack (FGSM, PGD, CW)
     attack_type: str
+    attack_backend : str
     # Should we filter out non successful_adversaries
     successful_adv: int
     # Transfered attacks
@@ -83,6 +84,7 @@ def get_config() -> Config:
     parser.add_argument("--dataset", type=str, default="MNIST")
     parser.add_argument("--architecture", type=str, default=mnist_lenet.name)
     parser.add_argument("--attack_type", type=str, default="FGSM")
+    parser.add_argument("--attack_backend", type=str, default="FOOLBOX")
     parser.add_argument("--noise", type=float, default=0.0)
     parser.add_argument("--train_noise", type=float, default=0.0)
     parser.add_argument("--dataset_size", type=int, default=500)
@@ -248,7 +250,7 @@ def get_feature_datasets(
             archi=trsf_archi,
             dataset_size=config.dataset_size,
             attack_type=config.attack_type,
-            # attack_backend=config.attack_backend,
+            attack_backend=config.attack_backend,
             all_epsilons=epsilons,
             transfered_attacks=config.transfered_attacks,
         )
@@ -263,7 +265,7 @@ def get_feature_datasets(
         archi=archi,
         dataset_size=config.dataset_size,  # 2 * config.batch_size * config.nb_batches,  # Train + Test
         attack_type=config.attack_type,
-        # attack_backend=config.attack_backend,
+        attack_backend=config.attack_backend,
         all_epsilons=epsilons,
         transfered_attacks=config.transfered_attacks,
     )
@@ -303,6 +305,7 @@ def run_experiment(config: Config):
     dataset = Dataset(name=config.dataset)
 
     logger.info(f"Getting deep model...")
+    logger.info(f"LID: get archi = {get_architecture(config.architecture)}")
     archi: Architecture = get_deep_model(
         num_epochs=config.epochs,
         dataset=dataset,
@@ -313,7 +316,7 @@ def run_experiment(config: Config):
         first_pruned_iter=config.first_pruned_iter,
     )
 
-    if config.attack_type not in ["FGSM", "PGD"]:
+    if config.attack_type not in ["FGSM", "PGD", "FEATUREADVERSARIES"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
         all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
