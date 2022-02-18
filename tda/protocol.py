@@ -48,6 +48,7 @@ def get_protocolar_datasets(
         offset=0,
         compute_graph=compute_graph,
         transfered_attacks=transfered_attacks,
+        dataset_name=dataset.name,
     )
 
     if noise > 0.0:
@@ -65,6 +66,7 @@ def get_protocolar_datasets(
             offset=0,
             compute_graph=compute_graph,
             transfered_attacks=transfered_attacks,
+            dataset_name=dataset.name,
         )
 
     test_clean = get_sample_dataset(
@@ -81,6 +83,7 @@ def get_protocolar_datasets(
         offset=dataset_size // 2,  # 8,
         compute_graph=compute_graph,
         transfered_attacks=transfered_attacks,
+        dataset_name=dataset.name,
     )
 
     if noise > 0.0:
@@ -98,6 +101,7 @@ def get_protocolar_datasets(
             offset=dataset_size // 2,  # 8,
             compute_graph=compute_graph,
             transfered_attacks=transfered_attacks,
+            dataset_name=dataset.name,
         )
 
     train_adv = dict()
@@ -119,6 +123,7 @@ def get_protocolar_datasets(
             offset=dataset_size,
             compute_graph=compute_graph,
             transfered_attacks=transfered_attacks,
+            dataset_name=dataset.name,
         )
 
         train_adv[epsilon], test_adv[epsilon] = train_test_split(

@@ -100,6 +100,7 @@ def get_quantiles_helpers(
         dataset=dataset,
         compute_graph=False,
         train=False,
+        dataset_name=dataset.name,
     )
     logger.info(f"Got dataset of size {len(dataset)}")
 

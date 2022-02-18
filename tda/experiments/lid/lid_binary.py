@@ -108,6 +108,10 @@ def get_config() -> Config:
     else:
         args.selected_layers = None
 
+    for key in args.__dict__:
+        if key not in ["thresholds"]:
+            mlflow.log_param(key, args.__dict__[key])
+
     return Config(**args.__dict__)
 
 
@@ -316,8 +320,9 @@ def run_experiment(config: Config):
     if config.attack_type not in ["FGSM", "PGD"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
-        all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        #all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
         # all_epsilons = [0.01]
+        all_epsilons = [0.01, 0.05, 0.1]
     else:
         all_epsilons = config.all_epsilons
 

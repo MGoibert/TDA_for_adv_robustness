@@ -6,6 +6,7 @@ import socket
 
 from tda.rootpath import rootpath
 from tda.tda_logging import get_logger
+from tda.devices import device
 
 logger = get_logger("Cache")
 
@@ -40,7 +41,7 @@ def cached(my_func):
             logger.info(
                 f"Using cache file {cache_path} for the call to {my_func.__name__}"
             )
-            return torch.load(cache_path)
+            return torch.load(cache_path, map_location=device)
         else:
             logger.info(
                 f"No cache found in {cache_path} for the call to {my_func.__name__}"

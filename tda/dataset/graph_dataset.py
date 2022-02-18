@@ -39,6 +39,7 @@ def process_sample(
     attack_type: str = "FGSM",
     attack_backend: str = AttackBackend.FOOLBOX,
     num_iter: int = 10,
+    dataset_name: str = "MNIST",
 ):
     # Casting to double
     x, y = sample
@@ -47,7 +48,7 @@ def process_sample(
     # If we use adversarial or noisy example!
 
     if adversarial:
-        x = adversarial_generation(
+        x_bis = adversarial_generation(
             model=model,
             x=x,
             y=y,
@@ -55,11 +56,19 @@ def process_sample(
             attack_type=attack_type,
             num_iter=num_iter,
             attack_backend=attack_backend,
+            dataset_name=dataset_name,
         )
-    if noise > 0:
-        x = torch.clamp(x + noise * torch.randn(x.size(), device=device), 0, 1).double()
+        #samenb = 0
+        #for x_, x_bis_ in zip(x, x_bis):
+        #    if (x_==x_bis_).all():
+        #        samenb += 1
+        #logger.info(f"same nb adv gen = {samenb}")
+    elif noise > 0:
+        x_bis = torch.clamp(x + noise * torch.randn(x.size(), device=device), 0, 1).double()
+    else:
+        return x, y
 
-    return x, y
+    return x_bis, y
 
 
 class DatasetLine(typing.NamedTuple):
@@ -71,6 +80,7 @@ class DatasetLine(typing.NamedTuple):
     linf_norm: float
     sample_id: int
     x: torch.tensor
+    x_origin: torch.tensor
 
 def get_my_path(list_locals):
     if os.path.exists("/var/opt/data/user_data"):
@@ -113,6 +123,7 @@ def get_sample_dataset(
     per_class: bool = False,
     compute_graph: bool = False,
     transfered_attacks: bool = False,
+    dataset_name: str = "MNIST",
 ) -> typing.List[DatasetLine]:
 
     logger.info(f"Using source dataset {dataset.name}")
@@ -229,6 +240,7 @@ def get_sample_dataset(
                     attack_type=attack_type,
                     num_iter=num_iter,
                     attack_backend=attack_backend,
+                    dataset_name=dataset_name,
                 )
 
             # Increasing current_sample_id
@@ -291,6 +303,7 @@ def get_sample_dataset(
         # TODO: see if we can avoid unbatching
         for i in range(len(processed_samples[1])):
 
+            x_origin = torch.unsqueeze(samples[0][i], 0).double()
             x = torch.unsqueeze(processed_samples[0][i], 0).double()
 
             # (OPT) Compute the graph
@@ -305,6 +318,7 @@ def get_sample_dataset(
                 DatasetLine(
                     graph=graph,
                     x=x,
+                    x_origin=x_origin,
                     y=processed_samples[1][i],
                     y_pred=y_pred[i],
                     y_adv=adv,

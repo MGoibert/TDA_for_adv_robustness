@@ -209,7 +209,7 @@ class Dataset(object):
             dataset=self.train_dataset, batch_size=128, shuffle=True
         )
         self.test_loader = torch.utils.data.DataLoader(
-            dataset=self.test_dataset, shuffle=True, batch_size=2048
+            dataset=self.test_dataset, shuffle=True, batch_size=128
         )
         self.val_loader = torch.utils.data.DataLoader(
             dataset=self.val_dataset, batch_size=128, shuffle=True

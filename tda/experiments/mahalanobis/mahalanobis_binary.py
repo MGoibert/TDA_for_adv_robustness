@@ -9,6 +9,7 @@ import io
 import gc
 import re
 from typing import Dict, List, NamedTuple, Set, Optional
+import mlflow
 
 import numpy as np
 import torch
@@ -28,6 +29,9 @@ from tda.covariance import (
     NaiveSVDCovarianceStreamComputer,
     GraphicalLassoComputer,
 )
+
+mlflow.set_tracking_uri("https://mlflow.par.prod.crto.in")
+mlflow.set_experiment("tda_adv_detection")
 
 logger = get_logger("Mahalanobis")
 
@@ -121,6 +125,10 @@ def get_config() -> Config:
         args.selected_layers = set([int(s) for s in args.selected_layers.split(";")])
     else:
         args.selected_layers = None
+
+    for key in args.__dict__:
+        if key not in ["thresholds"]:
+            mlflow.log_param(key, args.__dict__[key])
 
     return Config(**args.__dict__)
 
@@ -475,8 +483,9 @@ def run_experiment(config: Config):
     if config.attack_type not in ["FGSM", "PGD"]:
         all_epsilons = [1.0]
     elif config.all_epsilons is None:
-        all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
+        #all_epsilons = [0.01, 0.05, 0.1, 0.4, 1.0]
         # all_epsilons = [0.01]
+        all_epsilons = [0.01, 0.05, 0.1]
     else:
         all_epsilons = config.all_epsilons
 
@@ -521,15 +530,25 @@ def run_experiment(config: Config):
 
     logger.info(metrics)
 
+    for method in ["unsupervised", "supervised"]:
+        res = evaluation_results[f"{method}_metrics"]
+        for eps in res:
+            res_eps = res[eps]
+            for metric in res_eps:
+                res_eps_met = res_eps[metric]
+                for typ in res_eps_met:
+                    mlflow.log_metric(f"{method}_{eps}_{metric}_{typ}", res_eps_met[typ])
+
     return metrics
 
 
 if __name__ == "__main__":
-    my_config = get_config()
-    try:
-        run_experiment(my_config)
-    except Exception as e:
-        my_trace = io.StringIO()
-        traceback.print_exc(file=my_trace)
+    with mlflow.start_run(run_name="Mahalanobis", nested=True):
+        my_config = get_config()
+        try:
+            run_experiment(my_config)
+        except Exception as e:
+            my_trace = io.StringIO()
+            traceback.print_exc(file=my_trace)
 
-        logger.error(my_trace.getvalue())
+        #logger.error(my_trace.getvalue())
