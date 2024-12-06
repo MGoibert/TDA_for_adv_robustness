@@ -25,7 +25,7 @@ def get_protocolar_datasets(
     attack_type: str,
     all_epsilons: typing.List,
     compute_graph: bool = False,
-    transfered_attacks: bool = False
+    transfered_attacks: bool = False,
 ):
     logger.info("I will produce for you the protocolar datasets !")
 
@@ -41,7 +41,7 @@ def get_protocolar_datasets(
         dataset_size=dataset_size // 2,  # 8,
         offset=0,
         compute_graph=compute_graph,
-        transfered_attacks=transfered_attacks
+        transfered_attacks=transfered_attacks,
     )
 
     if noise > 0.0:
@@ -57,7 +57,7 @@ def get_protocolar_datasets(
             dataset_size=dataset_size // 2,  # 8,
             offset=0,
             compute_graph=compute_graph,
-            transfered_attacks=transfered_attacks
+            transfered_attacks=transfered_attacks,
         )
 
     test_clean = get_sample_dataset(
@@ -72,7 +72,7 @@ def get_protocolar_datasets(
         dataset_size=dataset_size // 2,  # 8,
         offset=dataset_size // 2,  # 8,
         compute_graph=compute_graph,
-        transfered_attacks=transfered_attacks
+        transfered_attacks=transfered_attacks,
     )
 
     if noise > 0.0:
@@ -88,7 +88,7 @@ def get_protocolar_datasets(
             dataset_size=dataset_size // 2,  # 8,
             offset=dataset_size // 2,  # 8,
             compute_graph=compute_graph,
-            transfered_attacks=transfered_attacks
+            transfered_attacks=transfered_attacks,
         )
 
     train_adv = dict()
@@ -108,7 +108,7 @@ def get_protocolar_datasets(
             dataset_size=dataset_size,
             offset=dataset_size,
             compute_graph=compute_graph,
-            transfered_attacks=transfered_attacks
+            transfered_attacks=transfered_attacks,
         )
 
         train_adv[epsilon], test_adv[epsilon] = train_test_split(
@@ -203,8 +203,6 @@ def evaluate_embeddings(
         embeddings_out=None,
         params=param_space,
     )
-    # with open('/Users/m.goibert/Documents/temp/gram_mat/gram_mat_train.pickle', 'wb') as f:
-    #    pickle.dump(gram_train_matrices, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     logger.info(f"Computed all unsupervised Gram train matrices !")
 
@@ -248,8 +246,6 @@ def evaluate_embeddings(
             embeddings_in=list(embeddings_test) + list(adv_embeddings_test),
             embeddings_out=list(embeddings_train),
             params=param_space,
-            verbatim="clean_test_and_adv",
-            save=True,
         )
         logger.info(f"Computed Gram Test Matrix in {time.time() - start_time} secs")
 

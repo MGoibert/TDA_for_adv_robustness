@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed May 29 13:27:17 2019
-
-Author: Morgane Goibert <morgane.goibert@gmail.com>
 """
 
 from random import shuffle, seed

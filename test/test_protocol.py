@@ -4,13 +4,13 @@ from tda.models.architectures import get_architecture, mnist_mlp
 from tda.models import get_deep_model
 
 
-def test_protocolar_datasets(dataset_size=10, epsilons=[0.01, 0.05],
-                             attack_type="FGSM", noise=0.2, succ_adv=True):
+def test_protocolar_datasets(
+    dataset_size=10, epsilons=[0.01, 0.05], attack_type="FGSM", noise=0.2, succ_adv=True
+):
     dataset = Dataset("MNIST")
     model = get_deep_model(
-        dataset=dataset,
-        architecture=get_architecture(mnist_mlp.name),
-        num_epochs=25)
+        dataset=dataset, architecture=get_architecture(mnist_mlp.name), num_epochs=25
+    )
     train_clean, test_clean, train_adv, test_adv = get_protocolar_datasets(
         noise=noise,
         dataset=dataset,
@@ -18,7 +18,7 @@ def test_protocolar_datasets(dataset_size=10, epsilons=[0.01, 0.05],
         archi=model,
         dataset_size=dataset_size,
         attack_type=attack_type,
-        all_epsilons=epsilons
+        all_epsilons=epsilons,
     )
 
     print(len(train_clean))

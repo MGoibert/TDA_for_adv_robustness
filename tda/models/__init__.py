@@ -162,6 +162,13 @@ def train_network(
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", patience=patience, verbose=True, factor=0.5)
+    else:
+        logger.warn(f"Unknown model {model.name}... Using default optimizer")
+        lr = 0.001
+        patience = 20
+        optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", patience=patience, verbose=True, factor=0.5)
 
     # optimizer = optim.SGD(model.parameters(), lr=lr)
     loss_history = []

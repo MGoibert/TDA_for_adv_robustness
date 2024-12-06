@@ -5,7 +5,6 @@ logger = get_logger("TestCache")
 
 
 def test_cached():
-
     @cached
     def f(x, y):
         return 2 * x + y

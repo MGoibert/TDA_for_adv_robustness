@@ -1,6 +1,10 @@
 import pytest
 from scipy.sparse import coo_matrix
-from tda.embeddings.raw_graph import identify_active_indices, featurize_vectors, to_sparse_vector
+from tda.embeddings.raw_graph import (
+    identify_active_indices,
+    featurize_vectors,
+    to_sparse_vector,
+)
 
 
 @pytest.mark.parametrize("use_indices, expected_length", [(True, 4), (False, 100)])
@@ -13,15 +17,9 @@ def test_featurization(use_indices, expected_length):
     adj_mat_3 = coo_matrix(([24, 39, 28], ([3, 2, 4], [4, 5, 6])), shape=(10, 10))
     adj_mat_4 = coo_matrix(([42, 90, 28], ([3, 5, 7], [4, 5, 6])), shape=(10, 10))
 
-    train_set = [
-        to_sparse_vector(adj_mat_1),
-        to_sparse_vector(adj_mat_2)
-    ]
+    train_set = [to_sparse_vector(adj_mat_1), to_sparse_vector(adj_mat_2)]
 
-    test_set = [
-        to_sparse_vector(adj_mat_3),
-        to_sparse_vector(adj_mat_4)
-    ]
+    test_set = [to_sparse_vector(adj_mat_3), to_sparse_vector(adj_mat_4)]
 
     indices = identify_active_indices(train_set) if use_indices else None
     print(indices)

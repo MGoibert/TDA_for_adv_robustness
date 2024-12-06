@@ -1,52 +1,11 @@
-import typing
-import torch
-
-import networkx as nx
-import numpy as np
+from scipy.sparse import coo_matrix
 from torch import Tensor
-from scipy.sparse import coo_matrix, bmat as sparse_bmat
-
+import typing
+import numpy as np
 from tda.models.architectures import Architecture
 from tda.tda_logging import get_logger
 
 logger = get_logger("GraphComputation")
-
-import os
-import pathlib
-import pickle
-import typing
-
-import numpy as np
-from operator import itemgetter
-
-
-def use_sigmoid(v, layer_link, file, k="auto", quant=0.9):
-    # dict_quant = torch.load("/Users/m.goibert/Documents/Criteo/P2_TDA_Detection/TDA_for_adv_robustness/cache/get_stats/architecture=svhn_lenet_dataset=svhn_dataset_size=100.cached")
-    # data = data.todense()
-    dict_quant = {
-        (-1, 0): {0.5: 32476, 0.9: 147831, 0.99: 304033},
-        (0, 1): {0.5: 792848, 0.9: 2538853, 0.99: 5852197},
-        (1, 2): {0.5: 100556, 0.9: 580880, 0.99: 1958327},
-        (2, 3): {0.5: 2549860, 0.9: 8806744, 0.99: 18652663},
-        (3, 4): {0.5: 111805, 0.9: 656135, 0.99: 2082124},
-        (4, 5): {0.5: 253505, 0.9: 1483325, 0.99: 4708494},
-        (5, 6): {0.5: 1061315, 0.9: 7107406, 0.99: 22761988},
-    }
-    med = dict()
-    qu = dict()
-    for key_quant in dict_quant:
-        if dict_quant[key_quant][0.5] != 1000000.0:
-            med[key_quant] = dict_quant[key_quant][0.5]
-            qu[key_quant] = dict_quant[key_quant][quant]
-        else:
-            med[key_quant] = 0.0
-            qu[key_quant] = 1000000.0
-    if k == "auto":
-        k = -1 / (qu[layer_link] - med[layer_link]) * np.log(0.01 / 0.99)
-
-    # val = 1/(1 + np.exp(-k * (np.asarray(data) - med[layer_link])))
-    val = 1 / (1 + np.exp(-k * (v.data - med[layer_link])))
-    return coo_matrix((val, (v.row, v.col)), np.shape(v))
 
 
 class Graph(object):
@@ -186,7 +145,7 @@ class Graph(object):
                 ret.append(([source_vertex, target_vertex], weight))
         return ret
 
-    def get_adjacency_matrix(self) -> np.matrix:
+    def get_adjacency_matrix(self) -> coo_matrix:
         edges = self.get_edge_list()
 
         data = [e[1] for e in edges]
@@ -198,25 +157,3 @@ class Graph(object):
         mat = coo_matrix((data + data, (row + col, col + row)), shape=(N, N))
 
         return mat
-
-    # TODO: Make it DAG-ready
-    def get_layer_node_labels(self) -> typing.List[int]:
-        """
-        Return a list of label nodes equal to the layers they belong
-        """
-
-        n = len(self._edge_list)
-
-        m = {key: np.transpose(self._edge_list[key]) for key in range(n)}
-        s = {key: np.shape(m[key])[0] for key in range(n)}
-
-        s[n] = np.shape(m[n - 1])[1]
-
-        ret = list()
-        for key in range(n + 1):
-            ret += [key for _ in range(s[key])]
-
-        return ret
-
-    def to_nx_graph(self) -> nx.Graph:
-        return nx.from_numpy_matrix(self.get_adjacency_matrix())

@@ -2,18 +2,19 @@ from tda.models import Architecture
 
 
 def test_walk_through_dag_list():
-    my_edges = [
-        (1, 2), (2, 3), (3, 4)
-    ]
+    my_edges = [(1, 2), (2, 3), (3, 4)]
     my_order = Architecture.walk_through_dag(my_edges)
     assert my_order == [1, 2, 3, 4]
 
 
 def test_walk_through_dag_simple():
     my_edges = [
-        (1, 2), (2, 3), (3, 4),
+        (1, 2),
+        (2, 3),
+        (3, 4),
         (6, 5),
-        (2, 5), (5, 4)  # Shortcut for layer 2 to 4
+        (2, 5),
+        (5, 4),  # Shortcut for layer 2 to 4
     ]
     my_order = Architecture.walk_through_dag(my_edges)
 
@@ -26,6 +27,3 @@ def test_walk_through_dag_simple():
         assert my_order.index(edge[0]) < my_order.index(edge[1])
 
     print(Architecture.get_parent_dict(my_edges))
-
-
-

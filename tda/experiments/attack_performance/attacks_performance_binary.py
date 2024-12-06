@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from r3d3 import ExperimentDB
 
-from tda.graph_dataset import process_sample, get_sample_dataset
+from tda.graph_dataset import get_sample_dataset, AttackBackend
 from tda.models import Dataset, get_deep_model
 from tda.models.architectures import Architecture
 from tda.models.architectures import get_architecture, svhn_lenet
@@ -37,14 +37,16 @@ class Config(typing.NamedTuple):
     train_noise: float
     # Size of the dataset used for the experiment
     dataset_size: int
-    # Type of attack (FGSM, BIM, CW)
+    # Type of attack (FGSM, PGD, CW)
     attack_type: str
+    # Backend for the attack
+    attack_backend: str
     # Parameter used by DeepFool and CW
     num_iter: int
     # Pruning
-    first_pruned_iter : int = 10
-    prune_percentile : float = 0.0
-    tot_prune_percentile : float = 0.0
+    first_pruned_iter: int = 10
+    prune_percentile: float = 0.0
+    tot_prune_percentile: float = 0.0
     # Default parameters when running interactively for instance
     # Used to store the results in the DB
     experiment_id: int = int(time.time())
@@ -72,7 +74,7 @@ def get_config() -> Config:
     parser.add_argument("--first_pruned_iter", type=int, default=10)
     parser.add_argument("--prune_percentile", type=float, default=0.0)
     parser.add_argument("--tot_prune_percentile", type=float, default=0.0)
-
+    parser.add_argument("--attack_backend", type=str, default=AttackBackend.ART)
 
     args, _ = parser.parse_known_args()
 
@@ -102,6 +104,7 @@ def compute_adv_accuracy(
         attack_type=attack_type,
         num_iter=num_iter,
         compute_graph=False,
+        attack_backend=config.attack_backend,
     )
 
     # Since we set succ_adv to False, we should have
@@ -121,7 +124,7 @@ def get_all_accuracies(config: Config):
             config=config._asdict(),
         )
 
-    if config.attack_type in ["FGSM", "BIM"]:
+    if config.attack_type in ["FGSM", "PGD"]:
         all_epsilons = list(sorted(np.linspace(0.0, 0.4, num=11)))
     else:
         all_epsilons = [0.0, 1]
@@ -180,15 +183,16 @@ def plot_and_save(config, accuracies):
     plt.savefig(file_name, dpi=800)
     plt.close()
 
+    end_time = time.time()
+    total_time = end_time - start_time
+
     my_db.update_experiment(
         experiment_id=config.experiment_id,
         run_id=config.run_id,
-        metrics={"accuracies": accuracies},
+        metrics={"accuracies": accuracies, "total_time": total_time},
     )
 
-    end_time = time.time()
-
-    logger.info(f"Success in {end_time - start_time} seconds")
+    logger.info(f"Success in {total_time} seconds")
 
 
 if __name__ == "__main__":

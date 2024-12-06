@@ -19,7 +19,7 @@ class Layer(object):
         ret = dict()
         for parentidx in self._activations:
             activ = self._activations[parentidx].reshape(-1)
-            ret[parentidx] = coo_matrix(self.matrix @ diags(activ.detach().numpy()))
+            ret[parentidx] = coo_matrix(self.matrix @ diags(activ.cpu().detach().numpy()))
         return ret
 
     def process(self, x, store_for_graph):
