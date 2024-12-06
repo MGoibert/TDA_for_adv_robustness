@@ -17,15 +17,16 @@ logger = get_logger("C3PO")
 
 
 def get_protocolar_datasets(
-    noise: float,
-    dataset: Dataset,
-    succ_adv: bool,
-    archi: Architecture,
-    dataset_size: int,
-    attack_type: str,
-    all_epsilons: typing.List,
-    compute_graph: bool = False,
-    transfered_attacks: bool = False
+        noise: float,
+        dataset: Dataset,
+        succ_adv: bool,
+        archi: Architecture,
+        dataset_size: int,
+        attack_type: str,
+        all_epsilons: typing.List,
+        compute_graph: bool = False,
+        transfered_attacks: bool = False,
+        lims: typing.Tuple=(0, 1)
 ):
     logger.info("I will produce for you the protocolar datasets !")
 
@@ -41,7 +42,8 @@ def get_protocolar_datasets(
         dataset_size=dataset_size // 2,  # 8,
         offset=0,
         compute_graph=compute_graph,
-        transfered_attacks=transfered_attacks
+        transfered_attacks=transfered_attacks,
+        lims=lims
     )
 
     if noise > 0.0:
@@ -57,7 +59,8 @@ def get_protocolar_datasets(
             dataset_size=dataset_size // 2,  # 8,
             offset=0,
             compute_graph=compute_graph,
-            transfered_attacks=transfered_attacks
+            transfered_attacks=transfered_attacks,
+            lims=lims
         )
 
     test_clean = get_sample_dataset(
@@ -72,7 +75,8 @@ def get_protocolar_datasets(
         dataset_size=dataset_size // 2,  # 8,
         offset=dataset_size // 2,  # 8,
         compute_graph=compute_graph,
-        transfered_attacks=transfered_attacks
+        transfered_attacks=transfered_attacks,
+        lims=lims
     )
 
     if noise > 0.0:
@@ -88,7 +92,8 @@ def get_protocolar_datasets(
             dataset_size=dataset_size // 2,  # 8,
             offset=dataset_size // 2,  # 8,
             compute_graph=compute_graph,
-            transfered_attacks=transfered_attacks
+            transfered_attacks=transfered_attacks,
+            lims=lims
         )
 
     train_adv = dict()
@@ -108,7 +113,8 @@ def get_protocolar_datasets(
             dataset_size=dataset_size,
             offset=dataset_size,
             compute_graph=compute_graph,
-            transfered_attacks=transfered_attacks
+            transfered_attacks=transfered_attacks,
+            lims=lims
         )
 
         train_adv[epsilon], test_adv[epsilon] = train_test_split(

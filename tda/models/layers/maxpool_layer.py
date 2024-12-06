@@ -36,17 +36,21 @@ class MaxPool2dLayer(Layer):
             dim *= d
         for d in self._out_shape:
             dim_out *= d
-        # print("dim =", dim, "and dim output =", dim_out)
-        m = np.zeros((dim, dim_out))
+        row = []
+        col = []
+        data = []
         for i in range(dim_out):
+            col.append(i)
+            row.append(idx[i])
             if True:  # self._use_activation:
-                m[:, i][idx[i]] = self._out.flatten(0)[
-                    i
-                ]  # self._activations.flatten(0)[idx[i]]
+                data.append(self._out.flatten(0)[i])
             else:
-                m[:, i][idx[i]] = 1
+                data.append(1)
+        m = coo_matrix((data, (row, col)), shape=(dim, dim_out),
+                       dtype=np.float)
+        m = m.T
         return {
-            parentidx: coo_matrix(np.matrix(m.transpose()))
+            parentidx: m
             for parentidx in self._parent_indices
         }
 

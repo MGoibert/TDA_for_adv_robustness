@@ -40,7 +40,7 @@ def test_simple_graph():
     from matplotlib import pyplot as plt
 
     plt.imshow(adjacency_matrix)
-    plt.savefig("/Users/t.ricatte/test.png")
+    # plt.savefig("/Users/t.ricatte/test.png")
 
     assert np.shape(adjacency_matrix) == (19, 19)
 
@@ -73,7 +73,7 @@ def test_simple_resnet_graph():
     from matplotlib import pyplot as plt
 
     plt.imshow(adjacency_matrix)
-    plt.savefig("/Users/t.ricatte/test.png")
+    # plt.savefig("/Users/t.ricatte/test.png")
 
     assert np.shape(adjacency_matrix) == (26, 26)
 

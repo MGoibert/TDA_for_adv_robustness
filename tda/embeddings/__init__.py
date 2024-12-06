@@ -38,6 +38,7 @@ class KernelType(object):
     RBF = "RBF"
     SlicedWasserstein = "SlicedWasserstein"
     SlicedWassersteinOldVersion = "SlicedWassersteinOldVersion"
+    PersistenceLandscape = "PersistenceLandscape"
 
 
 class ThresholdStrategy(object):
